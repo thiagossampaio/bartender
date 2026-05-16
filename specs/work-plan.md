@@ -471,6 +471,7 @@
 | Campo | Valor |
 |---|---|
 | **ID** | WP-13 |
+| **Status** | ✅ Concluído |
 | **Spec relacionada** | [SPEC-07 — Fontes de Dados (CSV/XLSX) e Impressão em Lote](./specs.md#spec-07--fontes-de-dados-csvxlsx-e-impressão-em-lote) |
 | **Estimativa** | 5d |
 | **Dependências** | WP-08, WP-10, WP-11, WP-12 |

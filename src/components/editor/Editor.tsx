@@ -4,6 +4,7 @@ import {
   Database,
   Eye,
   FileDown,
+  Layers,
   Printer as PrinterIcon,
   Redo2,
   Save,
@@ -23,6 +24,7 @@ import {
   DataImportDialog,
   type DataImportResult,
 } from "@/components/data/DataImportDialog";
+import { BatchPrintWizard } from "@/components/batch/BatchPrintWizard";
 import { registerBundleFonts } from "@/lib/canvas/font-loader";
 import { generateThumbnailPng } from "@/lib/canvas/thumbnail";
 import { canvasToJsonString } from "@/lib/canvas/serializer";
@@ -87,7 +89,11 @@ export function Editor() {
   const [dataImportFeedback, setDataImportFeedback] = React.useState<
     string | null
   >(null);
+  // Estado do BatchPrintWizard (WP-13). Só pode abrir quando há um dataset
+  // importado com todos os placeholders mapeados.
+  const [batchWizardOpen, setBatchWizardOpen] = React.useState(false);
   const objects = useEditorStore((s) => s.objects);
+  const canvasDef = useEditorStore((s) => s.canvas);
 
   React.useEffect(() => {
     if (editingId == null) return;
@@ -415,6 +421,20 @@ export function Editor() {
           <Button
             variant="outline"
             size="sm"
+            onClick={() => setBatchWizardOpen(true)}
+            disabled={!template || !dataImport}
+            title={
+              dataImport
+                ? "Imprimir em lote a partir da planilha importada"
+                : "Importe uma planilha para imprimir em lote"
+            }
+          >
+            <Layers className="h-4 w-4" aria-hidden="true" />
+            Imprimir lote
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
             onClick={handlePreview}
             disabled={!template}
             title="Pré-visualizar a etiqueta"
@@ -540,6 +560,20 @@ export function Editor() {
             : undefined
         }
       />
+
+      {dataImport && template && (
+        <BatchPrintWizard
+          open={batchWizardOpen}
+          onOpenChange={setBatchWizardOpen}
+          canvas={canvasDef}
+          objects={objects}
+          dataset={dataImport.dataset}
+          mapping={dataImport.mapping}
+          placeholders={dataImport.placeholders}
+          templateName={template.name}
+          templateId={template.id}
+        />
+      )}
 
       <CloseConfirmDialog
         open={showCloseConfirm}
