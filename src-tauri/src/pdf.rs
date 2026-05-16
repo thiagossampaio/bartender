@@ -213,13 +213,11 @@ struct BarcodeObj {
     rendered_svg: Option<String>,
 }
 
-/// Comando Tauri exposto ao frontend.
-///
-/// `canvas_jsons` aceita 1..N entradas (etiqueta única ou lote do wizard
-/// futuro [WP-13]). Cada item vira uma página independente respeitando suas
-/// próprias dimensões em mm.
-#[tauri::command]
-pub fn pdf_export(canvas_jsons: Vec<String>, output_path: String) -> Result<String, PdfError> {
+/// Constrói o `PdfDocumentReference` a partir dos `canvas_jsons` brutos.
+/// Reaproveitado por `pdf_export` (salva em disco) e `pdf_export_bytes`
+/// (devolve `Vec<u8>` — caminho usado pelo wizard de impressão WP-09 para
+/// alimentar o spooler do SO sem etapa de save intermediária).
+fn build_document(canvas_jsons: &[String]) -> Result<PdfDocumentReference, PdfError> {
     if canvas_jsons.is_empty() {
         return Err(PdfError::EmptyPayload);
     }
@@ -280,6 +278,18 @@ pub fn pdf_export(canvas_jsons: Vec<String>, output_path: String) -> Result<Stri
         render_page(&doc, &layer, page, &fonts).map_err(PdfError::Generate)?;
     }
 
+    Ok(doc)
+}
+
+/// Comando Tauri exposto ao frontend.
+///
+/// `canvas_jsons` aceita 1..N entradas (etiqueta única ou lote do wizard
+/// futuro [WP-13]). Cada item vira uma página independente respeitando suas
+/// próprias dimensões em mm.
+#[tauri::command]
+pub fn pdf_export(canvas_jsons: Vec<String>, output_path: String) -> Result<String, PdfError> {
+    let doc = build_document(&canvas_jsons)?;
+
     // Salva o arquivo. `printpdf` exige um `BufWriter`.
     let path = PathBuf::from(&output_path);
     let file = File::create(&path).map_err(|source| PdfError::Io {
@@ -291,6 +301,25 @@ pub fn pdf_export(canvas_jsons: Vec<String>, output_path: String) -> Result<Stri
         .map_err(|e| PdfError::Generate(e.to_string()))?;
 
     Ok(output_path)
+}
+
+/// Variante do `pdf_export` que devolve os bytes do PDF (in-memory) — usada
+/// pelo wizard de impressão (WP-09) para alimentar o spooler do SO sem
+/// gravar em disco e sem precisar pedir um local de save ao usuário.
+///
+/// Trade-off: para 500 etiquetas o PDF fica < 5 MB em vetorial e cabe
+/// confortavelmente em `Vec<u8>`; o IPC do Tauri 2.x serializa `Vec<u8>` de
+/// forma eficiente.
+#[tauri::command]
+pub fn pdf_export_bytes(canvas_jsons: Vec<String>) -> Result<Vec<u8>, PdfError> {
+    let doc = build_document(&canvas_jsons)?;
+    let mut buffer: Vec<u8> = Vec::with_capacity(64 * 1024);
+    {
+        let mut writer = BufWriter::new(&mut buffer);
+        doc.save(&mut writer)
+            .map_err(|e| PdfError::Generate(e.to_string()))?;
+    }
+    Ok(buffer)
 }
 
 /// Conjunto de variantes Helvetica para escolha por `fontWeight`/`fontStyle`.

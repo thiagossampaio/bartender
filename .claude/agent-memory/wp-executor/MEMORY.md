@@ -2,3 +2,4 @@
 - [Validation Commands](validation.md) — comandos exatos de lint/typecheck/build que funcionam neste repo
 - [Pre-existing Issues](preexisting-issues.md) — warnings/limites conhecidos do bootstrap
 - [WP-08 PDF Export](wp08-pdf-export.md) — decisões de printpdf 0.7, parser SVG bwip-js, helpers Mm/Pt
+- [WP-09 Printers](wp09-printers.md) — crate `printers` 2.x, auto-detect Argox/Zebra, raster via driver do SO, comando `pdf_export_bytes`

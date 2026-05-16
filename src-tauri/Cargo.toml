@@ -49,6 +49,11 @@ image = { version = "0.24", default-features = false, features = ["png", "jpeg"]
 # Decodificação base64 das data URLs (imagens embarcadas em `canvas_json`).
 # `engine::general_purpose::STANDARD` é o padrão; sem features extras.
 base64 = "0.22"
+# Detecção e envio de impressão via driver do SO (WP-09 / SPEC-09).
+# `printers` 2.x cobre Windows (Win32 Print Spooler) e Unix (CUPS/lp).
+# Expõe enumeração, status e envio raw com a mesma API multiplataforma —
+# eliminando a necessidade de FFI manual a `winspool`/`libcups`.
+printers = "2.0"
 
 [features]
 # Esta feature é habilitada pelo `tauri dev` automaticamente; necessária para dev tools.

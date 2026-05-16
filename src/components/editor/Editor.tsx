@@ -1,9 +1,18 @@
 import * as React from "react";
-import { ArrowLeft, Eye, FileDown, Redo2, Save, Undo2 } from "lucide-react";
+import {
+  ArrowLeft,
+  Eye,
+  FileDown,
+  Printer as PrinterIcon,
+  Redo2,
+  Save,
+  Undo2,
+} from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { CanvasArea } from "@/components/editor/CanvasArea";
 import { PreviewModal, type PreviewPage } from "@/components/editor/PreviewModal";
+import { PrintDialog } from "@/components/editor/PrintDialog";
 import { PropertiesPanel } from "@/components/editor/PropertiesPanel";
 import { SaveAsModal } from "@/components/editor/SaveAsModal";
 import { Toolbar } from "@/components/editor/Toolbar";
@@ -11,7 +20,7 @@ import { ZoomControls } from "@/components/editor/ZoomControls";
 import { useEditorShortcuts } from "@/components/editor/useEditorShortcuts";
 import { registerBundleFonts } from "@/lib/canvas/font-loader";
 import { generateThumbnailPng } from "@/lib/canvas/thumbnail";
-import { exportPdf, suggestPdfFileName } from "@/lib/pdf/export";
+import { buildPdfBytes, exportPdf, suggestPdfFileName } from "@/lib/pdf/export";
 import { useEditorStore } from "@/lib/stores/editor-store";
 import { useTemplatesStore } from "@/lib/stores/templates-store";
 import { templatesGet, templatesGetCanvasJson } from "@/lib/templates";
@@ -59,6 +68,7 @@ export function Editor() {
   const [previewOpen, setPreviewOpen] = React.useState(false);
   const [exporting, setExporting] = React.useState(false);
   const [exportError, setExportError] = React.useState<string | null>(null);
+  const [printOpen, setPrintOpen] = React.useState(false);
 
   React.useEffect(() => {
     if (editingId == null) return;
@@ -203,6 +213,21 @@ export function Editor() {
     }
   }, [collectCurrentPage]);
 
+  /**
+   * Abre o wizard de impressão (WP-09). Cria os bytes do PDF sob demanda
+   * — `getPdfBytes` é chamado pelo PrintDialog só quando o usuário
+   * confirma "Imprimir", evitando custo de geração se ele cancelar.
+   */
+  const handleOpenPrint = React.useCallback(() => {
+    setPrintOpen(true);
+  }, []);
+
+  const collectPdfBytes = React.useCallback(async (): Promise<Uint8Array> => {
+    const page = collectCurrentPage();
+    if (!page) throw new Error("Nenhuma página para imprimir.");
+    return buildPdfBytes([page]);
+  }, [collectCurrentPage]);
+
   useEditorShortcuts({ onSave: handleSave, onSaveAs: handleSaveAs });
 
   /**
@@ -317,6 +342,16 @@ export function Editor() {
           <Button
             variant="outline"
             size="sm"
+            onClick={handleOpenPrint}
+            disabled={!template}
+            title="Imprimir"
+          >
+            <PrinterIcon className="h-4 w-4" aria-hidden="true" />
+            Imprimir
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
             onClick={handleSaveAs}
             disabled={saving}
             title="Salvar como (Ctrl/⌘+Shift+S)"
@@ -376,6 +411,12 @@ export function Editor() {
         onOpenChange={setPreviewOpen}
         onExportPdf={handleExportPdf}
         exporting={exporting}
+      />
+
+      <PrintDialog
+        open={printOpen}
+        getPdfBytes={collectPdfBytes}
+        onOpenChange={setPrintOpen}
       />
 
       <CloseConfirmDialog

@@ -147,3 +147,26 @@ export async function exportPdf(options: ExportPdfOptions): Promise<ExportPdfRes
   });
   return { path };
 }
+
+/**
+ * Gera o PDF em memória (Uint8Array) — usado pelo wizard de impressão
+ * (WP-09) para enviar o raster ao spooler **sem etapa intermediária de
+ * save no disco**. Delega ao comando Rust `pdf_export_bytes` que reusa o
+ * mesmo pipeline do `pdf_export` mas devolve `Vec<u8>` em vez de gravar
+ * arquivo.
+ */
+export async function buildPdfBytes(
+  pages: PdfPage[],
+  bindingPerPage?: ExportPdfOptions["bindingPerPage"],
+): Promise<Uint8Array> {
+  if (pages.length === 0) {
+    throw new Error("Nenhuma página para imprimir.");
+  }
+  const canvasJsons = pages.map((page, idx) =>
+    buildPagePayload(page, bindingPerPage?.[idx]),
+  );
+  const bytes = await invoke<number[] | Uint8Array>("pdf_export_bytes", {
+    canvasJsons,
+  });
+  return bytes instanceof Uint8Array ? bytes : Uint8Array.from(bytes);
+}

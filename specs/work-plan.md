@@ -328,6 +328,7 @@
 | Campo | Valor |
 |---|---|
 | **ID** | WP-09 |
+| **Status** | ✅ Concluído |
 | **Spec relacionada** | [SPEC-09 — Impressão via Driver do SO e Detecção de Impressoras](./specs.md#spec-09--impressão-via-driver-do-so-e-detecção-de-impressoras) |
 | **Estimativa** | 5d |
 | **Dependências** | WP-02 |
