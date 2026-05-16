@@ -279,6 +279,44 @@ pub fn printers_print_raster(
     Ok(last_job)
 }
 
+/// Envia bytes **raw** à impressora (modo B — PPLB/ZPL). Análogo ao
+/// `printers_print_raster`, mas sem replicar o payload por cópia: a
+/// linguagem nativa já carrega o comando `P<n>` (PPLB) ou `^PQ<n>` (ZPL)
+/// no próprio bytecode, então enviamos uma única vez.
+///
+/// O envio vai pelo mesmo `Printer::print` da crate `printers` (que usa
+/// `RawPrintJob` no Windows e `lp -o raw` no macOS internamente). Isso
+/// garante que o spooler **não interprete** o conteúdo como PDF/imagem
+/// e passe os bytes direto à impressora.
+///
+/// `copies` é validado como sanity check (1..=9999) mas não altera o
+/// envio — espera-se que o caller já tenha embarcado o `P<n>` no PPLB
+/// (via [`crate::pplb::generate_pplb`]).
+#[tauri::command]
+pub fn printers_print_raw(
+    printer_name: String,
+    raw_bytes: Vec<u8>,
+    copies: u32,
+) -> Result<String, PrintersError> {
+    if raw_bytes.is_empty() {
+        return Err(PrintersError::EmptyPayload);
+    }
+    if !(1..=9999).contains(&copies) {
+        return Err(PrintersError::InvalidCopies(copies));
+    }
+    let all = printers::get_printers();
+    let printer = all
+        .iter()
+        .find(|p| p.system_name == printer_name || p.name == printer_name)
+        .ok_or_else(|| PrintersError::NotFound(printer_name.clone()))?;
+
+    let job_name = format!("{}-raw", job_name_now());
+    printer
+        .print(raw_bytes.as_slice(), Some(job_name.as_str()))
+        .map_err(|e| PrintersError::Driver(format!("{:?}", e)))?;
+    Ok(job_name)
+}
+
 /// Stem do nome de job — `Etiquetador-<epoch-segundos>`. Sem dependência
 /// extra. Só precisa ser único o suficiente para o spooler distinguir
 /// chamadas; o histórico real (`print_history`) usa o `id` do INSERT.
@@ -384,6 +422,18 @@ mod tests {
             _ => unreachable!(),
         };
         assert_eq!(driver_dpi, 300);
+    }
+
+    #[test]
+    fn raw_print_rejects_empty_payload_and_invalid_copies() {
+        // WP-10: o caminho raw (PPLB/ZPL) compartilha as mesmas validações
+        // de sanidade do raster — payload vazio e copies fora da faixa.
+        let err = printers_print_raw("missing".into(), vec![], 1).unwrap_err();
+        assert!(matches!(err, PrintersError::EmptyPayload));
+        let err = printers_print_raw("missing".into(), vec![1, 2, 3], 0).unwrap_err();
+        assert!(matches!(err, PrintersError::InvalidCopies(0)));
+        let err = printers_print_raw("missing".into(), vec![1, 2, 3], 10_000).unwrap_err();
+        assert!(matches!(err, PrintersError::InvalidCopies(10_000)));
     }
 
     #[test]

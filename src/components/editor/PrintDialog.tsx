@@ -160,15 +160,18 @@ export function PrintDialog({
       }
 
       if (nativeMode && (selected.language === "PPLB" || selected.language === "ZPL")) {
-        // WP-09 só aceita o caminho driver. Para o modo nativo, delegamos
-        // ao caller — quando [WP-10]/[WP-11] forem implementados, o caller
-        // chamará o tradutor PPLB/ZPL e enviará raw.
+        // Modo nativo (PPLB no WP-10; ZPL no WP-11). Delega ao caller, que
+        // chamará o tradutor + envio raw e atualizará `printers.last_used_at`
+        // / `print_history`. Em sucesso, mostramos o mesmo feedback do path
+        // raster.
         if (onNativeIntent) {
           await onNativeIntent(req);
+          setPrintResult(
+            `Etiqueta enviada em modo nativo (${selected.language}).`,
+          );
         } else {
           throw new Error(
-            "Impressão em modo nativo (PPLB/ZPL) entra a partir do próximo WP. " +
-              "Desmarque \"Modo nativo\" para usar o driver do SO.",
+            "Impressão em modo nativo (PPLB/ZPL) ainda não foi conectada nesta tela.",
           );
         }
       } else {

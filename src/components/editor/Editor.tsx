@@ -20,7 +20,9 @@ import { ZoomControls } from "@/components/editor/ZoomControls";
 import { useEditorShortcuts } from "@/components/editor/useEditorShortcuts";
 import { registerBundleFonts } from "@/lib/canvas/font-loader";
 import { generateThumbnailPng } from "@/lib/canvas/thumbnail";
+import { canvasToJsonString } from "@/lib/canvas/serializer";
 import { buildPdfBytes, exportPdf, suggestPdfFileName } from "@/lib/pdf/export";
+import { pplbPrint } from "@/lib/pplb";
 import { useEditorStore } from "@/lib/stores/editor-store";
 import { useTemplatesStore } from "@/lib/stores/templates-store";
 import { templatesGet, templatesGetCanvasJson } from "@/lib/templates";
@@ -228,6 +230,40 @@ export function Editor() {
     return buildPdfBytes([page]);
   }, [collectCurrentPage]);
 
+  /**
+   * Callback do PrintDialog quando o usuário escolhe "Modo nativo (PPLB/ZPL)"
+   * para uma impressora Argox/Zebra. Em WP-10 cobrimos o caminho PPLB; o
+   * ZPL chega no WP-11 reusando este mesmo callback (basta rotear pelo
+   * `language` da impressora).
+   */
+  const handleNativeIntent = React.useCallback(
+    async (req: {
+      printer: { systemName: string; language: "DRIVER" | "PPLB" | "ZPL" };
+      copies: number;
+    }) => {
+      const state = useEditorStore.getState();
+      if (!state.template) {
+        throw new Error("Nenhum template aberto.");
+      }
+      if (req.printer.language !== "PPLB") {
+        // WP-11 implementará o caminho ZPL — por enquanto, comunica
+        // claramente o que falta para o usuário sem quebrar a UI.
+        throw new Error(
+          "Modo nativo ZPL ainda não está disponível — desmarque " +
+            '"Modo nativo" para usar o driver do SO.',
+        );
+      }
+      const canvasJson = canvasToJsonString(state.canvas, state.objects);
+      await pplbPrint(
+        req.printer.systemName,
+        canvasJson,
+        req.copies,
+        state.template.id,
+      );
+    },
+    [],
+  );
+
   useEditorShortcuts({ onSave: handleSave, onSaveAs: handleSaveAs });
 
   /**
@@ -417,6 +453,7 @@ export function Editor() {
         open={printOpen}
         getPdfBytes={collectPdfBytes}
         onOpenChange={setPrintOpen}
+        onNativeIntent={handleNativeIntent}
       />
 
       <CloseConfirmDialog
