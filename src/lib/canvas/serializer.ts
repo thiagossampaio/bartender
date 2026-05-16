@@ -13,11 +13,37 @@
  */
 
 import type {
+  BarcodeSymbology,
   CanvasDef,
   CanvasJson,
   CanvasObject,
   ObjectType,
+  QrErrorCorrection,
 } from "@/lib/canvas/types";
+
+const VALID_SYMBOLOGIES: readonly BarcodeSymbology[] = [
+  "CODE128",
+  "CODE39",
+  "EAN13",
+  "EAN8",
+  "UPCA",
+  "UPCE",
+  "ITF",
+  "CODABAR",
+  "QRCODE",
+  "DATAMATRIX",
+  "PDF417",
+];
+
+function pickSymbology(v: unknown): BarcodeSymbology | undefined {
+  if (typeof v !== "string") return undefined;
+  const upper = v.toUpperCase() as BarcodeSymbology;
+  return VALID_SYMBOLOGIES.includes(upper) ? upper : undefined;
+}
+
+function pickQrEcc(v: unknown): QrErrorCorrection | undefined {
+  return v === "L" || v === "M" || v === "Q" || v === "H" ? v : undefined;
+}
 
 const DEFAULT_BACKGROUND = "#FFFFFF";
 const ALLOWED_TYPES: readonly ObjectType[] = [
@@ -216,9 +242,17 @@ export function jsonToCanvas(
         objects.push({
           ...base,
           type: "barcode",
-          symbology: pickString(item.symbology),
+          symbology: pickSymbology(item.symbology),
           value: pickString(item.value),
           showText: typeof item.showText === "boolean" ? item.showText : undefined,
+          moduleWidth: pickNumber(item.moduleWidth),
+          errorCorrection: pickQrEcc(item.errorCorrection),
+          binding: isRecord(item.binding)
+            ? {
+                field: pickString(item.binding.field, "") ?? "",
+                fallback: pickString(item.binding.fallback),
+              }
+            : undefined,
         });
         break;
       case "qrcode":
@@ -226,13 +260,13 @@ export function jsonToCanvas(
           ...base,
           type: "qrcode",
           value: pickString(item.value),
-          errorCorrection:
-            item.errorCorrection === "L" ||
-            item.errorCorrection === "M" ||
-            item.errorCorrection === "Q" ||
-            item.errorCorrection === "H"
-              ? item.errorCorrection
-              : undefined,
+          errorCorrection: pickQrEcc(item.errorCorrection),
+          binding: isRecord(item.binding)
+            ? {
+                field: pickString(item.binding.field, "") ?? "",
+                fallback: pickString(item.binding.fallback),
+              }
+            : undefined,
         });
         break;
     }

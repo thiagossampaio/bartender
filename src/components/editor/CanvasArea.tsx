@@ -5,9 +5,19 @@ import { Stage, Layer, Rect, Line, Ellipse, Text, Image as KImage, Transformer, 
 import { fontFamilyWithFallback } from "@/lib/canvas/fonts";
 import { generateId } from "@/lib/canvas/serializer";
 import { MM_TO_PX, mmToPx, pxToMm, roundMm } from "@/lib/canvas/units";
-import type { CanvasObject, TextObject } from "@/lib/canvas/types";
+import type {
+  BarcodeObject,
+  CanvasObject,
+  QrcodeObject,
+  TextObject,
+} from "@/lib/canvas/types";
 import { useEditorStore } from "@/lib/stores/editor-store";
 import { RULER_SIZE_PX, Rulers } from "@/components/editor/Rulers";
+import {
+  fitSvgToBox,
+  renderBarcodeSvg,
+  svgToDataUrl,
+} from "@/lib/canvas/barcode-svg";
 
 /**
  * Área central do editor (WP-04 / SPEC-04).
@@ -447,26 +457,15 @@ function ObjectNode(props: ObjectNodeProps) {
       );
     case "barcode":
     case "qrcode":
-      // Placeholder até WP-07 chegar com o render real via bwip-js.
+      // WP-07 / SPEC-06: render vetorial via bwip-js → SVG → HTMLImage no Konva.
       return (
-        <Group ref={(n) => registerNode(n)} {...commonProps}>
-          <Rect
-            width={widthPx}
-            height={heightPx}
-            fill="#fef9c3"
-            stroke="#ca8a04"
-            strokeWidth={1}
-            dash={[4, 4]}
-          />
-          <Text
-            x={4}
-            y={4}
-            text={`${o.type === "barcode" ? "Barcode" : "QR"} (WP-07)\n${o.value ?? ""}`}
-            fontSize={10}
-            fill="#854d0e"
-            width={Math.max(0, widthPx - 8)}
-          />
-        </Group>
+        <BarcodeObjectNode
+          object={o}
+          widthPx={widthPx}
+          heightPx={heightPx}
+          commonProps={commonProps}
+          registerNode={registerNode}
+        />
       );
   }
 }
@@ -640,4 +639,134 @@ function konvaFontStyle(
   if (bold) return "bold";
   if (italic) return "italic";
   return "normal";
+}
+
+// ---------------------------------------------------------------------------
+// Barcode / QR Code (WP-07 / SPEC-06).
+// ---------------------------------------------------------------------------
+
+interface BarcodeObjectNodeProps {
+  object: BarcodeObject | QrcodeObject;
+  widthPx: number;
+  heightPx: number;
+  commonProps: Record<string, unknown>;
+  registerNode: (node: Konva.Node | null) => void;
+}
+
+/**
+ * Render real do `barcode`/`qrcode` no canvas.
+ *
+ * Estratégia:
+ *  - `bwip-js.toSVG(...)` gera o SVG vetorial. Estamos no editor, sem dados
+ *    de planilha — placeholders `{{ campo }}` aparecem como literal (UX
+ *    consistente com o resto do app antes do wizard de lote do WP-13).
+ *  - Decoramos o SVG com `width`/`height` em px iguais ao bounding box e
+ *    `preserveAspectRatio="none"` para que o barcode preencha exatamente a
+ *    caixa do objeto. O usuário ajusta proporção via Transformer.
+ *  - Convertendo SVG → data URL UTF-8 → HTMLImageElement → Konva.Image. Sem
+ *    CDN (offline-first OK).
+ *  - Em estado inválido (validação falhou) mostramos um overlay vermelho com
+ *    a mensagem em PT-BR (RF-B-05).
+ */
+function BarcodeObjectNode({
+  object,
+  widthPx,
+  heightPx,
+  commonProps,
+  registerNode,
+}: BarcodeObjectNodeProps) {
+  const canvasDpi = useEditorStore((s) => s.canvas.dpi);
+
+  // Memoiza a geração do SVG por (objeto, dpi, dimensões). O cache interno
+  // de `barcode-svg.ts` deduplica chamadas com mesmo conteúdo lógico.
+  const rendered = React.useMemo(() => {
+    return renderBarcodeSvg(object, {
+      dpi: canvasDpi,
+      bindingContext: {},
+    });
+  }, [
+    object,
+    canvasDpi,
+  ]);
+
+  // Decora o SVG com width/height px para o HTMLImage respeitar a caixa.
+  const dataUrl = React.useMemo(() => {
+    if (!rendered.svg) return "";
+    if (widthPx <= 0 || heightPx <= 0) return "";
+    const fitted = fitSvgToBox(
+      rendered.svg,
+      Math.max(1, Math.round(widthPx)),
+      Math.max(1, Math.round(heightPx)),
+    );
+    return svgToDataUrl(fitted);
+  }, [rendered.svg, widthPx, heightPx]);
+
+  const [image, setImage] = React.useState<HTMLImageElement | null>(null);
+  React.useEffect(() => {
+    if (!dataUrl) {
+      setImage(null);
+      return;
+    }
+    const img = new window.Image();
+    img.onload = () => setImage(img);
+    img.onerror = () => setImage(null);
+    img.src = dataUrl;
+  }, [dataUrl]);
+
+  // Estado de erro (validação falhou) → desenha placeholder de aviso.
+  if (rendered.error) {
+    return (
+      <Group ref={(n) => registerNode(n)} {...(commonProps as object)}>
+        <Rect
+          width={widthPx}
+          height={heightPx}
+          fill="#fee2e2"
+          stroke="#dc2626"
+          strokeWidth={1}
+          dash={[4, 4]}
+        />
+        <Text
+          x={4}
+          y={4}
+          text={rendered.error}
+          fontSize={9}
+          fill="#991b1b"
+          width={Math.max(0, widthPx - 8)}
+          wrap="word"
+        />
+      </Group>
+    );
+  }
+
+  if (!image) {
+    return (
+      <Group ref={(n) => registerNode(n)} {...(commonProps as object)}>
+        <Rect
+          width={widthPx}
+          height={heightPx}
+          fill="#f1f5f9"
+          stroke="#94a3b8"
+          dash={[4, 4]}
+        />
+        <Text
+          x={4}
+          y={4}
+          text="Gerando barcode…"
+          fontSize={9}
+          fill="#475569"
+          width={Math.max(0, widthPx - 8)}
+        />
+      </Group>
+    );
+  }
+
+  return (
+    <KImage
+      ref={(n) => registerNode(n)}
+      {...(commonProps as object)}
+      image={image}
+      width={widthPx}
+      height={heightPx}
+    />
+  );
 }

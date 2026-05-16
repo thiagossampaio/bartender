@@ -23,6 +23,7 @@
     "@tauri-apps/plugin-fs": "^2.0.3",
     "@tauri-apps/plugin-os": "^2.0.0",
     "@tauri-apps/plugin-sql": "^2.4.0",
+    "bwip-js": "^4.10.1",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "konva": "^9.3.22",

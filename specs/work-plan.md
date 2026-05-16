@@ -258,6 +258,7 @@
 | Campo | Valor |
 |---|---|
 | **ID** | WP-07 |
+| **Status** | ✅ Concluído |
 | **Spec relacionada** | [SPEC-06 — Códigos de Barras 1D/2D](./specs.md#spec-06--códigos-de-barras-1d2d) |
 | **Estimativa** | 5d |
 | **Dependências** | WP-04 |

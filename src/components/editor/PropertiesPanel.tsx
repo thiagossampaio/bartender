@@ -7,14 +7,25 @@ import { cn } from "@/lib/utils";
 import { TEXT_COLOR_PALETTE } from "@/lib/canvas/color-palette";
 import { roundMm } from "@/lib/canvas/units";
 import type {
+  BarcodeObject,
+  BarcodeSymbology,
   CanvasObject,
   EllipseObject,
   ImageObject,
   LineObject,
+  QrcodeObject,
+  QrErrorCorrection,
   RectangleObject,
   TextObject,
 } from "@/lib/canvas/types";
 import { useEditorStore } from "@/lib/stores/editor-store";
+import {
+  DEFAULT_MODULE_WIDTH_MM,
+  SYMBOLOGIES_1D,
+  SYMBOLOGIES_2D,
+  SYMBOLOGY_SPECS,
+  validateBarcode,
+} from "@/lib/canvas/barcode";
 
 /**
  * Painel de propriedades à direita (WP-04 / SPEC-04 RF-E-13).
@@ -223,13 +234,9 @@ function TypeSpecificProperties({
     case "image":
       return <ImageProperties object={object} onChange={onChange} />;
     case "barcode":
+      return <BarcodeProperties object={object} onChange={onChange} />;
     case "qrcode":
-      return (
-        <section className="rounded-md border border-dashed bg-muted/30 p-2 text-[11px] text-muted-foreground">
-          Render real e propriedades específicas (simbologia, correção, HRT,
-          binding) entram em <strong>WP-07</strong>.
-        </section>
-      );
+      return <QrcodeProperties object={object} onChange={onChange} />;
   }
 }
 
@@ -566,6 +573,236 @@ function EllipseProperties({
       </div>
     </section>
   );
+}
+
+/**
+ * Painel de propriedades para `barcode` 1D/2D (WP-07 / SPEC-06).
+ *
+ * Edita simbologia, valor, módulo, HRT, nível de correção (quando aplicável)
+ * e exibe feedback de validação em tempo real (RF-B-05). Reaproveita
+ * `validateBarcode()` do módulo `lib/canvas/barcode.ts`.
+ */
+function BarcodeProperties({
+  object,
+  onChange,
+}: {
+  object: BarcodeObject;
+  onChange: (patch: Partial<BarcodeObject>) => void;
+}) {
+  const symbology = object.symbology ?? "CODE128";
+  const spec = SYMBOLOGY_SPECS[symbology];
+  const validation = validateBarcode(symbology, object.value ?? "");
+  const supportsEcc = symbology === "QRCODE" || symbology === "PDF417";
+
+  return (
+    <section className="flex flex-col gap-2">
+      <h3 className="mb-1 text-xs font-medium uppercase tracking-wider text-muted-foreground">
+        Código de barras
+      </h3>
+
+      <div className="flex flex-col gap-1.5">
+        <Label className="text-[11px]" htmlFor="prop-symb">
+          Simbologia
+        </Label>
+        <select
+          id="prop-symb"
+          value={symbology}
+          onChange={(e) =>
+            onChange({ symbology: e.target.value as BarcodeSymbology })
+          }
+          className="h-9 rounded-md border border-input bg-background px-2 text-sm"
+        >
+          <optgroup label="1D">
+            {SYMBOLOGIES_1D.map((s) => (
+              <option key={s.id} value={s.id}>
+                {s.label}
+              </option>
+            ))}
+          </optgroup>
+          <optgroup label="2D">
+            {SYMBOLOGIES_2D.map((s) => (
+              <option key={s.id} value={s.id}>
+                {s.label}
+              </option>
+            ))}
+          </optgroup>
+        </select>
+        {spec?.hint && (
+          <p className="text-[10px] text-muted-foreground">{spec.hint}</p>
+        )}
+      </div>
+
+      <div className="flex flex-col gap-1.5">
+        <Label className="text-[11px]" htmlFor="prop-bc-value">
+          Valor
+        </Label>
+        <Input
+          id="prop-bc-value"
+          value={object.value ?? ""}
+          onChange={(e) => onChange({ value: e.target.value })}
+          placeholder="Texto ou {{ campo }}"
+          aria-invalid={!validation.ok || undefined}
+        />
+        {!validation.ok && validation.message && (
+          <p
+            role="alert"
+            className="rounded-sm bg-destructive/10 px-2 py-1 text-[11px] text-destructive"
+          >
+            {validation.message}
+          </p>
+        )}
+        {validation.ok &&
+          validation.effectiveValue !== (object.value ?? "") && (
+            <p className="text-[10px] text-muted-foreground">
+              Codificado: <code>{validation.effectiveValue}</code>
+            </p>
+          )}
+      </div>
+
+      <NumberField
+        label="Módulo (mm)"
+        value={object.moduleWidth ?? DEFAULT_MODULE_WIDTH_MM}
+        min={0.1}
+        max={2}
+        step={0.05}
+        onCommit={(v) => onChange({ moduleWidth: v })}
+      />
+
+      {supportsEcc && (
+        <div className="flex flex-col gap-1.5">
+          <Label className="text-[11px]">Correção</Label>
+          <div className="flex gap-1" role="group" aria-label="Nível de correção">
+            {(["L", "M", "Q", "H"] as const).map((lvl) => (
+              <ToggleChip
+                key={lvl}
+                active={(object.errorCorrection ?? "M") === lvl}
+                onClick={() => onChange({ errorCorrection: lvl })}
+                title={qrEccLabel(lvl)}
+              >
+                {lvl}
+              </ToggleChip>
+            ))}
+          </div>
+          <p className="text-[10px] text-muted-foreground">
+            {qrEccLabel(object.errorCorrection ?? "M")}
+          </p>
+        </div>
+      )}
+
+      <div className="flex items-center justify-between gap-2 rounded-md border bg-muted/30 px-2 py-1.5">
+        <div className="flex flex-col">
+          <Label className="text-[11px]">Mostrar HRT</Label>
+          <span className="text-[10px] text-muted-foreground">
+            Texto legível abaixo do código (1D).
+          </span>
+        </div>
+        <button
+          type="button"
+          role="switch"
+          aria-checked={object.showText ?? true}
+          onClick={() =>
+            onChange({ showText: !(object.showText ?? true) })
+          }
+          disabled={spec?.kind !== "1D"}
+          className={cn(
+            "relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors",
+            (object.showText ?? true) && spec?.kind === "1D"
+              ? "bg-primary"
+              : "bg-muted",
+            spec?.kind !== "1D" && "opacity-40",
+          )}
+        >
+          <span
+            className={cn(
+              "inline-block h-4 w-4 transform rounded-full bg-background shadow transition-transform",
+              (object.showText ?? true) && spec?.kind === "1D"
+                ? "translate-x-4"
+                : "translate-x-0.5",
+            )}
+          />
+        </button>
+      </div>
+    </section>
+  );
+}
+
+/**
+ * Painel de propriedades para `qrcode` (WP-07 / SPEC-06).
+ *
+ * Mantemos o tipo legado `qrcode` (separado de `barcode` com simbologia
+ * QRCODE) para preservar round-trip de templates existentes. As propriedades
+ * relevantes são o valor e o nível de correção.
+ */
+function QrcodeProperties({
+  object,
+  onChange,
+}: {
+  object: QrcodeObject;
+  onChange: (patch: Partial<QrcodeObject>) => void;
+}) {
+  const validation = validateBarcode("QRCODE", object.value ?? "");
+
+  return (
+    <section className="flex flex-col gap-2">
+      <h3 className="mb-1 text-xs font-medium uppercase tracking-wider text-muted-foreground">
+        QR Code
+      </h3>
+
+      <div className="flex flex-col gap-1.5">
+        <Label className="text-[11px]" htmlFor="prop-qr-value">
+          Valor
+        </Label>
+        <textarea
+          id="prop-qr-value"
+          value={object.value ?? ""}
+          onChange={(e) => onChange({ value: e.target.value })}
+          placeholder="Texto ou {{ campo }}"
+          className="min-h-[60px] rounded-md border border-input bg-background px-3 py-2 text-sm"
+          aria-invalid={!validation.ok || undefined}
+        />
+        {!validation.ok && validation.message && (
+          <p
+            role="alert"
+            className="rounded-sm bg-destructive/10 px-2 py-1 text-[11px] text-destructive"
+          >
+            {validation.message}
+          </p>
+        )}
+      </div>
+
+      <div className="flex flex-col gap-1.5">
+        <Label className="text-[11px]">Correção</Label>
+        <div className="flex gap-1" role="group" aria-label="Nível de correção">
+          {(["L", "M", "Q", "H"] as const).map((lvl) => (
+            <ToggleChip
+              key={lvl}
+              active={(object.errorCorrection ?? "M") === lvl}
+              onClick={() => onChange({ errorCorrection: lvl })}
+              title={qrEccLabel(lvl)}
+            >
+              {lvl}
+            </ToggleChip>
+          ))}
+        </div>
+        <p className="text-[10px] text-muted-foreground">
+          {qrEccLabel(object.errorCorrection ?? "M")}
+        </p>
+      </div>
+    </section>
+  );
+}
+
+function qrEccLabel(level: QrErrorCorrection): string {
+  switch (level) {
+    case "L":
+      return "L — ~7% de recuperação";
+    case "M":
+      return "M — ~15% de recuperação";
+    case "Q":
+      return "Q — ~25% de recuperação";
+    case "H":
+      return "H — ~30% de recuperação";
+  }
 }
 
 function ImageProperties({

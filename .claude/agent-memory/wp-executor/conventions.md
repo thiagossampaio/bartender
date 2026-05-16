@@ -25,7 +25,11 @@ metadata:
   rastreia em `_sqlx_migrations` (idempotência garantida).
   Conexão JS: `Database.load("sqlite:etiquetador.db")` — mesmo URL declarado no Rust.
 - **PDF (futuro WP-08):** crate `printpdf`.
-- **Barcodes (futuro WP-07):** `bwip-js` no frontend.
+- **Barcodes (WP-07):** `bwip-js` 4.x **importado de `bwip-js/browser`** — o
+  entry default não resolve via `moduleResolution: bundler` do TS (typings em
+  conditional exports não são encontradas). `bwip-js.toSVG()` retorna SVG
+  vetorial; `eclevel` é opção runtime, não consta nos typings (.d.ts) — uso
+  via cast `unknown as Record<string, unknown>`.
 - **Versões:** `package.json` e `src-tauri/Cargo.toml` versionados em sync (SemVer).
 
 ## Layout do repo
@@ -39,13 +43,18 @@ metadata:
 │   ├── components/
 │   │   ├── ui/         # Primitivas shadcn/ui (button, input, label, card, dialog, dropdown-menu)
 │   │   ├── gallery/    # WP-03: Gallery, TemplateCard, NewTemplateModal, RenameModal, ConfirmModal
-│   │   └── trash/      # WP-03: Trash
+│   │   ├── trash/      # WP-03: Trash
+│   │   └── editor/     # WP-04..07: Editor, CanvasArea, Toolbar, PropertiesPanel, Rulers,
+│   │                   #            ZoomControls, FontPicker, SaveAsModal, useEditorShortcuts
 │   ├── lib/
 │   │   ├── utils.ts        # `cn()` helper (clsx + tailwind-merge)
 │   │   ├── db.ts           # Façade tipada do SQLite (WP-02) — usar em vez de chamar o plugin direto
 │   │   ├── templates.ts    # WP-03: serviço CRUD de templates (façade sobre dbQuery/dbExecute)
+│   │   ├── canvas/         # WP-04..07: types, units, serializer, color-palette, fonts,
+│   │   │                   #            font-loader, use-fonts, thumbnail, barcode, barcode-svg
 │   │   └── stores/         # Zustand stores
-│   │       └── templates-store.ts  # WP-03: galeria/lixeira/CRUD
+│   │       ├── templates-store.ts  # WP-03: galeria/lixeira/CRUD
+│   │       └── editor-store.ts     # WP-04..05: canvas, objects, undo/redo, clipboard
 │   └── styles/globals.css  # @tailwind layers + tokens HSL
 ├── src-tauri/          # Backend Rust + config Tauri
 │   ├── Cargo.toml      # Lib name = `etiquetador_lib`
@@ -142,6 +151,50 @@ metadata:
   para WP-10 (pipeline raster compartilhado, mitigação R02) — registrado
   agora para evitar re-discussão.
 
+### WP-07 — Códigos de Barras 1D/2D
+- **Catálogo de simbologias:** `src/lib/canvas/barcode.ts` declara as 11
+  simbologias suportadas (8 1D + 3 2D) com `bcid` (mapping para bwip-js),
+  label, kind, hint e `validate()`. Use `SYMBOLOGY_SPECS[id]` para tudo —
+  evita switch/if em vários lugares.
+- **Schema de simbologia:** strings UPPERCASE no JSON (`CODE128`, `EAN13`,
+  `QRCODE`, etc.) — diferente do `bcid` lowercase do bwip-js. Tipo
+  `BarcodeSymbology` em `types.ts`.
+- **QR Code legado:** mantemos o tipo `qrcode` separado de `barcode` com
+  `symbology: "QRCODE"` para preservar round-trip de templates antigos.
+  Ambos passam pelo mesmo `renderBarcodeSvg()`.
+- **Validação RF-B-05:** `validateBarcode(symbology, raw)` retorna `{ ok,
+  message, effectiveValue }`. Quando o usuário digita N-1 dígitos de
+  EAN/UPC/UPC-E, calculamos o check digit e devolvemos em `effectiveValue`
+  — o valor persistido no canvas_json fica o do usuário (RF-B-07).
+- **Placeholders `{{ campo }}`:** `applyBinding(raw, ctx)` substitui;
+  `hasPlaceholder(raw)` skipa validação no editor (o wizard do WP-13
+  revalidará por linha). RF-B-08.
+- **bwip-js gotchas:**
+  - Importar de `bwip-js/browser`, não do entry default (conditional
+    exports do package.json não resolvem com `moduleResolution: bundler`).
+  - `eclevel` (correção QR/PDF417) não está nos typings — cast via
+    `unknown as Record<string, unknown>`.
+  - PDF417 usa eclevel numérico 0-8; mapeamos L→0, M→2, Q→5, H→8.
+  - `bwip-js.toSVG(opts)` é síncrono; throws com mensagens em inglês —
+    capture e substitua por mensagem PT-BR no caller.
+  - O bundle do bwip-js (~600KB minificado) contém strings de URL em
+    exemplos hard-coded (`fonts.google.com/download`, `id.gs1.org/...`,
+    `goo.gl/0bis`, `www.abc.net`, `github.com/rsms/inter/...`) — NÃO são
+    requisições, mas o `make audit-bundle` precisou de allowlist nova.
+- **Render Konva:** `BarcodeRenderer` não foi feito como JSX dedicado; o
+  componente `BarcodeObjectNode` em `CanvasArea.tsx` faz:
+  1. `renderBarcodeSvg(obj, { dpi })` → string SVG (cache LRU 256 entries).
+  2. `fitSvgToBox(svg, w, h)` adiciona width/height + `preserveAspectRatio="none"`.
+  3. `svgToDataUrl(svg)` → `data:image/svg+xml;charset=utf-8,...` (URL-safe,
+     sem base64 — facilita auditoria offline-first).
+  4. `new window.Image() + .src = dataUrl` → `Konva.Image`.
+- **Thumbnail (WP-05):** atualizado para usar o mesmo pipeline — barcodes
+  reais aparecem na galeria, não placeholder amarelo. `buildNode()` agora
+  recebe `canvasDpi` como segundo argumento.
+- **PropertiesPanel:** `BarcodeProperties` (com simbologia/valor/módulo/HRT/ECC)
+  e `QrcodeProperties` (valor textarea + ECC). Feedback visual de validação
+  em badge vermelho com `role="alert"` + `aria-invalid` no input.
+
 ### WP-04 — Editor (Konva)
 - **Konva 9.x + react-konva 18.2.16** (NÃO usar react-konva ^19, que exige React 19).
 - Pixel base do canvas: **`MM_TO_PX = 4`** (em `src/lib/canvas/units.ts`). Zoom é um Konva
@@ -151,7 +204,7 @@ metadata:
   `templatesGetCanvasJson`, popula o store via `loadTemplate`. `closeEditor` no
   templates-store recarrega a galeria. Save persistido entra em WP-05.
 - Tipo `barcode`/`qrcode` aparecem no schema desde já (round-trip do `canvas_json`) mas o
-  **render real** fica para WP-07 — no editor mostramos placeholder amarelo "WP-07".
+  **render real** chega em WP-07.
 - Histórico undo/redo + atalhos completos + thumbnail entram em WP-05. WP-04 entrega
   apenas atalhos básicos (Delete, Backspace, setas, Esc) gerenciados no `CanvasArea`.
 - Layout do editor: 3 colunas via flex (Toolbar 176px / CanvasArea flex-1 / PropertiesPanel 288px).
@@ -163,7 +216,7 @@ metadata:
   konvajs.org/docs/...) que são impressas em warnings — NÃO são requisições.
 - `Makefile audit-bundle` foi atualizado para incluir essas no allowlist.
 - **Cuidado:** evite hard-coded strings com `https://` em defaults de objetos do canvas
-  (ex.: QR Code placeholder). Use texto neutro tipo `"QR_PLACEHOLDER"`.
+  (ex.: QR Code placeholder). Use texto neutro tipo `"ETIQUETADOR"` ou similar.
 
 ## Scripts npm
 
@@ -199,7 +252,8 @@ Não declarar `updater` no `plugins:` do builder Rust.
 
 Nenhuma URL externa em runtime. `make audit-bundle` valida o bundle Vite. A
 allowlist permite apenas strings de doc/namespace conhecidas (React error
-decoder, w3.org XML namespaces, apple.com DTDs).
+decoder, w3.org XML namespaces, apple.com DTDs, konvajs.* docs, bwip-js
+example payloads).
 
 ## Path do banco SQLite (WP-02)
 

@@ -165,7 +165,6 @@ const INSERTS: InsertSpec[] = [
     type: "barcode",
     label: "Código de barras",
     icon: <Barcode className="h-4 w-4" aria-hidden="true" />,
-    futureWp: "WP-07",
     factory: ({ xMm, yMm }) => ({
       id: generateId("barcode"),
       type: "barcode",
@@ -174,16 +173,19 @@ const INSERTS: InsertSpec[] = [
       width: BARCODE_DEFAULTS.width,
       height: BARCODE_DEFAULTS.height,
       rotation: 0,
-      symbology: BARCODE_DEFAULTS.symbology,
+      // Default CODE128 com payload genérico — RF-B-01 e cobertura padrão de
+      // EAN-13 também usa "123456789012" (12 dígitos; o 13º vira check digit
+      // se o usuário trocar a simbologia).
+      symbology: "CODE128",
       value: "123456789012",
       showText: true,
+      moduleWidth: 0.33,
     }),
   },
   {
     type: "qrcode",
     label: "QR Code",
     icon: <QrCode className="h-4 w-4" aria-hidden="true" />,
-    futureWp: "WP-07",
     factory: ({ xMm, yMm }) => ({
       id: generateId("qrcode"),
       type: "qrcode",
@@ -192,10 +194,9 @@ const INSERTS: InsertSpec[] = [
       width: QRCODE_DEFAULTS.width,
       height: QRCODE_DEFAULTS.height,
       rotation: 0,
-      // Placeholder textual — render real entra em WP-07. Evita string com
-      // protocolo http(s):// para não disparar a auditoria offline-first
-      // (`make audit-bundle`) sobre o bundle Vite.
-      value: "QR_PLACEHOLDER",
+      // Texto neutro como valor inicial — evita URLs http(s) hard-coded
+      // (auditoria offline-first do bundle).
+      value: "ETIQUETADOR",
       errorCorrection: "M",
     }),
   },

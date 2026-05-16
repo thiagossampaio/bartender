@@ -104,19 +104,60 @@ export interface ImageObject extends BaseObject {
   src: string;
 }
 
+/**
+ * Identificadores de simbologia 1D suportados (WP-07 / SPEC-06 RF-B-01).
+ * Mantidos em maiúsculas para legibilidade e compatibilidade com o schema
+ * existente; o mapeamento para o `bcid` interno do `bwip-js` está em
+ * `src/lib/canvas/barcode.ts`.
+ */
+export type Barcode1DSymbology =
+  | "CODE128"
+  | "CODE39"
+  | "EAN13"
+  | "EAN8"
+  | "UPCA"
+  | "UPCE"
+  | "ITF"
+  | "CODABAR";
+
+/** Simbologias 2D suportadas (RF-B-02). */
+export type Barcode2DSymbology = "QRCODE" | "DATAMATRIX" | "PDF417";
+
+export type BarcodeSymbology = Barcode1DSymbology | Barcode2DSymbology;
+
+export type QrErrorCorrection = "L" | "M" | "Q" | "H";
+
 export interface BarcodeObject extends BaseObject {
   type: "barcode";
-  /** Simbologia 1D (CODE128, EAN13, etc.). Render real virá no WP-07. */
-  symbology?: string;
+  /** Simbologia 1D. Pode estar ausente em templates antigos — defaulta para CODE128. */
+  symbology?: BarcodeSymbology;
+  /**
+   * Valor codificado. Aceita literal ("789123456789") ou referência por
+   * placeholder ("{{ sku }}"); a substituição via `binding`/contexto fica a
+   * cargo do renderer (RF-B-08).
+   */
   value?: string;
+  /** Mostrar/ocultar HRT — Human Readable Text (RF-B-03). Default true. */
   showText?: boolean;
+  /**
+   * Largura do módulo (espessura da barra fina) em mm. Mapeada para a opção
+   * `scale` do bwip-js usando o `dpi` do canvas. Default = 0.33 mm (~2 dots
+   * a 203 dpi, mínimo recomendado pela Argox). Cobre RF-B-04.
+   */
+  moduleWidth?: number;
+  /**
+   * Nível de correção para QR (RF-B-04). Ignorado para 1D e demais 2D —
+   * Data Matrix/PDF417 usam algoritmos próprios (deixados como defaults do
+   * bwip-js para o MVP).
+   */
+  errorCorrection?: QrErrorCorrection;
 }
 
 export interface QrcodeObject extends BaseObject {
   type: "qrcode";
   value?: string;
-  /** Nível de correção; render real virá no WP-07. */
-  errorCorrection?: "L" | "M" | "Q" | "H";
+  /** Nível de correção (RF-B-04). */
+  errorCorrection?: QrErrorCorrection;
 }
 
 export type CanvasObject =

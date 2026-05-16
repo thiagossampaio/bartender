@@ -25,6 +25,11 @@
 import Konva from "konva";
 
 import { fontFamilyWithFallback } from "@/lib/canvas/fonts";
+import {
+  fitSvgToBox,
+  renderBarcodeSvg,
+  svgToDataUrl,
+} from "@/lib/canvas/barcode-svg";
 import type { CanvasDef, CanvasObject } from "@/lib/canvas/types";
 import { MM_TO_PX } from "@/lib/canvas/units";
 
@@ -80,14 +85,14 @@ export async function generateThumbnailPng(
     });
 
     for (const obj of objects) {
-      const node = buildNode(obj);
+      const node = buildNode(obj, canvas.dpi);
       // `add` aceita Group | Shape; nossos `buildNode` retornam apenas esses
       // tipos, mas o type Konva.Node é o tipo base — cast seguro local.
       if (node) content.add(node as Konva.Group | Konva.Shape);
     }
     stage.add(content);
 
-    // Espera imagens carregarem (já estão como data URLs, mas o decode é async).
+    // Espera imagens carregarem (data URLs PNG e SVG de barcodes/QR).
     await waitForImages(content);
 
     const ratio =
@@ -107,7 +112,7 @@ export async function generateThumbnailPng(
  * Constrói um node Konva equivalente ao objeto de domínio. Versão sem zoom
  * (sempre 1×) e sem interatividade — espelha o `CanvasArea` simplificado.
  */
-function buildNode(o: CanvasObject): Konva.Node | null {
+function buildNode(o: CanvasObject, canvasDpi: number): Konva.Node | null {
   const x = (o.x ?? 0) * MM_TO_PX;
   const y = (o.y ?? 0) * MM_TO_PX;
   const width = (o.width ?? 0) * MM_TO_PX;
@@ -203,31 +208,40 @@ function buildNode(o: CanvasObject): Konva.Node | null {
     }
     case "barcode":
     case "qrcode": {
-      const g = new Konva.Group({ x, y, rotation });
-      g.add(
-        new Konva.Rect({
-          width,
-          height,
-          fill: "#fef9c3",
-          stroke: "#ca8a04",
-          strokeWidth: 1,
-          dash: [4, 4],
-        }),
+      // WP-07 / SPEC-06: gera SVG vetorial via bwip-js → HTMLImage no Konva.
+      // O thumbnail é PNG raster final, mas a fidelidade visual da galeria
+      // melhora ao usar o mesmo pipeline do editor (vs placeholder amarelo).
+      const rendered = renderBarcodeSvg(o, { dpi: canvasDpi });
+      if (!rendered.svg || width <= 0 || height <= 0) {
+        // Fallback de placeholder quando inválido (mantém o card legível).
+        const g = new Konva.Group({ x, y, rotation });
+        g.add(
+          new Konva.Rect({
+            width,
+            height,
+            fill: "#fee2e2",
+            stroke: "#dc2626",
+            strokeWidth: 1,
+            dash: [4, 4],
+          }),
+        );
+        return g;
+      }
+      const fitted = fitSvgToBox(
+        rendered.svg,
+        Math.max(1, Math.round(width)),
+        Math.max(1, Math.round(height)),
       );
-      g.add(
-        new Konva.Text({
-          x: 4,
-          y: 4,
-          text:
-            o.type === "barcode"
-              ? `Barcode: ${o.value ?? ""}`
-              : `QR: ${o.value ?? ""}`,
-          fontSize: 10,
-          fill: "#854d0e",
-          width: Math.max(0, width - 8),
-        }),
-      );
-      return g;
+      const img = new window.Image();
+      img.src = svgToDataUrl(fitted);
+      return new Konva.Image({
+        x,
+        y,
+        width,
+        height,
+        rotation,
+        image: img,
+      });
     }
   }
 }

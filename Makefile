@@ -49,10 +49,17 @@ lint:
 #     mensagens de erro do react-konva quando o usuário usa API errada.
 #   - konvajs.github.io/docs/...           → docs do Konva impressos em warnings.
 #   - konvajs.org/docs/...                 → idem (CORS/Tainted Canvas help).
+#   - fonts.google.com/download            → string literal em barcode.ps do
+#     bwip-js (instrução para baixar Inter para uso PostScript). Nunca fetched.
+#   - github.com/rsms/inter/releases/...   → idem (instrução no docstring).
+#   - id.gs1.org/01/...                    → exemplo de payload GS1 em
+#     comentário/teste do bwip-js. Não é uma requisição.
+#   - goo.gl/0bis e www.abc.net            → exemplos de payload em testes do
+#     bwip-js para QR/maxicode. Não fetchadas.
 audit-bundle:
 	@echo "Procurando referências http(s):// no bundle (excluindo allowlist)..."
 	@if grep -RnE 'https?://[a-zA-Z0-9]' dist 2>/dev/null \
-		| grep -vE 'reactjs\.org/docs/error-decoder|www\.w3\.org|www\.apple\.com/DTDs|github\.com/konvajs/|konvajs\.github\.io/docs/|konvajs\.org/docs/'; then \
+		| grep -vE 'reactjs\.org/docs/error-decoder|www\.w3\.org|www\.apple\.com/DTDs|github\.com/konvajs/|konvajs\.github\.io/docs/|konvajs\.org/docs/|fonts\.google\.com/download|github\.com/rsms/inter/releases|id\.gs1\.org/|goo\.gl/0bis|www\.abc\.net'; then \
 		echo "FALHA: URLs externas detectadas fora da allowlist."; \
 		exit 1; \
 	else \
