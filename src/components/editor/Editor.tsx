@@ -1,6 +1,7 @@
 import * as React from "react";
 import {
   ArrowLeft,
+  Database,
   Eye,
   FileDown,
   Printer as PrinterIcon,
@@ -18,6 +19,10 @@ import { SaveAsModal } from "@/components/editor/SaveAsModal";
 import { Toolbar } from "@/components/editor/Toolbar";
 import { ZoomControls } from "@/components/editor/ZoomControls";
 import { useEditorShortcuts } from "@/components/editor/useEditorShortcuts";
+import {
+  DataImportDialog,
+  type DataImportResult,
+} from "@/components/data/DataImportDialog";
 import { registerBundleFonts } from "@/lib/canvas/font-loader";
 import { generateThumbnailPng } from "@/lib/canvas/thumbnail";
 import { canvasToJsonString } from "@/lib/canvas/serializer";
@@ -72,6 +77,17 @@ export function Editor() {
   const [exporting, setExporting] = React.useState(false);
   const [exportError, setExportError] = React.useState<string | null>(null);
   const [printOpen, setPrintOpen] = React.useState(false);
+  const [dataImportOpen, setDataImportOpen] = React.useState(false);
+  // Estado da última importação — preservado dentro da sessão do editor para
+  // re-abrir o wizard sem perder o arquivo escolhido. WP-13 vai mover para
+  // store global quando o BatchPrintWizard for cabeado.
+  const [dataImport, setDataImport] = React.useState<DataImportResult | null>(
+    null,
+  );
+  const [dataImportFeedback, setDataImportFeedback] = React.useState<
+    string | null
+  >(null);
+  const objects = useEditorStore((s) => s.objects);
 
   React.useEffect(() => {
     if (editingId == null) return;
@@ -270,6 +286,31 @@ export function Editor() {
     [],
   );
 
+  /**
+   * Abre o wizard de importação de fonte de dados (WP-12 / SPEC-07).
+   * Mantém o último dataset/mapping em memória para o usuário poder reabrir
+   * sem refazer o pick. WP-13 promoverá isso a um store dedicado quando o
+   * BatchPrintWizard precisar consumir o resultado.
+   */
+  const handleOpenDataImport = React.useCallback(() => {
+    setDataImportFeedback(null);
+    setDataImportOpen(true);
+  }, []);
+
+  const handleDataImportApply = React.useCallback(
+    (result: DataImportResult) => {
+      setDataImport(result);
+      const totalPlaceholders = result.placeholders.length;
+      const mappedCount = Object.values(result.mapping).filter(Boolean).length;
+      setDataImportFeedback(
+        totalPlaceholders === 0
+          ? `Planilha "${result.dataset.fileName ?? "(sem nome)"}" carregada: ${result.dataset.rows.length} linha(s).`
+          : `Planilha "${result.dataset.fileName ?? "(sem nome)"}" carregada com ${result.dataset.rows.length} linha(s) e ${mappedCount}/${totalPlaceholders} placeholder(s) mapeado(s).`,
+      );
+    },
+    [],
+  );
+
   useEditorShortcuts({ onSave: handleSave, onSaveAs: handleSaveAs });
 
   /**
@@ -364,6 +405,16 @@ export function Editor() {
           <Button
             variant="outline"
             size="sm"
+            onClick={handleOpenDataImport}
+            disabled={!template}
+            title="Importar dados (CSV/XLSX)"
+          >
+            <Database className="h-4 w-4" aria-hidden="true" />
+            {dataImport ? "Dados…" : "Importar dados"}
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
             onClick={handlePreview}
             disabled={!template}
             title="Pré-visualizar a etiqueta"
@@ -428,6 +479,22 @@ export function Editor() {
           {exportError}
         </div>
       )}
+      {dataImportFeedback && (
+        <div
+          role="status"
+          className="flex items-center justify-between gap-3 border-b bg-emerald-50/60 px-4 py-2 text-xs text-emerald-900"
+        >
+          <span>{dataImportFeedback}</span>
+          <button
+            type="button"
+            onClick={() => setDataImportFeedback(null)}
+            className="rounded text-emerald-900/70 hover:text-emerald-900"
+            aria-label="Ocultar mensagem"
+          >
+            ×
+          </button>
+        </div>
+      )}
 
       <div className="flex min-h-0 flex-1">
         <Toolbar />
@@ -460,6 +527,18 @@ export function Editor() {
         getPdfBytes={collectPdfBytes}
         onOpenChange={setPrintOpen}
         onNativeIntent={handleNativeIntent}
+      />
+
+      <DataImportDialog
+        open={dataImportOpen}
+        onOpenChange={setDataImportOpen}
+        templateObjects={objects}
+        onApply={handleDataImportApply}
+        initial={
+          dataImport
+            ? { dataset: dataImport.dataset, mapping: dataImport.mapping }
+            : undefined
+        }
       />
 
       <CloseConfirmDialog

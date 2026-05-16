@@ -56,10 +56,16 @@ lint:
 #     comentário/teste do bwip-js. Não é uma requisição.
 #   - goo.gl/0bis e www.abc.net            → exemplos de payload em testes do
 #     bwip-js para QR/maxicode. Não fetchadas.
+#   - github.com/mholt/PapaParse           → URL do projeto do papaparse impressa
+#     em constante de configuração (WP-12). Nunca fetchada.
+#   - schemas.openxmlformats.org/..., purl.oclc.org/..., schemas.microsoft.com/...,
+#     sheetjs.com, sheetjs.openxmlformats.org → namespaces XML do OOXML (XLSX) e
+#     identificadores do SheetJS impressos em strings literais do parser xlsx (WP-12).
+#     São identificadores XMLNS, não endpoints de rede.
 audit-bundle:
 	@echo "Procurando referências http(s):// no bundle (excluindo allowlist)..."
 	@if grep -RnE 'https?://[a-zA-Z0-9]' dist 2>/dev/null \
-		| grep -vE 'reactjs\.org/docs/error-decoder|www\.w3\.org|www\.apple\.com/DTDs|github\.com/konvajs/|konvajs\.github\.io/docs/|konvajs\.org/docs/|fonts\.google\.com/download|github\.com/rsms/inter/releases|id\.gs1\.org/|goo\.gl/0bis|www\.abc\.net'; then \
+		| grep -vE 'reactjs\.org/docs/error-decoder|www\.w3\.org|www\.apple\.com/DTDs|github\.com/konvajs/|konvajs\.github\.io/docs/|konvajs\.org/docs/|fonts\.google\.com/download|github\.com/rsms/inter/releases|id\.gs1\.org/|goo\.gl/0bis|www\.abc\.net|github\.com/mholt/PapaParse|purl\.oclc\.org/|schemas\.microsoft\.com/|schemas\.openxmlformats\.org/|sheetjs\.com|sheetjs\.openxmlformats\.org'; then \
 		echo "FALHA: URLs externas detectadas fora da allowlist."; \
 		exit 1; \
 	else \
