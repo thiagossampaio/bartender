@@ -20,8 +20,13 @@ tauri = { version = "2.1.1", features = [] }
 tauri-plugin-dialog = "2.0.3"
 tauri-plugin-fs = "2.0.3"
 tauri-plugin-os = "2.0.1"
+# SQLite local via plugin oficial Tauri 2.x (decisão R11: sqlx::migrate!).
+# A feature `sqlite` baixa o driver embarcado; nada de servidor externo.
+tauri-plugin-sql = { version = "2.0.3", features = ["sqlite"] }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
+# Wrapper de erros com `#[derive(Error)]` no módulo `db.rs`.
+thiserror = "1.0"
 
 [features]
 # Esta feature é habilitada pelo `tauri dev` automaticamente; necessária para dev tools.

@@ -14,7 +14,11 @@ metadata:
 - **UI:** Tailwind CSS 3 + shadcn/ui (primitivas adicionadas sob demanda em `src/components/ui/`).
 - **State:** Zustand (uso real começa em WP-03/04).
 - **Forms:** react-hook-form + zod + @hookform/resolvers.
-- **SQLite (futuro WP-02):** `tauri-plugin-sql` no Rust + `sqlx::migrate!` (decisão fixada em R11).
+- **SQLite (WP-02):** `tauri-plugin-sql` (Rust 2.0.3 / JS `@tauri-apps/plugin-sql` 2.4.0).
+  Migrations via `tauri_plugin_sql::Migration { version, description, sql, kind: MigrationKind::Up }`,
+  registradas em `Builder::default().add_migrations(DB_URL, vec![...])`. O plugin
+  rastreia em `_sqlx_migrations` (idempotência garantida).
+  Conexão JS: `Database.load("sqlite:etiquetador.db")` — mesmo URL declarado no Rust.
 - **PDF (futuro WP-08):** crate `printpdf`.
 - **Barcodes (futuro WP-07):** `bwip-js` no frontend.
 - **Versões:** `package.json` e `src-tauri/Cargo.toml` versionados em sync (SemVer).
@@ -29,12 +33,17 @@ metadata:
 │   ├── App.tsx         # Componente raiz
 │   ├── components/ui/  # Primitivas shadcn/ui
 │   ├── lib/utils.ts    # `cn()` helper (clsx + tailwind-merge)
+│   ├── lib/db.ts       # Façade tipada do SQLite (WP-02) — usar em vez de chamar o plugin direto
 │   └── styles/globals.css  # @tailwind layers + tokens HSL
 ├── src-tauri/          # Backend Rust + config Tauri
 │   ├── Cargo.toml      # Lib name = `etiquetador_lib`
 │   ├── tauri.conf.json # `productName: Etiquetador`, identifier: io.etiquetador.app
-│   ├── src/{main.rs, lib.rs}
-│   ├── capabilities/default.json
+│   ├── migrations/     # SQL migrations (WP-02): 001_initial.sql, 002_soft_delete.sql
+│   ├── src/
+│   │   ├── main.rs
+│   │   ├── lib.rs      # Builder + setup; registra plugins + comandos
+│   │   └── db.rs       # WP-02: paths por SO, permissões, migrations(), comando `db_path`
+│   ├── capabilities/default.json   # inclui sql:default + sql:allow-load/execute/select/close
 │   ├── entitlements.plist (macOS Hardened Runtime)
 │   ├── Info.plist
 │   └── icons/          # PNG/ICO/ICNS (placeholders no WP-01)
@@ -46,6 +55,8 @@ metadata:
 
 - Path alias `@/*` → `src/*` (configurado em `tsconfig.json` + `vite.config.ts`).
 - Componentes shadcn/ui usam `import { cn } from "@/lib/utils"`.
+- Acesso ao banco SEMPRE via `@/lib/db` (`getDatabase`, `dbQuery`, `dbExecute`,
+  `getSetting`, `setSetting`, `dbPath`) — nunca importar `@tauri-apps/plugin-sql` direto.
 
 ## Scripts npm
 
@@ -82,3 +93,12 @@ Não declarar `updater` no `plugins:` do builder Rust.
 Nenhuma URL externa em runtime. `make audit-bundle` valida o bundle Vite. A
 allowlist permite apenas strings de doc/namespace conhecidas (React error
 decoder, w3.org XML namespaces, apple.com DTDs).
+
+## Path do banco SQLite (WP-02)
+
+- macOS: `~/Library/Application Support/io.etiquetador.app/etiquetador.db`
+  (Tauri 2.x usa o `identifier` no `app_data_dir`, não o `productName` puro;
+  é o comportamento padrão e SPEC-02 §"Comportamento esperado" tolera).
+- Windows: `%APPDATA%\io.etiquetador.app\etiquetador.db` análogo.
+- Permissões 0700 (dir) e 0600 (arquivo) aplicadas em Unix no `setup()`.
+  Em Windows os ACLs do `%APPDATA%` já restringem.

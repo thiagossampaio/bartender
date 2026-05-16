@@ -1,4 +1,7 @@
-// Bootstrap WP-01. Plugins de SQL/impressoras/PDF entram nas próximas WPs.
+// Bootstrap WP-01 + persistência SQLite WP-02.
+// Plugins futuros: impressão (WP-09), PDF (WP-08) etc.
+
+mod db;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -6,7 +9,24 @@ pub fn run() {
         .plugin(tauri_plugin_os::init())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_fs::init())
-        .invoke_handler(tauri::generate_handler![app_version])
+        // SQLite local (SPEC-02). As migrations são aplicadas pelo próprio plugin
+        // via `sqlx::migrate!`, idempotentes (apenas as não registradas em
+        // `_sqlx_migrations` rodam).
+        .plugin(
+            tauri_plugin_sql::Builder::default()
+                .add_migrations(db::DB_URL, db::migrations())
+                .build(),
+        )
+        .setup(|app| {
+            // Garante o diretório de dados do app + permissões restritas
+            // (0700 em Unix). Falha aqui é fatal: sem path do banco o app
+            // não tem como persistir nada.
+            db::initialize(app.handle()).map_err(|e| -> Box<dyn std::error::Error + Send + Sync> {
+                Box::new(std::io::Error::new(std::io::ErrorKind::Other, e.to_string()))
+            })?;
+            Ok(())
+        })
+        .invoke_handler(tauri::generate_handler![app_version, db::db_path])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }

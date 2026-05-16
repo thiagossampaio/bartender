@@ -71,6 +71,7 @@
 | Campo | Valor |
 |---|---|
 | **ID** | WP-02 |
+| **Status** | ✅ Concluído |
 | **Spec relacionada** | [SPEC-02 — Modelo de Dados e Persistência SQLite](./specs.md#spec-02--modelo-de-dados-e-persistência-sqlite) |
 | **Estimativa** | 4d |
 | **Dependências** | WP-01 |
