@@ -1,11 +1,13 @@
 // Bootstrap WP-01 + persistência SQLite WP-02 + fontes WP-06 + PDF WP-08 +
-// detecção/impressão via driver do SO WP-09 + geração/envio PPLB WP-10.
+// detecção/impressão via driver do SO WP-09 + geração/envio PPLB WP-10 +
+// geração/envio ZPL WP-11.
 
 mod db;
 mod fonts;
 mod pdf;
 mod pplb;
 mod printers;
+mod zpl;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -41,6 +43,7 @@ pub fn run() {
             printers::printers_get_status,
             printers::printers_print_raster,
             printers::printers_print_raw,
+            zpl::zpl_generate,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

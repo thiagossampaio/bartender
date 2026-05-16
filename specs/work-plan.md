@@ -401,6 +401,7 @@
 | Campo | Valor |
 |---|---|
 | **ID** | WP-11 |
+| **Status** | ✅ Concluído |
 | **Spec relacionada** | [SPEC-10 — Geração e Envio Raw PPLB/ZPL](./specs.md#spec-10--geração-e-envio-raw-pplbzpl) |
 | **Estimativa** | 4d |
 | **Dependências** | WP-09 |

@@ -4,3 +4,4 @@
 - [WP-08 PDF Export](wp08-pdf-export.md) — decisões de printpdf 0.7, parser SVG bwip-js, helpers Mm/Pt
 - [WP-09 Printers](wp09-printers.md) — crate `printers` 2.x, auto-detect Argox/Zebra, raster via driver do SO, comando `pdf_export_bytes`
 - [WP-10 PPLB](wp10-pplb.md) — tradutor canvas_json → PPLB, mm→dots/rotação, `printers_print_raw`, `pplbPrint` integrado no PrintDialog
+- [WP-11 ZPL](wp11-zpl.md) — tradutor canvas_json → ZPL (Zebra Link-OS), escape `^`/`~`, rotação NRIB, `zplPrint` reusa envio raw do PPLB

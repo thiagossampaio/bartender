@@ -23,6 +23,7 @@ import { generateThumbnailPng } from "@/lib/canvas/thumbnail";
 import { canvasToJsonString } from "@/lib/canvas/serializer";
 import { buildPdfBytes, exportPdf, suggestPdfFileName } from "@/lib/pdf/export";
 import { pplbPrint } from "@/lib/pplb";
+import { zplPrint } from "@/lib/zpl";
 import { useEditorStore } from "@/lib/stores/editor-store";
 import { useTemplatesStore } from "@/lib/stores/templates-store";
 import { templatesGet, templatesGetCanvasJson } from "@/lib/templates";
@@ -232,9 +233,9 @@ export function Editor() {
 
   /**
    * Callback do PrintDialog quando o usuário escolhe "Modo nativo (PPLB/ZPL)"
-   * para uma impressora Argox/Zebra. Em WP-10 cobrimos o caminho PPLB; o
-   * ZPL chega no WP-11 reusando este mesmo callback (basta rotear pelo
-   * `language` da impressora).
+   * para uma impressora Argox/Zebra. Roteia pelo `language` da impressora:
+   *  - `PPLB` → `pplbPrint` (WP-10)
+   *  - `ZPL`  → `zplPrint`  (WP-11)
    */
   const handleNativeIntent = React.useCallback(
     async (req: {
@@ -245,21 +246,26 @@ export function Editor() {
       if (!state.template) {
         throw new Error("Nenhum template aberto.");
       }
-      if (req.printer.language !== "PPLB") {
-        // WP-11 implementará o caminho ZPL — por enquanto, comunica
-        // claramente o que falta para o usuário sem quebrar a UI.
+      const canvasJson = canvasToJsonString(state.canvas, state.objects);
+      if (req.printer.language === "PPLB") {
+        await pplbPrint(
+          req.printer.systemName,
+          canvasJson,
+          req.copies,
+          state.template.id,
+        );
+      } else if (req.printer.language === "ZPL") {
+        await zplPrint(
+          req.printer.systemName,
+          canvasJson,
+          req.copies,
+          state.template.id,
+        );
+      } else {
         throw new Error(
-          "Modo nativo ZPL ainda não está disponível — desmarque " +
-            '"Modo nativo" para usar o driver do SO.',
+          'Impressora não suporta modo nativo — desmarque "Modo nativo" para usar o driver do SO.',
         );
       }
-      const canvasJson = canvasToJsonString(state.canvas, state.objects);
-      await pplbPrint(
-        req.printer.systemName,
-        canvasJson,
-        req.copies,
-        state.template.id,
-      );
     },
     [],
   );
