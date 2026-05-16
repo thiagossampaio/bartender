@@ -293,6 +293,7 @@
 | Campo | Valor |
 |---|---|
 | **ID** | WP-08 |
+| **Status** | ✅ Concluído |
 | **Spec relacionada** | [SPEC-08 — Pré-visualização e Exportação PDF](./specs.md#spec-08--pré-visualização-e-exportação-pdf) |
 | **Estimativa** | 5d |
 | **Dependências** | WP-05, WP-06, WP-07 |

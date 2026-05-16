@@ -1,8 +1,9 @@
 import * as React from "react";
-import { ArrowLeft, Redo2, Save, Undo2 } from "lucide-react";
+import { ArrowLeft, Eye, FileDown, Redo2, Save, Undo2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { CanvasArea } from "@/components/editor/CanvasArea";
+import { PreviewModal, type PreviewPage } from "@/components/editor/PreviewModal";
 import { PropertiesPanel } from "@/components/editor/PropertiesPanel";
 import { SaveAsModal } from "@/components/editor/SaveAsModal";
 import { Toolbar } from "@/components/editor/Toolbar";
@@ -10,6 +11,7 @@ import { ZoomControls } from "@/components/editor/ZoomControls";
 import { useEditorShortcuts } from "@/components/editor/useEditorShortcuts";
 import { registerBundleFonts } from "@/lib/canvas/font-loader";
 import { generateThumbnailPng } from "@/lib/canvas/thumbnail";
+import { exportPdf, suggestPdfFileName } from "@/lib/pdf/export";
 import { useEditorStore } from "@/lib/stores/editor-store";
 import { useTemplatesStore } from "@/lib/stores/templates-store";
 import { templatesGet, templatesGetCanvasJson } from "@/lib/templates";
@@ -54,6 +56,9 @@ export function Editor() {
   const [saveError, setSaveError] = React.useState<string | null>(null);
   const [saveAsOpen, setSaveAsOpen] = React.useState(false);
   const [showCloseConfirm, setShowCloseConfirm] = React.useState(false);
+  const [previewOpen, setPreviewOpen] = React.useState(false);
+  const [exporting, setExporting] = React.useState(false);
+  const [exportError, setExportError] = React.useState<string | null>(null);
 
   React.useEffect(() => {
     if (editingId == null) return;
@@ -153,6 +158,51 @@ export function Editor() {
     [saveTemplateAs, markSaved],
   );
 
+  /**
+   * Coleta a "página única" atualmente editada para o PreviewModal/Exportação.
+   * Construído sob demanda (`useCallback`) porque a serialização do estado
+   * é barata; manter como state derivado em React.useMemo poderia confundir
+   * (o store muda a cada drag/transform).
+   */
+  const collectCurrentPage = React.useCallback((): PreviewPage | null => {
+    const state = useEditorStore.getState();
+    if (!state.template) return null;
+    return { canvas: state.canvas, objects: state.objects };
+  }, []);
+
+  /**
+   * Abre o modal de pré-visualização. Sempre captura o estado **atual** do
+   * editor — sem snapshot stale.
+   */
+  const handlePreview = React.useCallback(() => {
+    setPreviewOpen(true);
+  }, []);
+
+  /**
+   * Exporta o PDF via diálogo de save nativo. Compartilhado entre o botão
+   * "Exportar PDF" do header e o botão dentro do PreviewModal — ambos pulam
+   * o save automático e geram o PDF a partir do estado em memória (o usuário
+   * pode exportar mesmo um template ainda não salvo).
+   */
+  const handleExportPdf = React.useCallback(async () => {
+    const page = collectCurrentPage();
+    if (!page) return;
+    setExporting(true);
+    setExportError(null);
+    try {
+      const state = useEditorStore.getState();
+      const name = state.template?.name ?? "etiqueta";
+      await exportPdf({
+        pages: [page],
+        suggestedFileName: suggestPdfFileName(name),
+      });
+    } catch (e) {
+      setExportError(e instanceof Error ? e.message : "Erro ao exportar PDF.");
+    } finally {
+      setExporting(false);
+    }
+  }, [collectCurrentPage]);
+
   useEditorShortcuts({ onSave: handleSave, onSaveAs: handleSaveAs });
 
   /**
@@ -247,6 +297,26 @@ export function Editor() {
           <Button
             variant="outline"
             size="sm"
+            onClick={handlePreview}
+            disabled={!template}
+            title="Pré-visualizar a etiqueta"
+          >
+            <Eye className="h-4 w-4" aria-hidden="true" />
+            Pré-visualizar
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => void handleExportPdf()}
+            disabled={!template || exporting}
+            title="Exportar PDF"
+          >
+            <FileDown className="h-4 w-4" aria-hidden="true" />
+            {exporting ? "Exportando…" : "Exportar PDF"}
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
             onClick={handleSaveAs}
             disabled={saving}
             title="Salvar como (Ctrl/⌘+Shift+S)"
@@ -273,6 +343,14 @@ export function Editor() {
           {saveError}
         </div>
       )}
+      {exportError && (
+        <div
+          role="alert"
+          className="border-b border-destructive/40 bg-destructive/10 px-4 py-2 text-xs text-destructive"
+        >
+          {exportError}
+        </div>
+      )}
 
       <div className="flex min-h-0 flex-1">
         <Toolbar />
@@ -285,6 +363,19 @@ export function Editor() {
         defaultName={template ? `${template.name} (cópia)` : ""}
         onOpenChange={setSaveAsOpen}
         onSubmit={handleSaveAsConfirm}
+      />
+
+      <PreviewModal
+        open={previewOpen}
+        pages={
+          previewOpen && collectCurrentPage()
+            ? [collectCurrentPage() as PreviewPage]
+            : []
+        }
+        templateName={template?.name}
+        onOpenChange={setPreviewOpen}
+        onExportPdf={handleExportPdf}
+        exporting={exporting}
       />
 
       <CloseConfirmDialog
