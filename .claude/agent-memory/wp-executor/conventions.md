@@ -109,6 +109,39 @@ metadata:
 - Gotcha Konva: `Layer.add(node)` exige `Group | Shape`, não o base `Konva.Node`
   retornado por funções genéricas. Cast explícito quando necessário.
 
+### WP-06 — Sistema Tipográfico
+- **Catálogo declarativo:** `src/lib/canvas/fonts.ts` lista as 15 famílias do
+  bundle (`BUNDLE_FONTS`) com `cssFallback` por família — quando o `.ttf` está
+  ausente em `src/assets/fonts/`, o navegador usa o fallback CSS e a UI continua
+  funcional. Default global = `Inter` (`DEFAULT_FONT_FAMILY`).
+- **Arquivos `.ttf` NÃO commitados:** `src/assets/fonts/README.md` documenta a
+  origem canônica de cada um. CI/release público deve baixar antes do build.
+- **Registro `@font-face` em runtime:** `font-loader.ts` usa
+  `import.meta.glob('/src/assets/fonts/*.{ttf,otf,woff,woff2}', { eager: true, query: '?url' })`
+  + Web `FontFace` API. Isso evita falha de build quando os arquivos não
+  existem — diferente de declarar `@font-face` em CSS estático, que faria o
+  Vite reclamar de URLs não resolvidas.
+- **Hook `useFonts()`:** mescla bundle (sempre) + sistema (via `invoke("fonts_list_system")`).
+  Detecta Tauri por `"__TAURI_INTERNALS__" in window`; em browser puro usa
+  `COMMON_SYSTEM_FONTS` como fallback. NÃO use `document.fonts.values()` para
+  listar fontes do SO — Web API bloqueia isso por privacidade desde 2022.
+- **Backend `fonts.rs`:** comando `fonts_list_system` via crate `font-kit`
+  (cobre DirectWrite/Core Text/fontconfig). `BTreeSet` deduplica e ordena.
+  `Ok(vec![])` em erro raro (sem fontes) — frontend ainda mostra o bundle.
+- **Auto-shrink (RF-F-10):** loop iterativo até 24 passos em `TextObjectNode`
+  com `Konva.Text.measureSize` (cria nó desanexado, mede `getClientRect`,
+  `destroy`). Limite inferior 4 pt. Apenas reduz `fontSize` visual — o valor
+  persistido permanece o desejado.
+- **`fontFamilyWithFallback(family)`:** sempre use isso ao passar `fontFamily`
+  para Konva (`Text`, thumbnail). Garante fallback CSS válido quando o usuário
+  selecionou uma fonte do bundle ainda não baixada.
+- **PropertiesPanel:** Bold/Italic/Underline/Strike são `ToggleChip` com
+  `aria-pressed`. Alinhamento idem (4 botões). Letter-spacing em px,
+  line-height multiplicador. Toggle "Auto-shrink" como switch ARIA.
+- **Cargo.toml:** adiciona `font-kit` + `fontdue`. `fontdue` é placeholder
+  para WP-10 (pipeline raster compartilhado, mitigação R02) — registrado
+  agora para evitar re-discussão.
+
 ### WP-04 — Editor (Konva)
 - **Konva 9.x + react-konva 18.2.16** (NÃO usar react-konva ^19, que exige React 19).
 - Pixel base do canvas: **`MM_TO_PX = 4`** (em `src/lib/canvas/units.ts`). Zoom é um Konva

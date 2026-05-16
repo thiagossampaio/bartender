@@ -23,6 +23,7 @@ import {
 } from "lucide-react";
 
 import { cn } from "@/lib/utils";
+import { DEFAULT_FONT_FAMILY } from "@/lib/canvas/fonts";
 import { generateId } from "@/lib/canvas/serializer";
 import { roundMm } from "@/lib/canvas/units";
 import type { CanvasObject, ObjectType } from "@/lib/canvas/types";
@@ -61,7 +62,7 @@ const TEXT_DEFAULTS = {
   width: 30,
   height: 6,
   fontSize: 12,
-  fontFamily: "Arial",
+  fontFamily: DEFAULT_FONT_FAMILY,
   color: "#000000",
 };
 

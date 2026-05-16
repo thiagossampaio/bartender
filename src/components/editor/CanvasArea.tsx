@@ -2,9 +2,10 @@ import * as React from "react";
 import Konva from "konva";
 import { Stage, Layer, Rect, Line, Ellipse, Text, Image as KImage, Transformer, Group } from "react-konva";
 
+import { fontFamilyWithFallback } from "@/lib/canvas/fonts";
 import { generateId } from "@/lib/canvas/serializer";
 import { MM_TO_PX, mmToPx, pxToMm, roundMm } from "@/lib/canvas/units";
-import type { CanvasObject } from "@/lib/canvas/types";
+import type { CanvasObject, TextObject } from "@/lib/canvas/types";
 import { useEditorStore } from "@/lib/stores/editor-store";
 import { RULER_SIZE_PX, Rulers } from "@/components/editor/Rulers";
 
@@ -425,33 +426,13 @@ function ObjectNode(props: ObjectNodeProps) {
     }
     case "text":
       return (
-        <Text
-          ref={(n) => registerNode(n)}
-          {...commonProps}
-          text={o.content ?? ""}
-          width={widthPx > 0 ? widthPx : undefined}
-          height={heightPx > 0 ? heightPx : undefined}
-          fontFamily={o.fontFamily ?? "Arial"}
-          // pt para px: 1pt ≈ 1.333 px em 96 dpi.
-          fontSize={(o.fontSize ?? 12) * 1.333 * zoom}
-          fontStyle={
-            o.fontWeight === "bold" && o.fontStyle === "italic"
-              ? "bold italic"
-              : o.fontWeight === "bold"
-                ? "bold"
-                : o.fontStyle === "italic"
-                  ? "italic"
-                  : "normal"
-          }
-          textDecoration={
-            o.textDecoration === "underline"
-              ? "underline"
-              : o.textDecoration === "line-through"
-                ? "line-through"
-                : ""
-          }
-          align={o.textAlign === "justify" ? "left" : o.textAlign ?? "left"}
-          fill={o.color ?? "#000000"}
+        <TextObjectNode
+          object={o}
+          widthPx={widthPx}
+          heightPx={heightPx}
+          zoom={zoom}
+          commonProps={commonProps}
+          registerNode={registerNode}
         />
       );
     case "image":
@@ -540,4 +521,123 @@ function KonvaImageObject({
       height={heightPx}
     />
   );
+}
+
+// ---------------------------------------------------------------------------
+// Texto (WP-06 / SPEC-05): render unificado com fontes do bundle/sistema,
+// estilos, alinhamentos, letter-spacing, line-height e auto-shrink.
+// ---------------------------------------------------------------------------
+
+interface TextObjectNodeProps {
+  object: TextObject;
+  widthPx: number;
+  heightPx: number;
+  zoom: number;
+  commonProps: Record<string, unknown>;
+  registerNode: (node: Konva.Node | null) => void;
+}
+
+function TextObjectNode({
+  object: o,
+  widthPx,
+  heightPx,
+  zoom,
+  commonProps,
+  registerNode,
+}: TextObjectNodeProps) {
+  // pt → px (96 dpi). Mantemos a constante alinhada ao MEMORY.md / WP-04.
+  const PT_TO_PX = 1.333;
+  const desiredPx = (o.fontSize ?? 12) * PT_TO_PX * zoom;
+
+  /**
+   * Auto-shrink (RF-F-10): se `autoShrink` está ligado e o texto não couber
+   * no bounding box, reduzimos `fontSize` por passos até caber (ou bater no
+   * mínimo de 4 pt). Aproximação geométrica baseada em `Konva.Text.measureSize`:
+   * pegamos um `Konva.Text` desanexado para medir; mais barato que renderizar
+   * a árvore inteira e reconciliar.
+   *
+   * Reage a mudanças de conteúdo, dimensão, fonte e zoom. Falha gracioso →
+   * usa o desiredPx (sem shrink) se a medição der ruim.
+   */
+  const renderedPx = React.useMemo(() => {
+    if (!o.autoShrink) return desiredPx;
+    if (widthPx <= 0 || heightPx <= 0) return desiredPx;
+    const minPx = 4 * PT_TO_PX * zoom;
+    let current = desiredPx;
+    // Limite de iterações para garantir terminação rápida (RF-F-10 não impõe
+    // exato, mas a UX de digitação precisa ser fluida).
+    for (let i = 0; i < 24; i++) {
+      const measureNode = new Konva.Text({
+        text: o.content ?? "",
+        width: widthPx,
+        fontFamily: fontFamilyWithFallback(o.fontFamily),
+        fontSize: current,
+        fontStyle: konvaFontStyle(o.fontWeight, o.fontStyle),
+        lineHeight: o.lineHeight ?? 1,
+        letterSpacing: (o.letterSpacing ?? 0) * zoom,
+        align: o.textAlign === "justify" ? "left" : (o.textAlign ?? "left"),
+      });
+      const size = measureNode.getClientRect({ skipTransform: true });
+      measureNode.destroy();
+      if (size.height <= heightPx) break;
+      if (current <= minPx) {
+        current = minPx;
+        break;
+      }
+      current = Math.max(minPx, current * 0.92);
+    }
+    return current;
+  }, [
+    o.autoShrink,
+    o.content,
+    o.fontFamily,
+    o.fontWeight,
+    o.fontStyle,
+    o.textAlign,
+    o.letterSpacing,
+    o.lineHeight,
+    desiredPx,
+    widthPx,
+    heightPx,
+    zoom,
+  ]);
+
+  return (
+    <Text
+      ref={(n) => registerNode(n)}
+      {...(commonProps as object)}
+      text={o.content ?? ""}
+      width={widthPx > 0 ? widthPx : undefined}
+      height={heightPx > 0 ? heightPx : undefined}
+      fontFamily={fontFamilyWithFallback(o.fontFamily)}
+      fontSize={renderedPx}
+      fontStyle={konvaFontStyle(o.fontWeight, o.fontStyle)}
+      textDecoration={
+        o.textDecoration === "underline"
+          ? "underline"
+          : o.textDecoration === "line-through"
+            ? "line-through"
+            : ""
+      }
+      align={o.textAlign === "justify" ? "left" : (o.textAlign ?? "left")}
+      letterSpacing={(o.letterSpacing ?? 0) * zoom}
+      lineHeight={o.lineHeight ?? 1}
+      fill={o.color ?? "#000000"}
+      // Konva faz wrap automático quando há `width` e o texto excede (RF-F-09).
+      wrap="word"
+    />
+  );
+}
+
+/** Combina fontWeight + fontStyle no formato esperado pelo Konva.Text. */
+function konvaFontStyle(
+  fontWeight: TextObject["fontWeight"],
+  fontStyle: TextObject["fontStyle"],
+): string {
+  const bold = fontWeight === "bold";
+  const italic = fontStyle === "italic";
+  if (bold && italic) return "bold italic";
+  if (bold) return "bold";
+  if (italic) return "italic";
+  return "normal";
 }

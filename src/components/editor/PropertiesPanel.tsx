@@ -1,8 +1,10 @@
 import * as React from "react";
 
+import { FontPicker } from "@/components/editor/FontPicker";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
+import { TEXT_COLOR_PALETTE } from "@/lib/canvas/color-palette";
 import { roundMm } from "@/lib/canvas/units";
 import type {
   CanvasObject,
@@ -255,26 +257,24 @@ function TextProperties({
             className="min-h-[60px] rounded-md border border-input bg-background px-3 py-2 text-sm"
           />
         </div>
-        <div className="grid grid-cols-2 gap-2">
-          <div className="flex flex-col gap-1.5">
-            <Label className="text-[11px]" htmlFor="prop-ff">
-              Fonte
-            </Label>
-            <Input
-              id="prop-ff"
-              value={object.fontFamily ?? ""}
-              onChange={(e) => onChange({ fontFamily: e.target.value })}
-            />
-          </div>
-          <NumberField
-            label="Tamanho (pt)"
-            value={object.fontSize ?? 12}
-            min={4}
-            max={200}
-            step={0.5}
-            onCommit={(v) => onChange({ fontSize: v })}
+        <div className="flex flex-col gap-1.5">
+          <Label className="text-[11px]" htmlFor="prop-ff">
+            Fonte
+          </Label>
+          <FontPicker
+            id="prop-ff"
+            value={object.fontFamily}
+            onChange={(family) => onChange({ fontFamily: family })}
           />
         </div>
+        <NumberField
+          label="Tamanho (pt)"
+          value={object.fontSize ?? 12}
+          min={4}
+          max={200}
+          step={0.5}
+          onCommit={(v) => onChange({ fontSize: v })}
+        />
         <div className="flex flex-col gap-1.5">
           <Label className="text-[11px]">Estilo</Label>
           <div className="flex gap-1">
@@ -285,8 +285,9 @@ function TextProperties({
                   fontWeight: object.fontWeight === "bold" ? "normal" : "bold",
                 })
               }
+              title="Negrito"
             >
-              B
+              <span className="font-bold">B</span>
             </ToggleChip>
             <ToggleChip
               active={object.fontStyle === "italic"}
@@ -295,8 +296,9 @@ function TextProperties({
                   fontStyle: object.fontStyle === "italic" ? "normal" : "italic",
                 })
               }
+              title="Itálico"
             >
-              I
+              <span className="italic">I</span>
             </ToggleChip>
             <ToggleChip
               active={object.textDecoration === "underline"}
@@ -306,8 +308,9 @@ function TextProperties({
                     object.textDecoration === "underline" ? "none" : "underline",
                 })
               }
+              title="Sublinhado"
             >
-              U
+              <span className="underline">U</span>
             </ToggleChip>
             <ToggleChip
               active={object.textDecoration === "line-through"}
@@ -317,38 +320,146 @@ function TextProperties({
                     object.textDecoration === "line-through" ? "none" : "line-through",
                 })
               }
+              title="Tachado"
             >
-              S
+              <span className="line-through">S</span>
             </ToggleChip>
           </div>
         </div>
         <div className="flex flex-col gap-1.5">
-          <Label className="text-[11px]" htmlFor="prop-align">
-            Alinhamento
-          </Label>
-          <select
-            id="prop-align"
-            value={object.textAlign ?? "left"}
-            onChange={(e) =>
-              onChange({
-                textAlign: e.target.value as TextObject["textAlign"],
-              })
-            }
-            className="h-9 rounded-md border border-input bg-background px-2 text-sm"
-          >
-            <option value="left">Esquerda</option>
-            <option value="center">Centro</option>
-            <option value="right">Direita</option>
-            <option value="justify">Justificado</option>
-          </select>
+          <Label className="text-[11px]">Alinhamento</Label>
+          <div className="flex gap-1" role="group" aria-label="Alinhamento horizontal">
+            {(["left", "center", "right", "justify"] as const).map((align) => (
+              <ToggleChip
+                key={align}
+                active={(object.textAlign ?? "left") === align}
+                onClick={() => onChange({ textAlign: align })}
+                title={alignLabel(align)}
+              >
+                <span aria-hidden>{alignGlyph(align)}</span>
+              </ToggleChip>
+            ))}
+          </div>
         </div>
-        <ColorField
+        <div className="grid grid-cols-2 gap-2">
+          <NumberField
+            label="Espaçamento (px)"
+            value={object.letterSpacing ?? 0}
+            step={0.1}
+            onCommit={(v) => onChange({ letterSpacing: v })}
+          />
+          <NumberField
+            label="Altura linha"
+            value={object.lineHeight ?? 1}
+            min={0.5}
+            max={3}
+            step={0.05}
+            onCommit={(v) => onChange({ lineHeight: v })}
+          />
+        </div>
+        <ColorPaletteField
           label="Cor"
           value={object.color ?? "#000000"}
           onChange={(v) => onChange({ color: v })}
         />
+        <div className="flex items-center justify-between gap-2 rounded-md border bg-muted/30 px-2 py-1.5">
+          <div className="flex flex-col">
+            <Label className="text-[11px]">Auto-shrink</Label>
+            <span className="text-[10px] text-muted-foreground">
+              Reduz a fonte para caber na caixa.
+            </span>
+          </div>
+          <button
+            type="button"
+            role="switch"
+            aria-checked={!!object.autoShrink}
+            onClick={() => onChange({ autoShrink: !object.autoShrink })}
+            className={cn(
+              "relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors",
+              object.autoShrink ? "bg-primary" : "bg-muted",
+            )}
+          >
+            <span
+              className={cn(
+                "inline-block h-4 w-4 transform rounded-full bg-background shadow transition-transform",
+                object.autoShrink ? "translate-x-4" : "translate-x-0.5",
+              )}
+            />
+          </button>
+        </div>
       </div>
     </section>
+  );
+}
+
+function alignLabel(a: NonNullable<TextObject["textAlign"]>): string {
+  switch (a) {
+    case "left":
+      return "Esquerda";
+    case "center":
+      return "Centro";
+    case "right":
+      return "Direita";
+    case "justify":
+      return "Justificado";
+  }
+}
+
+function alignGlyph(a: NonNullable<TextObject["textAlign"]>): string {
+  // Glyphs ASCII para evitar dependência de fonte de ícones.
+  switch (a) {
+    case "left":
+      return "≣​";
+    case "center":
+      return "≡";
+    case "right":
+      return "​≣";
+    case "justify":
+      return "☰";
+  }
+}
+
+function ColorPaletteField({
+  label,
+  value,
+  onChange,
+}: {
+  label: string;
+  value: string;
+  onChange: (v: string) => void;
+}) {
+  return (
+    <div className="flex flex-col gap-1.5">
+      <Label className="text-[11px]">{label}</Label>
+      <div className="grid grid-cols-6 gap-1">
+        {TEXT_COLOR_PALETTE.map((c) => (
+          <button
+            key={c}
+            type="button"
+            onClick={() => onChange(c)}
+            aria-label={`Aplicar cor ${c}`}
+            title={c}
+            className={cn(
+              "h-6 w-full rounded-sm border",
+              value.toLowerCase() === c.toLowerCase()
+                ? "ring-2 ring-primary"
+                : "border-input",
+            )}
+            style={{ backgroundColor: c }}
+          />
+        ))}
+      </div>
+      <div className="flex items-center gap-2">
+        <input
+          type="color"
+          value={isHex(value) ? value : "#000000"}
+          onChange={(e) => onChange(e.target.value)}
+          className="h-9 w-12 cursor-pointer rounded-md border"
+          aria-label="Cor custom"
+        />
+        <Input value={value} onChange={(e) => onChange(e.target.value)} className="flex-1" />
+      </div>
+    </div>
   );
 }
 
@@ -631,15 +742,20 @@ function ToggleChip({
   active,
   onClick,
   children,
+  title,
 }: {
   active: boolean;
   onClick: () => void;
   children: React.ReactNode;
+  title?: string;
 }) {
   return (
     <button
       type="button"
       onClick={onClick}
+      title={title}
+      aria-label={title}
+      aria-pressed={active}
       className={cn(
         "h-8 w-8 rounded-md border text-sm font-semibold",
         active ? "bg-primary text-primary-foreground" : "bg-background hover:bg-accent",

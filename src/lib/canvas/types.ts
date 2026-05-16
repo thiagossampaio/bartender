@@ -61,6 +61,17 @@ export interface TextObject extends BaseObject {
   textDecoration?: "none" | "underline" | "line-through";
   textAlign?: "left" | "center" | "right" | "justify";
   color?: string;
+  /** Espaçamento entre caracteres em px (RF-F-07; WP-06). */
+  letterSpacing?: number;
+  /** Multiplicador de altura de linha; 1.0 = padrão. (RF-F-07; WP-06). */
+  lineHeight?: number;
+  /**
+   * Auto-shrink (RF-F-10; WP-06). Quando true e o texto não couber no
+   * bounding box (width × height definidos), o renderer reduz `fontSize`
+   * progressivamente até caber. O tamanho persistido em `fontSize` é o
+   * desejado; o reduzido é só visual.
+   */
+  autoShrink?: boolean;
 }
 
 export interface RectangleObject extends BaseObject {

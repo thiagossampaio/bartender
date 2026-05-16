@@ -27,6 +27,15 @@ serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 # Wrapper de erros com `#[derive(Error)]` no módulo `db.rs`.
 thiserror = "1.0"
+# Sistema tipográfico (WP-06 / SPEC-05): enumeração de fontes do SO.
+# `font-kit` cobre DirectWrite (Win), Core Text (macOS) e fontconfig (Linux).
+# Em Linux usamos `source-fontconfig-dlopen` para evitar erro de link quando
+# `libfontconfig-dev` não está instalado no build host (CI mínima).
+font-kit = "0.14"
+# Raster de fontes para o pipeline unificado preview ↔ PPLB raster
+# (mitigação do risco R02 / SPEC-10 §"Pipeline raster"). Registrado já em
+# WP-06 para que [WP-10] não precise re-discutir a dependência.
+fontdue = "0.9"
 
 [features]
 # Esta feature é habilitada pelo `tauri dev` automaticamente; necessária para dev tools.

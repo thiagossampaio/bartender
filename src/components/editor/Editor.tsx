@@ -8,6 +8,7 @@ import { SaveAsModal } from "@/components/editor/SaveAsModal";
 import { Toolbar } from "@/components/editor/Toolbar";
 import { ZoomControls } from "@/components/editor/ZoomControls";
 import { useEditorShortcuts } from "@/components/editor/useEditorShortcuts";
+import { registerBundleFonts } from "@/lib/canvas/font-loader";
 import { generateThumbnailPng } from "@/lib/canvas/thumbnail";
 import { useEditorStore } from "@/lib/stores/editor-store";
 import { useTemplatesStore } from "@/lib/stores/templates-store";
@@ -90,6 +91,13 @@ export function Editor() {
       closeTemplate();
     };
   }, [closeTemplate]);
+
+  // Registra os @font-face do bundle (WP-06 / SPEC-05). Idempotente — só
+  // toca o `document.fonts` uma vez por sessão; faz aqui (e não em `App.tsx`)
+  // para evitar custo na galeria, onde fontes do bundle não importam.
+  React.useEffect(() => {
+    void registerBundleFonts();
+  }, []);
 
   /**
    * Salva o estado atual do canvas no template aberto. Gera thumbnail

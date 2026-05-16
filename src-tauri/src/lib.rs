@@ -1,7 +1,8 @@
-// Bootstrap WP-01 + persistência SQLite WP-02.
+// Bootstrap WP-01 + persistência SQLite WP-02 + fontes WP-06.
 // Plugins futuros: impressão (WP-09), PDF (WP-08) etc.
 
 mod db;
+mod fonts;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -26,7 +27,11 @@ pub fn run() {
             })?;
             Ok(())
         })
-        .invoke_handler(tauri::generate_handler![app_version, db::db_path])
+        .invoke_handler(tauri::generate_handler![
+            app_version,
+            db::db_path,
+            fonts::fonts_list_system,
+        ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }

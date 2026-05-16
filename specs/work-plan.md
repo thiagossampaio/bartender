@@ -220,6 +220,7 @@
 | Campo | Valor |
 |---|---|
 | **ID** | WP-06 |
+| **Status** | ✅ Concluído |
 | **Spec relacionada** | [SPEC-05 — Sistema Tipográfico](./specs.md#spec-05--sistema-tipográfico) |
 | **Estimativa** | 4d |
 | **Dependências** | WP-04 |

@@ -166,6 +166,10 @@ export function jsonToCanvas(
               ? item.textAlign
               : undefined,
           color: pickString(item.color),
+          letterSpacing: pickNumber(item.letterSpacing),
+          lineHeight: pickNumber(item.lineHeight),
+          autoShrink:
+            typeof item.autoShrink === "boolean" ? item.autoShrink : undefined,
           binding: isRecord(item.binding)
             ? {
                 field: pickString(item.binding.field, "") ?? "",

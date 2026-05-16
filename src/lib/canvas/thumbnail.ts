@@ -24,6 +24,7 @@
 
 import Konva from "konva";
 
+import { fontFamilyWithFallback } from "@/lib/canvas/fonts";
 import type { CanvasDef, CanvasObject } from "@/lib/canvas/types";
 import { MM_TO_PX } from "@/lib/canvas/units";
 
@@ -161,7 +162,9 @@ function buildNode(o: CanvasObject): Konva.Node | null {
         width: width > 0 ? width : undefined,
         height: height > 0 ? height : undefined,
         text: o.content ?? "",
-        fontFamily: o.fontFamily ?? "Arial",
+        // Usa o fallback CSS aware-de-bundle (WP-06): se o `.ttf` não estiver
+        // presente, cai no genérico declarado no catálogo `fonts.ts`.
+        fontFamily: fontFamilyWithFallback(o.fontFamily),
         fontSize: (o.fontSize ?? 12) * 1.333,
         fontStyle:
           o.fontWeight === "bold" && o.fontStyle === "italic"
@@ -178,6 +181,9 @@ function buildNode(o: CanvasObject): Konva.Node | null {
               ? "line-through"
               : "",
         align: o.textAlign === "justify" ? "left" : (o.textAlign ?? "left"),
+        letterSpacing: o.letterSpacing ?? 0,
+        lineHeight: o.lineHeight ?? 1,
+        wrap: "word",
         fill: o.color ?? "#000000",
       });
     case "image": {
