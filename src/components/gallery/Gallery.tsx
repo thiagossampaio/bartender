@@ -1,12 +1,21 @@
 import * as React from "react";
-import { Plus, Search, Trash2 } from "lucide-react";
+import { Download, Plus, Search, Trash2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ConfirmModal } from "@/components/gallery/ConfirmModal";
+import { ImportConflictModal } from "@/components/gallery/ImportConflictModal";
 import { NewTemplateModal } from "@/components/gallery/NewTemplateModal";
 import { RenameModal } from "@/components/gallery/RenameModal";
 import { TemplateCard } from "@/components/gallery/TemplateCard";
+import {
+  commitImport,
+  exportTemplate,
+  findActiveByName,
+  pickAndInspectEtlbl,
+  type EtlblInspect,
+  type ImportConflictResolution,
+} from "@/lib/etlbl";
 import { useTemplatesStore } from "@/lib/stores/templates-store";
 import type { TemplateRow } from "@/lib/templates";
 
@@ -40,6 +49,13 @@ export function Gallery() {
   const [newOpen, setNewOpen] = React.useState(false);
   const [renameTarget, setRenameTarget] = React.useState<TemplateRow | null>(null);
   const [deleteTarget, setDeleteTarget] = React.useState<TemplateRow | null>(null);
+  const [importing, setImporting] = React.useState(false);
+  const [conflict, setConflict] = React.useState<{
+    inspect: EtlblInspect;
+    existing: TemplateRow;
+  } | null>(null);
+  const [flash, setFlash] = React.useState<string | null>(null);
+  const [flashError, setFlashError] = React.useState<string | null>(null);
 
   // Carrega na primeira renderização da galeria.
   React.useEffect(() => {
@@ -48,7 +64,66 @@ export function Gallery() {
     }
   }, [view, refresh]);
 
+  // Mensagem efêmera de sucesso (export / import): fade em ~4s.
+  React.useEffect(() => {
+    if (!flash) return;
+    const t = setTimeout(() => setFlash(null), 4000);
+    return () => clearTimeout(t);
+  }, [flash]);
+
   const showEmptyState = !loading && !error && active.length === 0;
+
+  async function handleExport(template: TemplateRow) {
+    setFlash(null);
+    setFlashError(null);
+    try {
+      const path = await exportTemplate(template.id);
+      if (path) {
+        setFlash(`Template exportado: ${path}`);
+      }
+    } catch (e) {
+      setFlashError(e instanceof Error ? e.message : "Falha ao exportar template.");
+    }
+  }
+
+  async function handleImport() {
+    if (importing) return;
+    setImporting(true);
+    setFlash(null);
+    setFlashError(null);
+    try {
+      const inspect = await pickAndInspectEtlbl();
+      if (!inspect) return;
+      const existing = await findActiveByName(inspect.name);
+      if (existing) {
+        setConflict({ inspect, existing });
+        return;
+      }
+      const outcome = await commitImport(inspect, "keep-both", null);
+      if (outcome.kind === "imported") {
+        await refresh();
+        setFlash(`Template “${outcome.template.name}” importado.`);
+      }
+    } catch (e) {
+      setFlashError(e instanceof Error ? e.message : "Falha ao importar template.");
+    } finally {
+      setImporting(false);
+    }
+  }
+
+  async function handleConflictResolve(resolution: ImportConflictResolution) {
+    if (!conflict) return;
+    const { inspect, existing } = conflict;
+    const outcome = await commitImport(inspect, resolution, existing);
+    if (outcome.kind === "imported") {
+      await refresh();
+      setFlash(
+        outcome.replaced
+          ? `Template “${outcome.template.name}” substituído.`
+          : `Template “${outcome.template.name}” importado.`,
+      );
+    }
+  }
 
   return (
     <div className="flex h-full flex-col">
@@ -73,10 +148,12 @@ export function Gallery() {
             <Button
               variant="outline"
               size="sm"
-              disabled
-              title="Disponível em WP-14"
+              onClick={handleImport}
+              disabled={importing}
+              aria-label="Importar template .etlbl"
             >
-              Importar
+              <Download className="h-4 w-4" aria-hidden="true" />
+              {importing ? "Importando…" : "Importar"}
             </Button>
             <Button size="sm" onClick={() => setNewOpen(true)}>
               <Plus className="h-4 w-4" aria-hidden="true" />
@@ -109,6 +186,22 @@ export function Gallery() {
             {error}
           </div>
         )}
+        {flashError && (
+          <div
+            role="alert"
+            className="mb-4 rounded-md border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive"
+          >
+            {flashError}
+          </div>
+        )}
+        {flash && (
+          <div
+            role="status"
+            className="mb-4 rounded-md border border-emerald-500/40 bg-emerald-500/10 p-3 text-sm text-emerald-700 dark:text-emerald-300"
+          >
+            {flash}
+          </div>
+        )}
         {loading && active.length === 0 && (
           <p className="text-sm text-muted-foreground">Carregando templates…</p>
         )}
@@ -134,6 +227,9 @@ export function Gallery() {
                     void duplicateTemplate(id);
                   }}
                   onRename={(template) => setRenameTarget(template)}
+                  onExport={(template) => {
+                    void handleExport(template);
+                  }}
                   onDelete={(template) => setDeleteTarget(template)}
                 />
               </li>
@@ -176,6 +272,17 @@ export function Gallery() {
           }
         }}
       />
+      {conflict && (
+        <ImportConflictModal
+          open={true}
+          incomingName={conflict.inspect.name}
+          existing={conflict.existing}
+          onOpenChange={(open) => {
+            if (!open) setConflict(null);
+          }}
+          onResolve={handleConflictResolve}
+        />
+      )}
     </div>
   );
 }

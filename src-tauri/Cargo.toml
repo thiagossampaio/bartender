@@ -16,7 +16,7 @@ crate-type = ["staticlib", "cdylib", "rlib"]
 tauri-build = { version = "2.0.3", features = [] }
 
 [dependencies]
-tauri = { version = "2.1.1", features = [] }
+tauri = { version = "2.1.1", features = ["protocol-asset"] }
 tauri-plugin-dialog = "2.0.3"
 tauri-plugin-fs = "2.0.3"
 tauri-plugin-os = "2.0.1"
@@ -54,6 +54,12 @@ base64 = "0.22"
 # Expõe enumeração, status e envio raw com a mesma API multiplataforma —
 # eliminando a necessidade de FFI manual a `winspool`/`libcups`.
 printers = "2.0"
+# Pacote `.etlbl` (WP-14 / SPEC-11): ZIP com manifest + assets + thumbnail.
+# `zip` 0.6 oferece reader/writer puros sem dependência de OpenSSL; basta
+# para o nosso uso (deflate). `sha2` calcula o hash SHA-256 que vai no
+# `manifest.json` para validar integridade do conteúdo no import.
+zip = { version = "0.6", default-features = false, features = ["deflate"] }
+sha2 = "0.10"
 
 [features]
 # Esta feature é habilitada pelo `tauri dev` automaticamente; necessária para dev tools.

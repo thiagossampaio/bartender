@@ -505,6 +505,7 @@
 | Campo | Valor |
 |---|---|
 | **ID** | WP-14 |
+| **Status** | ✅ Concluído |
 | **Spec relacionada** | [SPEC-11 — Import/Export de Templates (.etlbl)](./specs.md#spec-11--importexport-de-templates-etlbl) |
 | **Estimativa** | 4d |
 | **Dependências** | WP-03 |

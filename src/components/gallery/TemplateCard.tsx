@@ -23,10 +23,10 @@ import { templatesGetThumbnail, type TemplateRow } from "@/lib/templates";
  * save invalida o cache visual). O BLOB é convertido em `ObjectURL` para
  * exibição e revogado quando o card desmonta ou troca de template.
  *
- * O menu de contexto (Duplicar / Renomear / Excluir) é entregue por callbacks
- * para manter este componente puro/testável. "Exportar" é deixado como
- * placeholder visível mas inativo: a feature entra em [WP-14](../../../specs/work-plan.md#wp-14--importexport-etlbl-zip--manifest--validação-de-hashschema)
- * (`.etlbl`); SPEC-03 explicitamente delega a SPEC-11.
+ * O menu de contexto (Duplicar / Renomear / Exportar / Excluir) é entregue por
+ * callbacks para manter este componente puro/testável. "Exportar" gera um
+ * arquivo `.etlbl` (WP-14 / SPEC-11) — formato ZIP com `template.json` + hash
+ * para garantir round-trip 100 % fidelidade entre instalações.
  */
 interface TemplateCardProps {
   template: TemplateRow;
@@ -34,6 +34,8 @@ interface TemplateCardProps {
   onOpen: (id: number) => void;
   onDuplicate: (id: number) => void;
   onRename: (template: TemplateRow) => void;
+  /** Exporta o template para um arquivo `.etlbl` (WP-14). */
+  onExport: (template: TemplateRow) => void;
   onDelete: (template: TemplateRow) => void;
 }
 
@@ -42,6 +44,7 @@ export function TemplateCard({
   onOpen,
   onDuplicate,
   onRename,
+  onExport,
   onDelete,
 }: TemplateCardProps) {
   const thumbnailUrl = useTemplateThumbnail(template.id, template.updatedAt);
@@ -105,7 +108,7 @@ export function TemplateCard({
               <DropdownMenuItem onClick={() => onRename(template)}>
                 Renomear
               </DropdownMenuItem>
-              <DropdownMenuItem disabled title="Disponível em WP-14">
+              <DropdownMenuItem onClick={() => onExport(template)}>
                 Exportar
               </DropdownMenuItem>
               <DropdownMenuItem destructive onClick={() => onDelete(template)}>

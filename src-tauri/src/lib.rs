@@ -1,9 +1,11 @@
 // Bootstrap WP-01 + persistência SQLite WP-02 + fontes WP-06 + PDF WP-08 +
 // detecção/impressão via driver do SO WP-09 + geração/envio PPLB WP-10 +
-// geração/envio ZPL WP-11 + leitura de fontes de dados CSV/XLSX WP-12.
+// geração/envio ZPL WP-11 + leitura de fontes de dados CSV/XLSX WP-12 +
+// Import/Export `.etlbl` WP-14.
 
 mod data_source;
 mod db;
+mod etlbl;
 mod fonts;
 mod pdf;
 mod pplb;
@@ -37,6 +39,8 @@ pub fn run() {
             app_version,
             data_source::data_source_read,
             db::db_path,
+            etlbl::etlbl_export,
+            etlbl::etlbl_inspect,
             fonts::fonts_list_system,
             pdf::pdf_export,
             pdf::pdf_export_bytes,

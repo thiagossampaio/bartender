@@ -7,3 +7,4 @@
 - [WP-11 ZPL](wp11-zpl.md) — tradutor canvas_json → ZPL (Zebra Link-OS), escape `^`/`~`, rotação NRIB, `zplPrint` reusa envio raw do PPLB
 - [WP-12 Data Import](wp12-data-import.md) — papaparse + xlsx (frontend), comando Rust `data_source_read` para leitura segura, extração de placeholders, mapeamento auto-match
 - [WP-13 Batch Print](wp13-batch-print.md) — wizard end-to-end (filtro/qtd/preview/destino); reusa exportPdf/buildPdfBytes/pplbPrint/zplPrint; sem comandos Rust novos
+- [WP-14 .etlbl](wp14-etlbl.md) — pacote ZIP + manifest sha256 + schema serde deny_unknown_fields + modal de conflito Substituir/Manter ambos/Cancelar
