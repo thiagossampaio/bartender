@@ -1,5 +1,6 @@
 import { Editor } from "@/components/editor/Editor";
 import { Gallery } from "@/components/gallery/Gallery";
+import { History } from "@/components/history/History";
 import { Trash } from "@/components/trash/Trash";
 import { useTemplatesStore } from "@/lib/stores/templates-store";
 
@@ -7,9 +8,9 @@ import { useTemplatesStore } from "@/lib/stores/templates-store";
  * Entry point.
  *
  * WP-03 alternava entre Galeria e Lixeira via store. WP-04 acrescenta a view
- * `editor`. Quando um router mais robusto for necessário (deep-links,
- * histórico de navegação), trocamos por `react-router` — por ora este
- * switch enum-based é o suficiente.
+ * `editor`; WP-15 adiciona a view `history`. Quando um router mais robusto
+ * for necessário (deep-links, histórico de navegação), trocamos por
+ * `react-router` — por ora este switch enum-based é o suficiente.
  */
 export default function App() {
   const view = useTemplatesStore((s) => s.view);
@@ -18,6 +19,7 @@ export default function App() {
       {view === "gallery" && <Gallery />}
       {view === "trash" && <Trash />}
       {view === "editor" && <Editor />}
+      {view === "history" && <History />}
     </div>
   );
 }

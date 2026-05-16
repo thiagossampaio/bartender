@@ -12,7 +12,7 @@
 
 import { invoke } from "@tauri-apps/api/core";
 
-import { dbExecute } from "@/lib/db";
+import { historyRecord, type PrintDataSource } from "@/lib/history";
 import { printersPrintRaw } from "@/lib/pplb";
 import { printersMarkUsed } from "@/lib/printers";
 
@@ -33,23 +33,30 @@ export async function zplGenerate(
   });
 }
 
+/** Opções para o registro no histórico (WP-15). Defaults preservam o
+ * comportamento manual single-label do PrintDialog. */
+export interface ZplPrintOptions {
+  /** Origem dos dados — `manual` quando vem do editor sem dataset; `csv`/`xlsx`
+   * quando o caller veio do wizard de lote (WP-13). */
+  dataSource?: PrintDataSource;
+  /** Caminho do arquivo de origem (quando `dataSource` ∈ {csv,xlsx}). */
+  sourcePath?: string | null;
+}
+
 /**
  * Pipeline completo: `canvas_json` → ZPL → envio raw para a impressora.
  * Atualiza `last_used_at` em sucesso e (opcionalmente) registra o evento em
  * `print_history` quando `templateId` é fornecido. Pensado para ser chamado
  * pelo callback `onNativeIntent` do [`PrintDialog`] quando a impressora
- * selecionada é Zebra (`language === "ZPL"`).
- *
- * O insert em `print_history` é best-effort — o histórico completo
- * (consolidação, paginação, telemetria) entra em [WP-15]. Aqui apenas
- * cobrimos o critério "DEVE registrar impressão em `print_history` com
- * `mode = 'raw_zpl'`" do [SPEC-10] sem bloquear o pipeline de impressão.
+ * selecionada é Zebra (`language === "ZPL"`) e pelo runner do
+ * BatchPrintWizard (WP-13).
  */
 export async function zplPrint(
   systemName: string,
   canvasJson: string,
   copies: number,
   templateId?: number,
+  options: ZplPrintOptions = {},
 ): Promise<{ jobId: string; zpl: string }> {
   const zpl = await zplGenerate(canvasJson, copies);
   // ZPL é ASCII puro (escapamos não-ASCII no Rust antes de chegar aqui).
@@ -58,18 +65,14 @@ export async function zplPrint(
   const jobId = await printersPrintRaw(systemName, bytes, copies);
   await printersMarkUsed(systemName);
   if (typeof templateId === "number" && templateId > 0) {
-    try {
-      await dbExecute(
-        `INSERT INTO print_history
-           (template_id, printer_name, mode, quantity, data_source)
-         VALUES ($1, $2, 'raw_zpl', $3, 'manual')`,
-        [templateId, systemName, copies],
-      );
-    } catch (e) {
-      // Best-effort; WP-15 owns o histórico completo.
-      // eslint-disable-next-line no-console
-      console.warn("print_history insert falhou", e);
-    }
+    await historyRecord({
+      templateId,
+      printerName: systemName,
+      mode: "raw_zpl",
+      quantity: copies,
+      dataSource: options.dataSource ?? "manual",
+      sourcePath: options.sourcePath ?? null,
+    });
   }
   return { jobId, zpl };
 }

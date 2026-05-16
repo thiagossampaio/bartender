@@ -25,6 +25,7 @@
 
 import { suggestPdfFileName, exportPdf, buildPdfBytes } from "@/lib/pdf/export";
 import { canvasToJsonString } from "@/lib/canvas/serializer";
+import { historyRecord, type PrintDataSource } from "@/lib/history";
 import { pplbPrint } from "@/lib/pplb";
 import { printersMarkUsed, printersPrintRaster } from "@/lib/printers";
 import { zplPrint } from "@/lib/zpl";
@@ -73,6 +74,17 @@ export async function runBatch(opts: RunBatchOptions): Promise<RunBatchResult> {
     objects: p.objects,
   }));
 
+  // Origem dos dados — propagada para `print_history` ([SPEC-12]).
+  // Quando o usuário usou uma planilha, registramos o tipo + caminho para a
+  // tela `History` (WP-15) poder validar reimpressão.
+  const dataSource: PrintDataSource =
+    plan.dataset.source === "csv"
+      ? "csv"
+      : plan.dataset.source === "xlsx"
+        ? "xlsx"
+        : "manual";
+  const sourcePath = plan.dataset.filePath ?? null;
+
   if (destination.kind === "pdf") {
     const result = await exportPdf({
       pages,
@@ -83,6 +95,20 @@ export async function runBatch(opts: RunBatchOptions): Promise<RunBatchResult> {
       return { printed: 0, cancelled: true };
     }
     onProgress?.(total, total);
+    // PDF não é "impressão" stricto sensu, mas o SPEC-12 critério 1 trata
+    // qualquer despacho do wizard como entrada do histórico. Registramos com
+    // `mode = "driver"` (não há linguagem nativa envolvida) e
+    // `printer_name = "PDF"` para distinção visual na tela `History`.
+    if (templateId) {
+      void historyRecord({
+        templateId,
+        printerName: "PDF",
+        mode: "driver",
+        quantity: total,
+        dataSource,
+        sourcePath,
+      });
+    }
     return { printed: total, pdfPath: result.path };
   }
 
@@ -91,6 +117,16 @@ export async function runBatch(opts: RunBatchOptions): Promise<RunBatchResult> {
     const jobId = await printersPrintRaster(destination.printerName, bytes, 1);
     await printersMarkUsed(destination.printerName);
     onProgress?.(total, total);
+    if (templateId) {
+      void historyRecord({
+        templateId,
+        printerName: destination.printerName,
+        mode: "driver",
+        quantity: total,
+        dataSource,
+        sourcePath,
+      });
+    }
     return { printed: total, jobId };
   }
 
@@ -116,6 +152,7 @@ export async function runBatch(opts: RunBatchOptions): Promise<RunBatchResult> {
         canvasJson,
         qty,
         templateId,
+        { dataSource, sourcePath },
       );
       lastJobId = res.jobId;
     } else {
@@ -124,6 +161,7 @@ export async function runBatch(opts: RunBatchOptions): Promise<RunBatchResult> {
         canvasJson,
         qty,
         templateId,
+        { dataSource, sourcePath },
       );
       lastJobId = res.jobId;
     }

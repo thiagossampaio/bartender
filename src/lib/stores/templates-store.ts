@@ -29,7 +29,7 @@ import {
   templatesUpdateCanvas,
 } from "@/lib/templates";
 
-export type AppView = "gallery" | "trash" | "editor";
+export type AppView = "gallery" | "trash" | "editor" | "history";
 
 interface TemplatesState {
   view: AppView;
@@ -128,8 +128,10 @@ export const useTemplatesStore = create<TemplatesState>((set, get) => ({
   refresh: async () => {
     const { view, searchTerm } = get();
     // O editor não precisa da lista global; carrega seu próprio template via
-    // `templatesGetCanvasJson`. Refresh aqui seria desperdício.
-    if (view === "editor") return;
+    // `templatesGetCanvasJson`. Refresh aqui seria desperdício. A view
+    // `history` (WP-15) também não usa active/trashed — ela é controlada
+    // pelo próprio componente `History`.
+    if (view === "editor" || view === "history") return;
     set({ loading: true, error: null });
     try {
       if (view === "gallery") {

@@ -54,6 +54,13 @@ export interface ParsedDataset {
   csvDelimiter?: string;
   /** Nome do arquivo (sem path) — para o badge na UI. */
   fileName?: string;
+  /**
+   * Caminho absoluto do arquivo selecionado pelo usuário (preservado pelo
+   * `parseDataFile` quando lê do disco via Tauri). Persistido em
+   * `print_history.source_path` para que o WP-15 saiba se a fonte original
+   * ainda existe ao oferecer "Reimprimir".
+   */
+  filePath?: string;
 }
 
 const BOM = "﻿";
@@ -279,9 +286,11 @@ export async function parseDataFile(filePath: string): Promise<ParsedDataset> {
   try {
     if (lower.endsWith(".csv") || lower.endsWith(".txt")) {
       const text = new TextDecoder("utf-8").decode(raw);
-      return parseCsvText(text, fileName);
+      const ds = parseCsvText(text, fileName);
+      return { ...ds, filePath };
     }
-    return parseXlsxBytes(raw, fileName);
+    const ds = parseXlsxBytes(raw, fileName);
+    return { ...ds, filePath };
   } catch (e) {
     if (e instanceof DataParseError) throw e;
     if (e instanceof Error) {

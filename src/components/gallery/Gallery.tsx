@@ -1,5 +1,14 @@
 import * as React from "react";
-import { Download, Plus, Search, Trash2 } from "lucide-react";
+import {
+  Crosshair,
+  Download,
+  History as HistoryIcon,
+  Plus,
+  Printer as PrinterIcon,
+  Search,
+  TestTube2,
+  Trash2,
+} from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -8,6 +17,10 @@ import { ImportConflictModal } from "@/components/gallery/ImportConflictModal";
 import { NewTemplateModal } from "@/components/gallery/NewTemplateModal";
 import { RenameModal } from "@/components/gallery/RenameModal";
 import { TemplateCard } from "@/components/gallery/TemplateCard";
+import {
+  PrinterToolsModal,
+  type PrinterToolMode,
+} from "@/components/history/PrinterToolsModal";
 import {
   commitImport,
   exportTemplate,
@@ -56,6 +69,11 @@ export function Gallery() {
   } | null>(null);
   const [flash, setFlash] = React.useState<string | null>(null);
   const [flashError, setFlashError] = React.useState<string | null>(null);
+  // Menu Impressora (WP-15 / SPEC-12 §"Comportamento esperado" itens 3 e 4).
+  const [printerMenuOpen, setPrinterMenuOpen] = React.useState(false);
+  const [printerTool, setPrinterTool] = React.useState<PrinterToolMode | null>(
+    null,
+  );
 
   // Carrega na primeira renderização da galeria.
   React.useEffect(() => {
@@ -136,6 +154,23 @@ export function Gallery() {
             </p>
           </div>
           <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setView("history")}
+              aria-label="Abrir histórico de impressões"
+            >
+              <HistoryIcon className="h-4 w-4" aria-hidden="true" />
+              Histórico
+            </Button>
+            <PrinterMenu
+              open={printerMenuOpen}
+              onOpenChange={setPrinterMenuOpen}
+              onChoose={(mode) => {
+                setPrinterMenuOpen(false);
+                setPrinterTool(mode);
+              }}
+            />
             <Button
               variant="outline"
               size="sm"
@@ -282,6 +317,81 @@ export function Gallery() {
           }}
           onResolve={handleConflictResolve}
         />
+      )}
+
+      <PrinterToolsModal
+        open={printerTool !== null}
+        mode={printerTool ?? "calibrate"}
+        onOpenChange={(open) => {
+          if (!open) setPrinterTool(null);
+        }}
+      />
+    </div>
+  );
+}
+
+/**
+ * Botão "Impressora" + dropdown com Calibrar / Página de teste
+ * (WP-15 / SPEC-12 itens 3 e 4). Mantém o estado open no caller para
+ * coordenar com a abertura do modal subsequente.
+ */
+function PrinterMenu({
+  open,
+  onOpenChange,
+  onChoose,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  onChoose: (mode: PrinterToolMode) => void;
+}) {
+  // Usamos posicionamento absoluto local em vez de Portal — o app não tem
+  // overlay manager dedicado e o menu deve fechar quando o usuário muda de
+  // view. Wrapper com `relative` posiciona o dropdown.
+  return (
+    <div className="relative inline-block">
+      <Button
+        variant="outline"
+        size="sm"
+        onClick={() => onOpenChange(!open)}
+        aria-haspopup="menu"
+        aria-expanded={open}
+        aria-label="Menu de impressora"
+      >
+        <PrinterIcon className="h-4 w-4" aria-hidden="true" />
+        Impressora
+      </Button>
+      {open && (
+        <>
+          {/* Backdrop para click-fora; transparente. */}
+          <div
+            className="fixed inset-0 z-10"
+            onClick={() => onOpenChange(false)}
+            aria-hidden="true"
+          />
+          <div
+            role="menu"
+            className="absolute right-0 z-20 mt-1 min-w-[14rem] rounded-md border bg-popover p-1 text-popover-foreground shadow-md"
+          >
+            <button
+              type="button"
+              role="menuitem"
+              onClick={() => onChoose("calibrate")}
+              className="flex w-full cursor-pointer items-center gap-2 rounded-sm px-2 py-1.5 text-sm outline-none transition-colors hover:bg-accent hover:text-accent-foreground"
+            >
+              <Crosshair className="h-4 w-4" aria-hidden="true" />
+              Calibrar impressora…
+            </button>
+            <button
+              type="button"
+              role="menuitem"
+              onClick={() => onChoose("test")}
+              className="flex w-full cursor-pointer items-center gap-2 rounded-sm px-2 py-1.5 text-sm outline-none transition-colors hover:bg-accent hover:text-accent-foreground"
+            >
+              <TestTube2 className="h-4 w-4" aria-hidden="true" />
+              Imprimir página de teste…
+            </button>
+          </div>
+        </>
       )}
     </div>
   );

@@ -4,6 +4,7 @@ import { Loader2, Printer as PrinterIcon, RefreshCw, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { historyRecord } from "@/lib/history";
 import {
   languageBadge,
   printersGetStatus,
@@ -51,12 +52,18 @@ export interface PrintDialogProps {
   onOpenChange: (open: boolean) => void;
   /**
    * Chamado quando o usuário escolhe imprimir em modo nativo (PPLB/ZPL).
-   * Em WP-09 ainda não temos o tradutor pronto, então o caller pode apenas
-   * exibir um aviso "modo nativo disponível a partir de WP-10".
+   * O caller é responsável por delegar a `pplbPrint` / `zplPrint`, que já
+   * registram em `print_history` ([WP-15] / [SPEC-12]).
    */
   onNativeIntent?: (req: PrintRequest) => Promise<void> | void;
   /** Notificação opcional de sucesso (job id retornado pelo spooler). */
   onPrinted?: (req: PrintRequest, jobId: string) => void;
+  /**
+   * Id do template aberto — propagado para `print_history` quando o modo
+   * driver-do-SO é usado (WP-15 / SPEC-12 critério 1). Sem este id, a
+   * impressão sai mas não fica no histórico para reimpressão.
+   */
+  templateId?: number;
 }
 
 export function PrintDialog({
@@ -65,6 +72,7 @@ export function PrintDialog({
   onOpenChange,
   onNativeIntent,
   onPrinted,
+  templateId,
 }: PrintDialogProps) {
   const [printers, setPrinters] = React.useState<PrinterInfo[]>([]);
   const [statusByName, setStatusByName] = React.useState<Record<string, PrinterStatus>>(
@@ -182,6 +190,18 @@ export function PrintDialog({
           copies,
         );
         await printersMarkUsed(selected.systemName);
+        // WP-15: registra a impressão manual via driver no histórico para
+        // habilitar reimpressão posterior. Best-effort (não interrompe a
+        // feedback de sucesso se o INSERT falhar).
+        if (typeof templateId === "number" && templateId > 0) {
+          void historyRecord({
+            templateId,
+            printerName: selected.systemName,
+            mode: "driver",
+            quantity: copies,
+            dataSource: "manual",
+          });
+        }
         setPrintResult(`Job enviado: ${jobId}`);
         onPrinted?.(req, jobId);
       }
@@ -191,7 +211,15 @@ export function PrintDialog({
     } finally {
       setPrinting(false);
     }
-  }, [selected, copies, nativeMode, getPdfBytes, onPrinted, onNativeIntent]);
+  }, [
+    selected,
+    copies,
+    nativeMode,
+    getPdfBytes,
+    onPrinted,
+    onNativeIntent,
+    templateId,
+  ]);
 
   if (!open) return null;
 

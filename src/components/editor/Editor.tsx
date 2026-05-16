@@ -547,6 +547,7 @@ export function Editor() {
         getPdfBytes={collectPdfBytes}
         onOpenChange={setPrintOpen}
         onNativeIntent={handleNativeIntent}
+        templateId={template?.id}
       />
 
       <DataImportDialog

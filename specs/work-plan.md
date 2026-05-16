@@ -538,6 +538,7 @@
 | Campo | Valor |
 |---|---|
 | **ID** | WP-15 |
+| **Status** | ✅ Concluído |
 | **Spec relacionada** | [SPEC-12 — Histórico de Impressões, Calibração e Página de Teste](./specs.md#spec-12--histórico-de-impressões-calibração-e-página-de-teste) |
 | **Estimativa** | 4d |
 | **Dependências** | WP-13 |

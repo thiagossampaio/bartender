@@ -317,6 +317,170 @@ pub fn printers_print_raw(
     Ok(job_name)
 }
 
+/// Comando "Calibrar impressora" ([WP-15] / [SPEC-12]).
+///
+/// Envia o comando nativo de auto-sense para a impressora detectada:
+///  - **Argox PPLB:** `U\n` — alimenta a etiqueta e detecta o gap.
+///  - **Zebra ZPL:**  `~JC\n` — equivalente da família Link-OS.
+///
+/// Para impressoras genéricas (`PrinterLanguage::Driver`) devolvemos
+/// `PrintersError::Driver("não calibrável")` porque não há comando portátil
+/// — a UI desabilita o item de menu para esses casos.
+///
+/// O envio reusa `Printer::print` (raw) do mesmo loop usado por
+/// `printers_print_raw` (WP-10/WP-11), garantindo que o spooler **não**
+/// interprete o conteúdo. Devolvemos o nome de job gerado para
+/// rastreabilidade (não persiste em `print_history`: calibração não é uma
+/// "impressão" do usuário; é uma ação de manutenção).
+#[tauri::command]
+pub fn printer_calibrate(printer_name: String) -> Result<String, PrintersError> {
+    let all = printers::get_printers();
+    let printer = all
+        .iter()
+        .find(|p| p.system_name == printer_name || p.name == printer_name)
+        .ok_or_else(|| PrintersError::NotFound(printer_name.clone()))?;
+    let driver = if printer.driver_name.is_empty() {
+        None
+    } else {
+        Some(printer.driver_name.as_str())
+    };
+    let language = detect_language(&printer.system_name, &printer.name, driver);
+    let bytes: &[u8] = match language {
+        PrinterLanguage::Pplb => b"U\n",
+        PrinterLanguage::Zpl => b"~JC\n",
+        PrinterLanguage::Driver => {
+            return Err(PrintersError::Driver(
+                "Impressora não detectada como Argox/Zebra — calibração não disponível.".into(),
+            ));
+        }
+    };
+    let job_name = format!("{}-calibrate", job_name_now());
+    printer
+        .print(bytes, Some(job_name.as_str()))
+        .map_err(|e| PrintersError::Driver(format!("{:?}", e)))?;
+    Ok(job_name)
+}
+
+/// Comando "Imprimir página de teste" ([WP-15] / [SPEC-12]).
+///
+/// Gera uma etiqueta de teste com nome do modelo + linguagem inferida + DPI
+/// e a despacha:
+///  - **PPLB:** envelope ASCII com `Q200,24` / `D8` / `A` instructions.
+///  - **ZPL:**  envelope ZPL com `^FO`/`^A0`/`^FD` e `^XZ` final.
+///  - **Driver:** retorna erro — a UI sugere imprimir pelo editor um
+///    template manual qualquer (sem comando portátil para "etiqueta de teste"
+///    em drivers genéricos).
+///
+/// Tamanho da etiqueta: 40 × 30 mm a 203 dpi (≈ 320 × 240 dots) — cabe nos
+/// modelos cobertos pelo PRD. O conteúdo é hard-coded e em ASCII para evitar
+/// dependência do `canvas_json` (a tela de teste deve funcionar mesmo sem
+/// nenhum template aberto).
+#[tauri::command]
+pub fn printer_test_page(printer_name: String) -> Result<String, PrintersError> {
+    let all = printers::get_printers();
+    let printer = all
+        .iter()
+        .find(|p| p.system_name == printer_name || p.name == printer_name)
+        .ok_or_else(|| PrintersError::NotFound(printer_name.clone()))?;
+    let driver = if printer.driver_name.is_empty() {
+        None
+    } else {
+        Some(printer.driver_name.as_str())
+    };
+    let language = detect_language(&printer.system_name, &printer.name, driver);
+    let payload = match language {
+        PrinterLanguage::Pplb => build_pplb_test_page(&printer.name, driver),
+        PrinterLanguage::Zpl => build_zpl_test_page(&printer.name, driver),
+        PrinterLanguage::Driver => {
+            return Err(PrintersError::Driver(
+                "Impressora não detectada como Argox/Zebra — abra um template e use o botão Imprimir para gerar uma página via driver do SO.".into(),
+            ));
+        }
+    };
+    let job_name = format!("{}-test", job_name_now());
+    printer
+        .print(payload.as_bytes(), Some(job_name.as_str()))
+        .map_err(|e| PrintersError::Driver(format!("{:?}", e)))?;
+    Ok(job_name)
+}
+
+/// Etiqueta de teste PPLB (Argox). 40×30 mm @ 203 dpi (≈ 320×240 dots).
+/// Não usamos a crate `pplb` interna para evitar acoplamento — esta é uma
+/// página estática que sai mesmo se o `canvas_json` ainda não foi
+/// estabilizado.
+fn build_pplb_test_page(model: &str, driver: Option<&str>) -> String {
+    // Sanitize: PPLB usa ASCII; trocamos chars não-ASCII por `?` defensivo.
+    let safe_model = sanitize_ascii(model);
+    let safe_driver = sanitize_ascii(driver.unwrap_or("-"));
+    let mut s = String::new();
+    s.push_str("N\r\n"); // limpa buffer
+    s.push_str("q320\r\n"); // largura em dots (40 mm * 8)
+    s.push_str("Q240,24\r\n"); // altura + gap
+    s.push_str("D8\r\n"); // densidade
+    // Cabeçalho: "ETIQUETADOR — Página de Teste"
+    s.push_str("A20,20,0,4,1,1,N,\"ETIQUETADOR\"\r\n");
+    s.push_str("A20,60,0,3,1,1,N,\"Pagina de Teste\"\r\n");
+    s.push_str(&format!(
+        "A20,100,0,2,1,1,N,\"Modelo: {}\"\r\n",
+        truncate(&safe_model, 28)
+    ));
+    s.push_str("A20,130,0,2,1,1,N,\"Linguagem: PPLB\"\r\n");
+    s.push_str("A20,160,0,2,1,1,N,\"DPI: 203\"\r\n");
+    s.push_str(&format!(
+        "A20,190,0,2,1,1,N,\"Driver: {}\"\r\n",
+        truncate(&safe_driver, 28)
+    ));
+    s.push_str("P1\r\n"); // imprime 1 etiqueta
+    s
+}
+
+/// Etiqueta de teste ZPL (Zebra). 40×30 mm @ 203 dpi (≈ 320×240 dots).
+fn build_zpl_test_page(model: &str, driver: Option<&str>) -> String {
+    let safe_model = sanitize_ascii(model);
+    let safe_driver = sanitize_ascii(driver.unwrap_or("-"));
+    let mut s = String::new();
+    s.push_str("^XA\n");
+    s.push_str("^PW320\n"); // print width
+    s.push_str("^LL240\n"); // label length
+    s.push_str("^LH0,0\n"); // home
+    s.push_str("^CI28\n"); // UTF-8 friendly fallback
+    s.push_str("^FO20,20^A0N,32,32^FDETIQUETADOR^FS\n");
+    s.push_str("^FO20,60^A0N,24,24^FDPagina de Teste^FS\n");
+    s.push_str(&format!(
+        "^FO20,100^A0N,20,20^FDModelo: {}^FS\n",
+        truncate(&safe_model, 28)
+    ));
+    s.push_str("^FO20,130^A0N,20,20^FDLinguagem: ZPL^FS\n");
+    s.push_str("^FO20,160^A0N,20,20^FDDPI: 203^FS\n");
+    s.push_str(&format!(
+        "^FO20,190^A0N,20,20^FDDriver: {}^FS\n",
+        truncate(&safe_driver, 28)
+    ));
+    s.push_str("^PQ1\n");
+    s.push_str("^XZ\n");
+    s
+}
+
+fn sanitize_ascii(input: &str) -> String {
+    input
+        .chars()
+        .map(|c| {
+            if c.is_ascii() && c != '"' && c != '\\' && c != '^' && c != '~' {
+                c
+            } else {
+                '?'
+            }
+        })
+        .collect()
+}
+
+fn truncate(s: &str, max: usize) -> String {
+    if s.chars().count() <= max {
+        return s.to_string();
+    }
+    s.chars().take(max).collect::<String>() + "..."
+}
+
 /// Stem do nome de job — `Etiquetador-<epoch-segundos>`. Sem dependência
 /// extra. Só precisa ser único o suficiente para o spooler distinguir
 /// chamadas; o histórico real (`print_history`) usa o `id` do INSERT.
@@ -434,6 +598,58 @@ mod tests {
         assert!(matches!(err, PrintersError::InvalidCopies(0)));
         let err = printers_print_raw("missing".into(), vec![1, 2, 3], 10_000).unwrap_err();
         assert!(matches!(err, PrintersError::InvalidCopies(10_000)));
+    }
+
+    #[test]
+    fn pplb_test_page_contains_model_and_language() {
+        // WP-15: a página de teste hardcoded para Argox deve carregar o
+        // modelo (cabeçalho), a linguagem e o DPI. Esses três campos são
+        // critério de aceite explícito do SPEC-12.
+        let page = build_pplb_test_page("Argox OS-214 Plus", Some("Generic / Text Only"));
+        assert!(page.contains("ETIQUETADOR"));
+        assert!(page.contains("Modelo: Argox OS-214 Plus"));
+        assert!(page.contains("Linguagem: PPLB"));
+        assert!(page.contains("DPI: 203"));
+        assert!(page.contains("Driver: Generic / Text Only"));
+        // Comandos PPLB mínimos que garantem que o spooler trate como raw.
+        assert!(page.starts_with("N\r\n"));
+        assert!(page.contains("P1\r\n"));
+    }
+
+    #[test]
+    fn zpl_test_page_contains_model_and_language() {
+        let page = build_zpl_test_page("Zebra ZD220", Some("ZDesigner ZD220"));
+        assert!(page.contains("ETIQUETADOR"));
+        assert!(page.contains("Modelo: Zebra ZD220"));
+        assert!(page.contains("Linguagem: ZPL"));
+        assert!(page.contains("DPI: 203"));
+        // Envelope ZPL.
+        assert!(page.starts_with("^XA"));
+        assert!(page.contains("^PQ1"));
+        assert!(page.trim_end().ends_with("^XZ"));
+    }
+
+    #[test]
+    fn test_page_sanitizes_problematic_chars() {
+        // O modelo pode vir com caracteres `^`/`~` (delimitadores ZPL/PPLB)
+        // ou aspas — sanitizamos para `?` antes de embarcar no payload.
+        let page = build_zpl_test_page("Foo^Bar~Baz", None);
+        assert!(!page.contains("Foo^Bar~Baz"));
+        assert!(page.contains("Foo?Bar?Baz"));
+    }
+
+    #[test]
+    fn calibrate_rejects_unknown_printer() {
+        // Defesa contra impressora apagada entre o `printers_list` e a
+        // chamada de calibração — frontend deve mostrar mensagem clara.
+        let err = printer_calibrate("ghost-printer-zxcvb".into()).unwrap_err();
+        assert!(matches!(err, PrintersError::NotFound(_)));
+    }
+
+    #[test]
+    fn test_page_rejects_unknown_printer() {
+        let err = printer_test_page("ghost-printer-zxcvb".into()).unwrap_err();
+        assert!(matches!(err, PrintersError::NotFound(_)));
     }
 
     #[test]

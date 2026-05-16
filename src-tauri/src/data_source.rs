@@ -72,6 +72,25 @@ pub fn data_source_read(path: String) -> Result<Vec<u8>, DataSourceError> {
     std::fs::read(&pb).map_err(|e| DataSourceError::Io(e.to_string()))
 }
 
+/// Verifica se um arquivo (apontado por `path`) existe no disco. Usado pela
+/// tela `History` ([WP-15] / [SPEC-12]) para decidir se "Reimprimir" deve
+/// ficar disponível para entradas com `data_source` `csv`/`xlsx` —
+/// requisito explícito do critério "SE `source_path` não existir mais
+/// ENTÃO reimpressão indisponível".
+///
+/// Não checamos extensão aqui — o caller pode usar para qualquer path
+/// armazenado em `print_history.source_path`. Retorna `false` para path
+/// vazio ou inexistente; nunca erra, para não derrubar a renderização
+/// da lista.
+#[tauri::command]
+pub fn path_exists(path: String) -> bool {
+    let trimmed = path.trim();
+    if trimmed.is_empty() {
+        return false;
+    }
+    Path::new(trimmed).exists()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -86,6 +105,22 @@ mod tests {
     fn rejects_unsupported_extension() {
         let err = data_source_read("/tmp/file.pdf".into()).unwrap_err();
         assert!(matches!(err, DataSourceError::UnsupportedExtension));
+    }
+
+    #[test]
+    fn path_exists_for_empty_returns_false() {
+        // Defesa: a UI da History pode passar string vazia se o valor estiver
+        // ausente; queremos `false` sem precisar de fallback no caller.
+        assert!(!path_exists(String::new()));
+        assert!(!path_exists("   ".into()));
+    }
+
+    #[test]
+    fn path_exists_returns_false_for_missing_path() {
+        // Path improvável de existir em qualquer máquina — confirma que o
+        // comando não panica e devolve `false` para "fonte original sumiu".
+        let bogus = "/nonexistent-etiquetador-history-test-path-42";
+        assert!(!path_exists(bogus.into()));
     }
 
     #[test]

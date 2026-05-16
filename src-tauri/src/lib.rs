@@ -1,7 +1,7 @@
 // Bootstrap WP-01 + persistência SQLite WP-02 + fontes WP-06 + PDF WP-08 +
 // detecção/impressão via driver do SO WP-09 + geração/envio PPLB WP-10 +
 // geração/envio ZPL WP-11 + leitura de fontes de dados CSV/XLSX WP-12 +
-// Import/Export `.etlbl` WP-14.
+// Import/Export `.etlbl` WP-14 + histórico/calibração/teste de impressora WP-15.
 
 mod data_source;
 mod db;
@@ -38,6 +38,7 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             app_version,
             data_source::data_source_read,
+            data_source::path_exists,
             db::db_path,
             etlbl::etlbl_export,
             etlbl::etlbl_inspect,
@@ -45,6 +46,8 @@ pub fn run() {
             pdf::pdf_export,
             pdf::pdf_export_bytes,
             pplb::pplb_generate,
+            printers::printer_calibrate,
+            printers::printer_test_page,
             printers::printers_list,
             printers::printers_get_status,
             printers::printers_print_raster,
