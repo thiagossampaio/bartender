@@ -401,11 +401,16 @@ interface ToolButtonProps {
 }
 
 function ToolButton({ onClick, icon, label, title, hint }: ToolButtonProps) {
+  // Garante que TODO controle do toolbar tem tooltip (WP-17 / SPEC-14 item 3).
+  // Quando o caller não passa `title`, usamos o próprio label — assim
+  // continuamos com a UX de hover legível em controles densos.
+  const tooltip = title ?? label;
   return (
     <button
       type="button"
       onClick={onClick}
-      title={title}
+      title={tooltip}
+      aria-label={label}
       className={cn(
         "flex items-center gap-2 rounded-md border border-transparent px-2 py-1.5 text-left text-sm transition-colors",
         "hover:bg-accent hover:text-accent-foreground",

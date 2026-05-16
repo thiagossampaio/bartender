@@ -1,5 +1,7 @@
 # Work Plan — Etiquetador
 
+> **Status geral:** ✅ Concluído (WP-01 … WP-17).
+>
 > Plano de execução baseado em [`./specs.md`](./specs.md), derivado de [`docs/prd.md`](../docs/prd.md).
 > Todos os WPs entregam valor independentemente (merge/deploy/validação isolada). Estimativas entre **4 e 5 dias** de trabalho cada. Princípio condutor: **infraestrutura antes de interface** (banco → backend → frontend → integração → polimento).
 > Total estimado: **≈ 70 dias úteis** (~14 semanas), aderente à estimativa de 13 semanas do PRD §10.
@@ -610,6 +612,7 @@
 | Campo | Valor |
 |---|---|
 | **ID** | WP-17 |
+| **Status** | ✅ Concluído |
 | **Spec relacionada** | [SPEC-14 — Usabilidade (Atalhos, i18n, Onboarding, Acessibilidade, Performance)](./specs.md#spec-14--usabilidade-atalhos-i18n-onboarding-acessibilidade-performance) |
 | **Estimativa** | 5d |
 | **Dependências** | Todos os anteriores |

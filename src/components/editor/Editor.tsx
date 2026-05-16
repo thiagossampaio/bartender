@@ -38,6 +38,7 @@ import { generateThumbnailPng } from "@/lib/canvas/thumbnail";
 import { canvasToJsonString, jsonToCanvas } from "@/lib/canvas/serializer";
 import { log } from "@/lib/logger";
 import { buildPdfBytes, exportPdf, suggestPdfFileName } from "@/lib/pdf/export";
+import { formatShortcut } from "@/lib/platform";
 import { pplbPrint } from "@/lib/pplb";
 import { zplPrint } from "@/lib/zpl";
 import { useEditorStore } from "@/lib/stores/editor-store";
@@ -506,8 +507,8 @@ export function Editor() {
               onClick={() => undo()}
               disabled={!canUndo}
               aria-label="Desfazer"
-              title="Desfazer (Ctrl/⌘+Z)"
-              className="flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-accent-foreground disabled:cursor-not-allowed disabled:opacity-40"
+              title={`Desfazer (${formatShortcut("Z")})`}
+              className="flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-40"
             >
               <Undo2 className="h-4 w-4" aria-hidden="true" />
             </button>
@@ -516,8 +517,8 @@ export function Editor() {
               onClick={() => redo()}
               disabled={!canRedo}
               aria-label="Refazer"
-              title="Refazer (Ctrl/⌘+Shift+Z)"
-              className="flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-accent-foreground disabled:cursor-not-allowed disabled:opacity-40"
+              title={`Refazer (${formatShortcut("Z", { shift: true })})`}
+              className="flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-40"
             >
               <Redo2 className="h-4 w-4" aria-hidden="true" />
             </button>
@@ -582,7 +583,7 @@ export function Editor() {
             size="sm"
             onClick={handleSaveAs}
             disabled={saving}
-            title="Salvar como (Ctrl/⌘+Shift+S)"
+            title={`Salvar como (${formatShortcut("S", { shift: true })})`}
           >
             Salvar como
           </Button>
@@ -590,7 +591,7 @@ export function Editor() {
             size="sm"
             onClick={() => void handleSave()}
             disabled={saving || !dirty}
-            title="Salvar (Ctrl/⌘+S)"
+            title={`Salvar (${formatShortcut("S")})`}
           >
             <Save className="h-4 w-4" aria-hidden="true" />
             {saving ? "Salvando…" : "Salvar"}

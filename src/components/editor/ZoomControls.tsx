@@ -1,5 +1,6 @@
 import { Grid3x3, Magnet, ZoomIn, ZoomOut } from "lucide-react";
 
+import { formatShortcut } from "@/lib/platform";
 import { cn } from "@/lib/utils";
 import { useEditorStore, ZOOM_LEVELS } from "@/lib/stores/editor-store";
 
@@ -32,12 +33,14 @@ export function ZoomControls() {
           onClick={() => zoomOut()}
           className={iconBtnClass}
           aria-label="Reduzir zoom"
+          title={`Reduzir zoom (${formatShortcut("-")})`}
           disabled={zoom <= ZOOM_LEVELS[0]}
         >
           <ZoomOut className="h-4 w-4" aria-hidden="true" />
         </button>
         <select
           aria-label="Nível de zoom"
+          title={`Nível de zoom (${formatShortcut("0")} para 100%)`}
           value={zoom}
           onChange={(e) => setZoom(Number.parseFloat(e.target.value))}
           className="h-8 bg-transparent text-xs"
@@ -53,6 +56,7 @@ export function ZoomControls() {
           onClick={() => zoomIn()}
           className={iconBtnClass}
           aria-label="Aumentar zoom"
+          title={`Aumentar zoom (${formatShortcut("+")})`}
           disabled={zoom >= ZOOM_LEVELS[ZOOM_LEVELS.length - 1]}
         >
           <ZoomIn className="h-4 w-4" aria-hidden="true" />

@@ -10,3 +10,4 @@
 - [WP-14 .etlbl](wp14-etlbl.md) — pacote ZIP + manifest sha256 + schema serde deny_unknown_fields + modal de conflito Substituir/Manter ambos/Cancelar
 - [WP-15 History](wp15-history.md) — `historyRecord` centralizado, `historyCanReprint`+`path_exists`, view `history`, modal Calibrar/Teste Argox+Zebra
 - [WP-16 Reliability](wp16-reliability.md) — autosave (`autosave_*` em `<cache>/autosave/`), recovery modal, logger frontend/backend com `tracing`, ErrorBoundary global + `installGlobalErrorHandlers`
+- [WP-17 Polishing](wp17-polishing.md) — i18next + pt-BR.json, OnboardingTour custom (sem joyride), `formatShortcut()`, checklist QA hardware em docs/qa-hardware.md
