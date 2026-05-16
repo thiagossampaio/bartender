@@ -107,6 +107,7 @@
 | Campo | Valor |
 |---|---|
 | **ID** | WP-03 |
+| **Status** | ✅ Concluído |
 | **Spec relacionada** | [SPEC-03 — Gestão de Templates (Galeria, CRUD, Soft Delete)](./specs.md#spec-03--gestão-de-templates-galeria-crud-soft-delete) |
 | **Estimativa** | 5d |
 | **Dependências** | WP-02 |

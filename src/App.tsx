@@ -1,25 +1,18 @@
-import { Button } from "@/components/ui/button";
+import { Gallery } from "@/components/gallery/Gallery";
+import { Trash } from "@/components/trash/Trash";
+import { useTemplatesStore } from "@/lib/stores/templates-store";
 
 /**
- * Placeholder inicial (WP-01). A galeria de templates entra em WP-03.
- * Mantemos a janela leve para cumprir o target de cold start ≤ 3 s.
+ * Entry point (WP-03). A galeria é a tela inicial; alternamos para a Lixeira
+ * via store quando o usuário clica no botão correspondente. Quando o Editor
+ * entrar (WP-04), este componente cresce com um router mais robusto (provável
+ * `react-router` ou um state machine no store).
  */
 export default function App() {
+  const view = useTemplatesStore((s) => s.view);
   return (
-    <main className="flex min-h-screen flex-col items-center justify-center gap-6 p-8">
-      <div className="flex flex-col items-center gap-2 text-center">
-        <h1 className="text-3xl font-semibold tracking-tight">Etiquetador</h1>
-        <p className="text-muted-foreground">
-          Aplicativo desktop offline-first para criação e impressão de etiquetas.
-        </p>
-        <p className="text-xs text-muted-foreground">
-          Bootstrap WP-01 — Tauri 2.x + React + TypeScript + Vite + Tailwind +
-          shadcn/ui
-        </p>
-      </div>
-      <Button variant="default" disabled>
-        Galeria de templates (disponível em WP-03)
-      </Button>
-    </main>
+    <div className="flex h-screen w-screen flex-col bg-background text-foreground">
+      {view === "gallery" ? <Gallery /> : <Trash />}
+    </div>
   );
 }
