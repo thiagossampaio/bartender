@@ -16,6 +16,7 @@ import { CanvasArea } from "@/components/editor/CanvasArea";
 import { PreviewModal, type PreviewPage } from "@/components/editor/PreviewModal";
 import { PrintDialog } from "@/components/editor/PrintDialog";
 import { PropertiesPanel } from "@/components/editor/PropertiesPanel";
+import { RecoveryModal } from "@/components/editor/RecoveryModal";
 import { SaveAsModal } from "@/components/editor/SaveAsModal";
 import { Toolbar } from "@/components/editor/Toolbar";
 import { ZoomControls } from "@/components/editor/ZoomControls";
@@ -25,15 +26,28 @@ import {
   type DataImportResult,
 } from "@/components/data/DataImportDialog";
 import { BatchPrintWizard } from "@/components/batch/BatchPrintWizard";
+import {
+  autosaveClear,
+  autosaveLoad,
+  autosaveSave,
+  shouldOfferRecovery,
+  type AutosaveSnapshot,
+} from "@/lib/autosave";
 import { registerBundleFonts } from "@/lib/canvas/font-loader";
 import { generateThumbnailPng } from "@/lib/canvas/thumbnail";
-import { canvasToJsonString } from "@/lib/canvas/serializer";
+import { canvasToJsonString, jsonToCanvas } from "@/lib/canvas/serializer";
+import { log } from "@/lib/logger";
 import { buildPdfBytes, exportPdf, suggestPdfFileName } from "@/lib/pdf/export";
 import { pplbPrint } from "@/lib/pplb";
 import { zplPrint } from "@/lib/zpl";
 import { useEditorStore } from "@/lib/stores/editor-store";
 import { useTemplatesStore } from "@/lib/stores/templates-store";
 import { templatesGet, templatesGetCanvasJson } from "@/lib/templates";
+
+/** Intervalo de autosave (SPEC-13: 30 s entre snapshots). */
+const AUTOSAVE_INTERVAL_MS = 30_000;
+
+const editorLog = log.scope("editor");
 
 /**
  * Página `Editor` (WP-04 + WP-05 / SPEC-04).
@@ -92,6 +106,11 @@ export function Editor() {
   // Estado do BatchPrintWizard (WP-13). Só pode abrir quando há um dataset
   // importado com todos os placeholders mapeados.
   const [batchWizardOpen, setBatchWizardOpen] = React.useState(false);
+  // Estado da pergunta de recuperação (WP-16 / SPEC-13). `pending` guarda o
+  // snapshot enquanto o usuário decide; uma vez aceito ou descartado o
+  // objeto é apagado para o modal não reabrir em loop.
+  const [recoveryPending, setRecoveryPending] =
+    React.useState<AutosaveSnapshot | null>(null);
   const objects = useEditorStore((s) => s.objects);
   const canvasDef = useEditorStore((s) => s.canvas);
 
@@ -100,6 +119,7 @@ export function Editor() {
     let cancelled = false;
     setLoading(true);
     setLoadError(null);
+    setRecoveryPending(null);
     void (async () => {
       try {
         const row = await templatesGet(editingId);
@@ -111,6 +131,26 @@ export function Editor() {
         const json = await templatesGetCanvasJson(editingId);
         if (cancelled) return;
         loadTemplate(row, json);
+
+        // Recovery (WP-16 / SPEC-13 §"Comportamento esperado" item 2): se
+        // houver autosave mais recente que `updated_at`, propõe restauração.
+        try {
+          const snapshot = await autosaveLoad(editingId);
+          if (cancelled) return;
+          if (snapshot && shouldOfferRecovery(snapshot.mtimeMs, row.updatedAt)) {
+            editorLog.info(
+              `autosave mais novo que último save (id=${editingId}); abrindo modal de recuperação`,
+            );
+            setRecoveryPending(snapshot);
+          } else if (snapshot) {
+            // Snapshot velho — limpa para não ocupar espaço.
+            void autosaveClear(editingId);
+          }
+        } catch (autosaveErr) {
+          // Recovery é defesa em profundidade — falha aqui só vai pro log,
+          // o template já está carregado do banco.
+          editorLog.warn(`recovery falhou (id=${editingId})`, autosaveErr);
+        }
       } catch (e) {
         if (!cancelled) {
           setLoadError(e instanceof Error ? e.message : "Erro ao abrir template.");
@@ -139,6 +179,26 @@ export function Editor() {
     void registerBundleFonts();
   }, []);
 
+  // Autosave a cada 30 s (WP-16 / SPEC-13 §"Comportamento esperado" item 1).
+  // O timer fica vivo enquanto o editor está aberto com um template carregado.
+  // Snapshot só é enviado quando há mudanças não salvas — autosave de estado
+  // "limpo" só gastaria I/O sem benefício e poderia confundir o recovery.
+  React.useEffect(() => {
+    if (editingId == null) return;
+    const tick = () => {
+      const state = useEditorStore.getState();
+      if (!state.template || !state.dirty) return;
+      const json = state.toJsonString();
+      void autosaveSave(state.template.id, json).catch((err) => {
+        editorLog.warn(`autosave falhou (id=${state.template?.id})`, err);
+      });
+    };
+    const handle = window.setInterval(tick, AUTOSAVE_INTERVAL_MS);
+    return () => {
+      window.clearInterval(handle);
+    };
+  }, [editingId]);
+
   /**
    * Salva o estado atual do canvas no template aberto. Gera thumbnail
    * off-screen antes de persistir (RF-E-19 e SPEC-04 §"Mudanças necessárias").
@@ -159,8 +219,12 @@ export function Editor() {
       // Atualiza a row no store (updated_at/version refletem o save).
       useEditorStore.setState({ template: updated });
       markSaved();
+      // Save commitado — invalida o snapshot do autosave (WP-16: o
+      // recovery não deve sugerir restauração do que já está persistido).
+      void autosaveClear(updated.id);
     } catch (e) {
       setSaveError(e instanceof Error ? e.message : "Erro ao salvar.");
+      editorLog.error("save falhou", e);
     } finally {
       setSaving(false);
     }
@@ -187,8 +251,14 @@ export function Editor() {
       // "Salvar como" muda o template "ativo" do editor para o novo registro,
       // mirroring o comportamento de editores de imagem (após Salvar como, a
       // janela passa a editar o arquivo novo). Limpa o dirty também.
+      const previousId = state.template.id;
       useEditorStore.setState({ template: created });
       markSaved();
+      // Limpa qualquer autosave do template-origem: o trabalho atual passou
+      // a viver no novo registro e o original voltou a refletir o que está
+      // persistido no banco. Mantém o cache limpo para o próximo recovery.
+      void autosaveClear(previousId);
+      void autosaveClear(created.id);
     },
     [saveTemplateAs, markSaved],
   );
@@ -316,6 +386,51 @@ export function Editor() {
     },
     [],
   );
+
+  /**
+   * Aceita o snapshot do autosave: substitui o `canvas/objects` carregados
+   * pelo conteúdo recuperado e marca como `dirty` para o usuário decidir
+   * quando confirmar via "Salvar". O snapshot só é apagado no save bem-
+   * sucedido — assim, se o usuário recuperar e fechar sem salvar, o próximo
+   * abrir ainda oferece o recovery.
+   */
+  const handleRecoveryAccept = React.useCallback(() => {
+    if (!recoveryPending) return;
+    const state = useEditorStore.getState();
+    if (!state.template) return;
+    const fallback = {
+      width: state.canvas.width,
+      height: state.canvas.height,
+      dpi: state.canvas.dpi,
+      background: state.canvas.background,
+    };
+    const { canvas, objects: recoveredObjects } = jsonToCanvas(
+      recoveryPending.json,
+      fallback,
+    );
+    useEditorStore.setState({
+      canvas,
+      objects: recoveredObjects,
+      selectedIds: [],
+      past: [],
+      future: [],
+      dirty: true,
+    });
+    editorLog.info(
+      `usuário aceitou recuperação (id=${state.template.id}, objetos=${recoveredObjects.length})`,
+    );
+    setRecoveryPending(null);
+  }, [recoveryPending]);
+
+  /** Descarta o autosave e mantém o template do banco. */
+  const handleRecoveryDiscard = React.useCallback(() => {
+    const state = useEditorStore.getState();
+    if (state.template) {
+      void autosaveClear(state.template.id);
+      editorLog.info(`usuário descartou recuperação (id=${state.template.id})`);
+    }
+    setRecoveryPending(null);
+  }, []);
 
   useEditorShortcuts({ onSave: handleSave, onSaveAs: handleSaveAs });
 
@@ -576,6 +691,19 @@ export function Editor() {
         />
       )}
 
+      <RecoveryModal
+        open={recoveryPending !== null}
+        snapshotAt={
+          recoveryPending ? formatEpochMs(recoveryPending.mtimeMs) : ""
+        }
+        lastSavedAt={formatDbTimestamp(template?.updatedAt ?? null)}
+        onOpenChange={(o) => {
+          if (!o) setRecoveryPending(null);
+        }}
+        onRecover={handleRecoveryAccept}
+        onDiscard={handleRecoveryDiscard}
+      />
+
       <CloseConfirmDialog
         open={showCloseConfirm}
         saving={saving}
@@ -596,6 +724,34 @@ export function Editor() {
       />
     </div>
   );
+}
+
+/** Formata epoch ms para pt-BR; usado pelo modal de recuperação. */
+function formatEpochMs(ms: number): string {
+  if (!ms) return "—";
+  return new Intl.DateTimeFormat("pt-BR", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+  }).format(new Date(ms));
+}
+
+/** Formata um timestamp do SQLite (UTC) para pt-BR; idem ao do `Trash`. */
+function formatDbTimestamp(raw: string | null): string {
+  if (!raw) return "—";
+  const iso = raw.includes("T") ? raw : raw.replace(" ", "T") + "Z";
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return raw;
+  return new Intl.DateTimeFormat("pt-BR", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(d);
 }
 
 /**

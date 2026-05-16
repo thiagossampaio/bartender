@@ -49,7 +49,8 @@ export function Trash() {
           <div>
             <h1 className="text-2xl font-semibold tracking-tight">Lixeira</h1>
             <p className="text-sm text-muted-foreground">
-              Templates excluídos. Restaure ou apague em definitivo.
+              Templates excluídos. Restaure ou apague em definitivo. Itens
+              permanecem aqui indefinidamente — não há purga automática.
             </p>
           </div>
         </div>

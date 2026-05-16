@@ -9,3 +9,4 @@
 - [WP-13 Batch Print](wp13-batch-print.md) — wizard end-to-end (filtro/qtd/preview/destino); reusa exportPdf/buildPdfBytes/pplbPrint/zplPrint; sem comandos Rust novos
 - [WP-14 .etlbl](wp14-etlbl.md) — pacote ZIP + manifest sha256 + schema serde deny_unknown_fields + modal de conflito Substituir/Manter ambos/Cancelar
 - [WP-15 History](wp15-history.md) — `historyRecord` centralizado, `historyCanReprint`+`path_exists`, view `history`, modal Calibrar/Teste Argox+Zebra
+- [WP-16 Reliability](wp16-reliability.md) — autosave (`autosave_*` em `<cache>/autosave/`), recovery modal, logger frontend/backend com `tracing`, ErrorBoundary global + `installGlobalErrorHandlers`

@@ -573,6 +573,7 @@
 | Campo | Valor |
 |---|---|
 | **ID** | WP-16 |
+| **Status** | ✅ Concluído |
 | **Spec relacionada** | [SPEC-13 — Confiabilidade (Autosave, Recovery, Logs, Lixeira)](./specs.md#spec-13--confiabilidade-autosave-recovery-logs-lixeira) |
 | **Estimativa** | 5d |
 | **Dependências** | WP-03, WP-05 |

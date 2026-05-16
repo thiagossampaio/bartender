@@ -14,6 +14,13 @@ metadata:
 warning por isso, mas esse é o padrão canônico do shadcn/ui e está documentado.
 Manter como warning, não promover a erro.
 
+`src/components/ErrorBoundary.tsx` (WP-16) define `ErrorScreen`,
+`ErrorOverlay` e `DetailBlock` como helpers funcionais privados no mesmo
+arquivo da classe `ErrorBoundary`. ESLint emite 3 warnings de
+`react-refresh/only-export-components`. É proposital: o boundary é
+auto-contido (sem dep externa exceto `Button`) para sobreviver quando a
+árvore principal falha; mover os helpers iria contra esse desenho.
+
 ## React error decoder URL no bundle
 
 O bundle Vite contém a string `https://reactjs.org/docs/error-decoder.html`,

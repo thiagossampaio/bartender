@@ -1,12 +1,15 @@
 // Bootstrap WP-01 + persistência SQLite WP-02 + fontes WP-06 + PDF WP-08 +
 // detecção/impressão via driver do SO WP-09 + geração/envio PPLB WP-10 +
 // geração/envio ZPL WP-11 + leitura de fontes de dados CSV/XLSX WP-12 +
-// Import/Export `.etlbl` WP-14 + histórico/calibração/teste de impressora WP-15.
+// Import/Export `.etlbl` WP-14 + histórico/calibração/teste de impressora WP-15 +
+// autosave / recovery / logs / panic hook WP-16.
 
+mod autosave;
 mod data_source;
 mod db;
 mod etlbl;
 mod fonts;
+mod logs;
 mod pdf;
 mod pplb;
 mod printers;
@@ -33,16 +36,33 @@ pub fn run() {
             db::initialize(app.handle()).map_err(|e| -> Box<dyn std::error::Error + Send + Sync> {
                 Box::new(std::io::Error::new(std::io::ErrorKind::Other, e.to_string()))
             })?;
+            // Logging com rotação + panic hook (WP-16 / SPEC-13). Tratamos
+            // erro como warning — logging é defesa em profundidade; um app
+            // sem log ainda funciona, só perde diagnóstico.
+            if let Err(err) = logs::initialize(app.handle()) {
+                eprintln!("[warn] não foi possível iniciar logger: {err}");
+            }
+            // Diretório de autosave em `<cache>/autosave/`. Idem: warning,
+            // não fatal.
+            if let Err(err) = autosave::initialize(app.handle()) {
+                eprintln!("[warn] não foi possível iniciar autosave: {err}");
+            }
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
             app_version,
+            autosave::autosave_clear,
+            autosave::autosave_dir,
+            autosave::autosave_load,
+            autosave::autosave_save,
             data_source::data_source_read,
             data_source::path_exists,
             db::db_path,
             etlbl::etlbl_export,
             etlbl::etlbl_inspect,
             fonts::fonts_list_system,
+            logs::log_event,
+            logs::logs_dir,
             pdf::pdf_export,
             pdf::pdf_export_bytes,
             pplb::pplb_generate,

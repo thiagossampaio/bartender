@@ -60,6 +60,15 @@ printers = "2.0"
 # `manifest.json` para validar integridade do conteúdo no import.
 zip = { version = "0.6", default-features = false, features = ["deflate"] }
 sha2 = "0.10"
+# Logging estruturado com rotação (WP-16 / SPEC-13).
+# `tracing` é a fachada usada em todo o backend. `tracing-subscriber` instala
+# o consumidor global (formatador + filtro). `tracing-appender` faz a
+# rotação diária do arquivo de log. Já estavam disponíveis transitivamente
+# via `sqlx`/`tauri`; declaramos explicitamente para garantir versão estável
+# e não depender de re-export indireto.
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", default-features = false, features = ["fmt", "env-filter"] }
+tracing-appender = "0.2"
 
 [features]
 # Esta feature é habilitada pelo `tauri dev` automaticamente; necessária para dev tools.
