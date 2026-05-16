@@ -23,6 +23,8 @@ import type { TemplateRow } from "@/lib/templates";
  */
 interface TemplateCardProps {
   template: TemplateRow;
+  /** Abre o template no editor (WP-04). */
+  onOpen: (id: number) => void;
   onDuplicate: (id: number) => void;
   onRename: (template: TemplateRow) => void;
   onDelete: (template: TemplateRow) => void;
@@ -30,20 +32,33 @@ interface TemplateCardProps {
 
 export function TemplateCard({
   template,
+  onOpen,
   onDuplicate,
   onRename,
   onDelete,
 }: TemplateCardProps) {
   return (
     <Card className="group relative">
-      <ThumbnailPlaceholder
-        widthMm={template.widthMm}
-        heightMm={template.heightMm}
-        orientation={template.orientation}
-      />
+      <button
+        type="button"
+        onClick={() => onOpen(template.id)}
+        className="block w-full cursor-pointer text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+        aria-label={`Abrir ${template.name} no editor`}
+      >
+        <ThumbnailPlaceholder
+          widthMm={template.widthMm}
+          heightMm={template.heightMm}
+          orientation={template.orientation}
+        />
+      </button>
       <CardHeader className="pb-2 pt-3">
         <div className="flex items-start justify-between gap-2">
-          <div className="min-w-0 flex-1">
+          <button
+            type="button"
+            onClick={() => onOpen(template.id)}
+            className="min-w-0 flex-1 cursor-pointer text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-sm"
+            aria-label={`Abrir ${template.name} no editor`}
+          >
             <h3
               className="truncate text-sm font-semibold leading-tight"
               title={template.name}
@@ -53,7 +68,7 @@ export function TemplateCard({
             <p className="text-xs text-muted-foreground">
               {formatDimensions(template)} · {template.dpi} dpi
             </p>
-          </div>
+          </button>
           <DropdownMenu>
             <DropdownMenuTrigger
               aria-label={`Ações para ${template.name}`}
@@ -62,6 +77,9 @@ export function TemplateCard({
               <MoreVertical className="h-4 w-4" aria-hidden="true" />
             </DropdownMenuTrigger>
             <DropdownMenuContent>
+              <DropdownMenuItem onClick={() => onOpen(template.id)}>
+                Editar
+              </DropdownMenuItem>
               <DropdownMenuItem onClick={() => onDuplicate(template.id)}>
                 Duplicar
               </DropdownMenuItem>

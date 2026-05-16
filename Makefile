@@ -45,10 +45,14 @@ lint:
 #     há erro minificado. Nunca é fetchada.
 #   - www.w3.org/...                       → namespaces XML/SVG/XHTML.
 #   - www.apple.com/DTDs/...               → DTD do plist do macOS.
+#   - github.com/konvajs/react-konva/...   → links para issues impressos em
+#     mensagens de erro do react-konva quando o usuário usa API errada.
+#   - konvajs.github.io/docs/...           → docs do Konva impressos em warnings.
+#   - konvajs.org/docs/...                 → idem (CORS/Tainted Canvas help).
 audit-bundle:
 	@echo "Procurando referências http(s):// no bundle (excluindo allowlist)..."
 	@if grep -RnE 'https?://[a-zA-Z0-9]' dist 2>/dev/null \
-		| grep -vE 'reactjs\.org/docs/error-decoder|www\.w3\.org|www\.apple\.com/DTDs'; then \
+		| grep -vE 'reactjs\.org/docs/error-decoder|www\.w3\.org|www\.apple\.com/DTDs|github\.com/konvajs/|konvajs\.github\.io/docs/|konvajs\.org/docs/'; then \
 		echo "FALHA: URLs externas detectadas fora da allowlist."; \
 		exit 1; \
 	else \

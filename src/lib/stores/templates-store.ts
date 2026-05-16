@@ -27,7 +27,7 @@ import {
   templatesSoftDelete,
 } from "@/lib/templates";
 
-export type AppView = "gallery" | "trash";
+export type AppView = "gallery" | "trash" | "editor";
 
 interface TemplatesState {
   view: AppView;
@@ -35,6 +35,8 @@ interface TemplatesState {
   active: TemplateRow[];
   /** Templates deletados exibidos na lixeira. */
   trashed: TemplateRow[];
+  /** Id do template aberto no editor (`null` quando view !== 'editor'). */
+  editingId: number | null;
   /** Termo de busca atual (substring, case-insensitive). */
   searchTerm: string;
   /** True enquanto a lista está sendo (re)carregada do banco. */
@@ -46,6 +48,11 @@ interface TemplatesState {
   setSearchTerm: (term: string) => void;
   /** Carrega a lista correspondente à `view` atual a partir do banco. */
   refresh: () => Promise<void>;
+
+  /** Abre o editor para um template existente (carrega no editor-store). */
+  openEditor: (id: number) => void;
+  /** Volta para a galeria fechando o editor. */
+  closeEditor: () => void;
 
   createTemplate: (input: CreateTemplateInput) => Promise<TemplateRow>;
   duplicateTemplate: (id: number) => Promise<TemplateRow>;
@@ -69,6 +76,7 @@ export const useTemplatesStore = create<TemplatesState>((set, get) => ({
   view: "gallery",
   active: [],
   trashed: [],
+  editingId: null,
   searchTerm: "",
   loading: false,
   error: null,
@@ -80,6 +88,15 @@ export const useTemplatesStore = create<TemplatesState>((set, get) => ({
     void get().refresh();
   },
 
+  openEditor: (id) => {
+    set({ view: "editor", editingId: id, error: null });
+  },
+
+  closeEditor: () => {
+    set({ view: "gallery", editingId: null, error: null });
+    void get().refresh();
+  },
+
   setSearchTerm: (term) => {
     set({ searchTerm: term });
     void get().refresh();
@@ -87,6 +104,9 @@ export const useTemplatesStore = create<TemplatesState>((set, get) => ({
 
   refresh: async () => {
     const { view, searchTerm } = get();
+    // O editor não precisa da lista global; carrega seu próprio template via
+    // `templatesGetCanvasJson`. Refresh aqui seria desperdício.
+    if (view === "editor") return;
     set({ loading: true, error: null });
     try {
       if (view === "gallery") {

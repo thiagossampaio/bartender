@@ -175,6 +175,59 @@ export async function templatesGet(id: number): Promise<TemplateRow | null> {
 }
 
 /**
+ * Lê apenas o `canvas_json` de um template — coluna grande que não trafegamos
+ * nas listagens. Devolve `null` quando o template não existe ou tem JSON vazio.
+ * Usado pelo editor (WP-04) ao abrir um template.
+ */
+export async function templatesGetCanvasJson(id: number): Promise<string | null> {
+  const rows = await dbQuery<{ canvas_json: string | null }>(
+    "SELECT canvas_json FROM templates WHERE id = $1",
+    [id],
+  );
+  return rows.length > 0 ? rows[0].canvas_json : null;
+}
+
+/**
+ * Persiste o `canvas_json` editado. Atualiza `updated_at` e incrementa `version`
+ * para que a galeria reordene e que [WP-16](../../../specs/work-plan.md#wp-16--confiabilidade-autosave-recovery-logs-lixeira)
+ * possa comparar autosave vs. último save commitado.
+ *
+ * `thumbnailPng` é opcional aqui — a geração de thumbnail entra em [WP-05](../../../specs/work-plan.md#wp-05--editor-undoredo--atalhos--salvarcarregar--thumbnail).
+ * Quando o WP-05 estiver pronto, esta função recebe o blob PNG no mesmo save.
+ */
+export async function templatesUpdateCanvas(
+  id: number,
+  canvasJson: string,
+  thumbnailPng?: Uint8Array,
+): Promise<TemplateRow> {
+  if (thumbnailPng !== undefined) {
+    await dbExecute(
+      `UPDATE templates
+          SET canvas_json = $1,
+              thumbnail_png = $2,
+              updated_at = datetime('now'),
+              version = version + 1
+        WHERE id = $3`,
+      [canvasJson, Array.from(thumbnailPng), id],
+    );
+  } else {
+    await dbExecute(
+      `UPDATE templates
+          SET canvas_json = $1,
+              updated_at = datetime('now'),
+              version = version + 1
+        WHERE id = $2`,
+      [canvasJson, id],
+    );
+  }
+  const row = await templatesGet(id);
+  if (!row) {
+    throw new Error(`Template id=${id} não encontrado após salvar.`);
+  }
+  return row;
+}
+
+/**
  * Cria um novo template em branco a partir dos dados do modal "Novo template"
  * (SPEC-03 §"Comportamento esperado" item 2). Retorna o template já materializado.
  */

@@ -84,6 +84,29 @@ metadata:
 - Não usar `@radix-ui` para Dialog/Dropdown — primitivas customizadas em `components/ui/`
   são suficientes e mais leves.
 
+### WP-04 — Editor (Konva)
+- **Konva 9.x + react-konva 18.2.16** (NÃO usar react-konva ^19, que exige React 19).
+- Pixel base do canvas: **`MM_TO_PX = 4`** (em `src/lib/canvas/units.ts`). Zoom é um Konva
+  `scale` independente — toda a serialização permanece em mm, sem depender do zoom/tela.
+- Conversão pt→px: `fontSize * 1.333 * zoom` (Konva mede em px; 1 pt ≈ 1.333 px a 96 dpi).
+- O `editor-store` (Zustand) **não** chama o banco. A página `Editor` faz `templatesGet` +
+  `templatesGetCanvasJson`, popula o store via `loadTemplate`. `closeEditor` no
+  templates-store recarrega a galeria. Save persistido entra em WP-05.
+- Tipo `barcode`/`qrcode` aparecem no schema desde já (round-trip do `canvas_json`) mas o
+  **render real** fica para WP-07 — no editor mostramos placeholder amarelo "WP-07".
+- Histórico undo/redo + atalhos completos + thumbnail entram em WP-05. WP-04 entrega
+  apenas atalhos básicos (Delete, Backspace, setas, Esc) gerenciados no `CanvasArea`.
+- Layout do editor: 3 colunas via flex (Toolbar 176px / CanvasArea flex-1 / PropertiesPanel 288px).
+- **App.tsx** é um simples switch enum-based em 3 views (`gallery|trash|editor`). Quando
+  adicionar mais views ou deep-links, migrar para `react-router`.
+
+### Auditoria offline-first com Konva
+- Konva minificado contém URLs de documentação (github.com/konvajs/..., konvajs.github.io/docs/...,
+  konvajs.org/docs/...) que são impressas em warnings — NÃO são requisições.
+- `Makefile audit-bundle` foi atualizado para incluir essas no allowlist.
+- **Cuidado:** evite hard-coded strings com `https://` em defaults de objetos do canvas
+  (ex.: QR Code placeholder). Use texto neutro tipo `"QR_PLACEHOLDER"`.
+
 ## Scripts npm
 
 | Script | O que faz |

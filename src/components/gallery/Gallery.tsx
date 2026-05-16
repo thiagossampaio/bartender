@@ -35,6 +35,7 @@ export function Gallery() {
   const duplicateTemplate = useTemplatesStore((s) => s.duplicateTemplate);
   const renameTemplate = useTemplatesStore((s) => s.renameTemplate);
   const softDeleteTemplate = useTemplatesStore((s) => s.softDeleteTemplate);
+  const openEditor = useTemplatesStore((s) => s.openEditor);
 
   const [newOpen, setNewOpen] = React.useState(false);
   const [renameTarget, setRenameTarget] = React.useState<TemplateRow | null>(null);
@@ -128,6 +129,7 @@ export function Gallery() {
               <li key={t.id}>
                 <TemplateCard
                   template={t}
+                  onOpen={(id) => openEditor(id)}
                   onDuplicate={(id) => {
                     void duplicateTemplate(id);
                   }}
@@ -144,7 +146,10 @@ export function Gallery() {
         open={newOpen}
         onOpenChange={setNewOpen}
         onSubmit={async (input) => {
-          await createTemplate(input);
+          const row = await createTemplate(input);
+          // Abre o editor para o template recém-criado — UX esperada do botão
+          // "Novo template" (PRD §9.1: criar → editar imediatamente).
+          openEditor(row.id);
         }}
       />
       <RenameModal

@@ -1,0 +1,575 @@
+import * as React from "react";
+import Konva from "konva";
+import { Stage, Layer, Rect, Line, Ellipse, Text, Image as KImage, Transformer, Group } from "react-konva";
+
+import { generateId } from "@/lib/canvas/serializer";
+import { MM_TO_PX, mmToPx, pxToMm, roundMm } from "@/lib/canvas/units";
+import type { CanvasObject } from "@/lib/canvas/types";
+import { useEditorStore } from "@/lib/stores/editor-store";
+import { RULER_SIZE_PX, Rulers } from "@/components/editor/Rulers";
+
+/**
+ * Área central do editor (WP-04 / SPEC-04).
+ *
+ * Renderiza:
+ *  - Réguas em mm (top/left).
+ *  - Stage Konva com 3 layers:
+ *      1. Background (papel branco + grid em mm).
+ *      2. Conteúdo (objetos do template).
+ *      3. UI (Transformer de seleção).
+ *  - Hotspot de drop para arquivos PNG/JPG/SVG → cria `image` no canvas.
+ *
+ * Decisões:
+ *  - Tudo é desenhado em pixels (Konva), mas o **estado é em mm** — só
+ *    convertemos na renderização e quando recebemos eventos (drag/transform).
+ *    Isso mantém o `canvas_json` 100 % independente de tela / zoom.
+ *  - Snap-to-grid acontece no commit do drag/transform via `roundMm`.
+ *  - Multi-seleção (Shift+click) e clique em vazio limpam.
+ *  - `clipFunc` no layer de conteúdo limita o que vaza para fora da etiqueta
+ *    (zoom alto), igual ao comportamento de um software de etiquetas.
+ */
+export function CanvasArea() {
+  const canvas = useEditorStore((s) => s.canvas);
+  const objects = useEditorStore((s) => s.objects);
+  const selectedIds = useEditorStore((s) => s.selectedIds);
+  const zoom = useEditorStore((s) => s.zoom);
+  const grid = useEditorStore((s) => s.grid);
+  const snapEnabled = useEditorStore((s) => s.snapEnabled);
+
+  const selectOnly = useEditorStore((s) => s.selectOnly);
+  const toggleSelect = useEditorStore((s) => s.toggleSelect);
+  const clearSelection = useEditorStore((s) => s.clearSelection);
+  const updateObject = useEditorStore((s) => s.updateObject);
+  const addObject = useEditorStore((s) => s.addObject);
+  const removeSelected = useEditorStore((s) => s.removeSelected);
+  const nudgeSelected = useEditorStore((s) => s.nudgeSelected);
+
+  const containerRef = React.useRef<HTMLDivElement | null>(null);
+  const stageRef = React.useRef<Konva.Stage | null>(null);
+  const transformerRef = React.useRef<Konva.Transformer | null>(null);
+  const nodeRefs = React.useRef<Map<string, Konva.Node>>(new Map());
+
+  // Mantém o transformer apontando para os nodes selecionados.
+  React.useEffect(() => {
+    const tr = transformerRef.current;
+    if (!tr) return;
+    const nodes = selectedIds
+      .map((id) => nodeRefs.current.get(id))
+      .filter((n): n is Konva.Node => n != null);
+    tr.nodes(nodes);
+    tr.getLayer()?.batchDraw();
+  }, [selectedIds, objects]);
+
+  // Atalhos básicos (Delete + setas). O conjunto completo de atalhos
+  // (Ctrl/⌘ +Z, +C, +V, +S, etc.) entra em WP-05.
+  React.useEffect(() => {
+    function onKeyDown(e: KeyboardEvent) {
+      const target = e.target as HTMLElement | null;
+      if (target && /^(INPUT|TEXTAREA|SELECT)$/.test(target.tagName)) return;
+      if (target?.isContentEditable) return;
+      if (e.key === "Delete" || e.key === "Backspace") {
+        if (selectedIds.length > 0) {
+          e.preventDefault();
+          removeSelected();
+        }
+        return;
+      }
+      if (e.key === "Escape") {
+        clearSelection();
+        return;
+      }
+      const step = e.shiftKey ? 10 : 1;
+      let dx = 0;
+      let dy = 0;
+      if (e.key === "ArrowLeft") dx = -step;
+      else if (e.key === "ArrowRight") dx = step;
+      else if (e.key === "ArrowUp") dy = -step;
+      else if (e.key === "ArrowDown") dy = step;
+      if (dx !== 0 || dy !== 0) {
+        if (selectedIds.length > 0) {
+          e.preventDefault();
+          nudgeSelected(dx, dy);
+        }
+      }
+    }
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
+  }, [selectedIds, removeSelected, clearSelection, nudgeSelected]);
+
+  // Paste de imagem da área de transferência.
+  React.useEffect(() => {
+    async function onPaste(e: ClipboardEvent) {
+      const items = e.clipboardData?.items;
+      if (!items) return;
+      for (const item of Array.from(items)) {
+        if (item.kind === "file" && item.type.startsWith("image/")) {
+          const file = item.getAsFile();
+          if (!file) continue;
+          e.preventDefault();
+          const dataUrl = await fileToDataUrl(file);
+          addObject({
+            id: generateId("image"),
+            type: "image",
+            x: roundMm(canvas.width / 2 - 12.5),
+            y: roundMm(canvas.height / 2 - 12.5),
+            width: 25,
+            height: 25,
+            rotation: 0,
+            src: dataUrl,
+          });
+          return;
+        }
+      }
+    }
+    document.addEventListener("paste", onPaste);
+    return () => document.removeEventListener("paste", onPaste);
+  }, [addObject, canvas.width, canvas.height]);
+
+  // Drop de arquivo → imagem.
+  const [isDragOver, setIsDragOver] = React.useState(false);
+  async function onDrop(e: React.DragEvent) {
+    e.preventDefault();
+    setIsDragOver(false);
+    const file = e.dataTransfer.files?.[0];
+    if (!file || !file.type.startsWith("image/")) return;
+    const dataUrl = await fileToDataUrl(file);
+    // Drop coordinate em px relativo ao container do stage.
+    const rect = containerRef.current?.getBoundingClientRect();
+    let xMm = canvas.width / 2 - 12.5;
+    let yMm = canvas.height / 2 - 12.5;
+    if (rect) {
+      const px = e.clientX - rect.left - RULER_SIZE_PX;
+      const py = e.clientY - rect.top - RULER_SIZE_PX;
+      xMm = roundMm(pxToMm(px / zoom) - 12.5);
+      yMm = roundMm(pxToMm(py / zoom) - 12.5);
+    }
+    addObject({
+      id: generateId("image"),
+      type: "image",
+      x: xMm,
+      y: yMm,
+      width: 25,
+      height: 25,
+      rotation: 0,
+      src: dataUrl,
+    });
+  }
+
+  const stageWidthMm = canvas.width;
+  const stageHeightMm = canvas.height;
+  const pxW = mmToPx(stageWidthMm) * zoom;
+  const pxH = mmToPx(stageHeightMm) * zoom;
+
+  // Tamanho total da área de viewport inclui as réguas.
+  const viewportW = pxW + RULER_SIZE_PX + 200; // headroom para zoom
+  const viewportH = pxH + RULER_SIZE_PX + 200;
+
+  return (
+    <div
+      ref={containerRef}
+      className="relative flex-1 overflow-auto bg-muted/40"
+      onDragOver={(e) => {
+        if (e.dataTransfer.types.includes("Files")) {
+          e.preventDefault();
+          setIsDragOver(true);
+        }
+      }}
+      onDragLeave={() => setIsDragOver(false)}
+      onDrop={onDrop}
+    >
+      <div
+        className="relative"
+        style={{ width: viewportW, height: viewportH }}
+      >
+        <Rulers
+          widthMm={stageWidthMm}
+          heightMm={stageHeightMm}
+          zoom={zoom}
+          pxWidth={pxW}
+          pxHeight={pxH}
+        />
+
+        <div
+          className="absolute"
+          style={{ left: RULER_SIZE_PX, top: RULER_SIZE_PX, width: pxW, height: pxH }}
+        >
+          <Stage
+            ref={stageRef}
+            width={pxW}
+            height={pxH}
+            onMouseDown={(e) => {
+              // Clique no fundo (stage = target) limpa seleção.
+              if (e.target === e.target.getStage()) {
+                clearSelection();
+              }
+            }}
+          >
+            {/* Background + Grid */}
+            <Layer listening={false}>
+              <Rect
+                x={0}
+                y={0}
+                width={pxW}
+                height={pxH}
+                fill={canvas.background ?? "#FFFFFF"}
+                stroke="#94a3b8"
+                strokeWidth={1}
+              />
+              <GridLines
+                widthMm={stageWidthMm}
+                heightMm={stageHeightMm}
+                stepMm={grid}
+                zoom={zoom}
+              />
+            </Layer>
+
+            {/* Conteúdo */}
+            <Layer
+              clipFunc={(ctx) => {
+                ctx.rect(0, 0, pxW, pxH);
+              }}
+            >
+              {objects.map((obj) => (
+                <ObjectNode
+                  key={obj.id}
+                  object={obj}
+                  zoom={zoom}
+                  selected={selectedIds.includes(obj.id)}
+                  snapEnabled={snapEnabled}
+                  grid={grid}
+                  registerNode={(node) => {
+                    if (node) nodeRefs.current.set(obj.id, node);
+                    else nodeRefs.current.delete(obj.id);
+                  }}
+                  onSelect={(e) => {
+                    if (e.evt.shiftKey) {
+                      toggleSelect(obj.id);
+                    } else {
+                      selectOnly(obj.id);
+                    }
+                  }}
+                  onChange={(patch) => updateObject(obj.id, patch)}
+                />
+              ))}
+            </Layer>
+
+            {/* UI: Transformer */}
+            <Layer>
+              <Transformer
+                ref={(node) => {
+                  transformerRef.current = node;
+                }}
+                rotateEnabled
+                keepRatio={false}
+                anchorSize={8}
+                borderStroke="#6366f1"
+                anchorStroke="#6366f1"
+                anchorFill="#ffffff"
+                rotationSnaps={[0, 90, 180, 270]}
+                rotationSnapTolerance={10}
+                boundBoxFunc={(oldBox, newBox) => {
+                  // Evita dimensões negativas/quase nulas.
+                  if (newBox.width < 4 || newBox.height < 4) return oldBox;
+                  return newBox;
+                }}
+              />
+            </Layer>
+          </Stage>
+        </div>
+
+        {isDragOver && (
+          <div
+            aria-hidden
+            className="pointer-events-none absolute inset-0 border-2 border-dashed border-primary/50 bg-primary/5"
+          />
+        )}
+      </div>
+    </div>
+  );
+}
+
+function fileToDataUrl(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result as string);
+    reader.onerror = () => reject(reader.error);
+    reader.readAsDataURL(file);
+  });
+}
+
+/**
+ * Renderiza as linhas de grade. Optamos por **gerar as Lines uma única vez**
+ * por par (canvas, grid, zoom) para não criar centenas de nodes a cada
+ * re-render do conteúdo.
+ */
+function GridLines({
+  widthMm,
+  heightMm,
+  stepMm,
+  zoom,
+}: {
+  widthMm: number;
+  heightMm: number;
+  stepMm: number;
+  zoom: number;
+}) {
+  const lines = React.useMemo(() => {
+    const pxStep = MM_TO_PX * stepMm * zoom;
+    const w = MM_TO_PX * widthMm * zoom;
+    const h = MM_TO_PX * heightMm * zoom;
+    const out: { points: number[]; major: boolean }[] = [];
+    for (let mm = stepMm; mm < widthMm; mm += stepMm) {
+      const x = MM_TO_PX * mm * zoom;
+      out.push({ points: [x, 0, x, h], major: mm % 5 === 0 });
+    }
+    for (let mm = stepMm; mm < heightMm; mm += stepMm) {
+      const y = MM_TO_PX * mm * zoom;
+      out.push({ points: [0, y, w, y], major: mm % 5 === 0 });
+    }
+    // Suprime warning de variável não usada em compiladores muito estritos.
+    void pxStep;
+    return out;
+  }, [widthMm, heightMm, stepMm, zoom]);
+
+  return (
+    <>
+      {lines.map((l, i) => (
+        <Line
+          key={i}
+          points={l.points}
+          stroke={l.major ? "#cbd5e1" : "#e2e8f0"}
+          strokeWidth={l.major ? 0.5 : 0.3}
+          listening={false}
+        />
+      ))}
+    </>
+  );
+}
+
+interface ObjectNodeProps {
+  object: CanvasObject;
+  zoom: number;
+  selected: boolean;
+  snapEnabled: boolean;
+  grid: number;
+  registerNode: (node: Konva.Node | null) => void;
+  onSelect: (e: Konva.KonvaEventObject<MouseEvent>) => void;
+  onChange: (patch: Partial<CanvasObject>) => void;
+}
+
+function ObjectNode(props: ObjectNodeProps) {
+  const { object: o, zoom, snapEnabled, grid, registerNode, onSelect, onChange } = props;
+
+  function commitDrag(node: Konva.Node) {
+    const xMm = pxToMm(node.x() / zoom);
+    const yMm = pxToMm(node.y() / zoom);
+    const finalX = snapEnabled ? roundMm(xMm, grid) : roundMm(xMm);
+    const finalY = snapEnabled ? roundMm(yMm, grid) : roundMm(yMm);
+    onChange({ x: finalX, y: finalY });
+    // Recoloca o node na posição final (em px) para evitar drift visual entre
+    // o "commit em mm arredondado" e a posição original do drag.
+    node.position({ x: finalX * MM_TO_PX * zoom, y: finalY * MM_TO_PX * zoom });
+  }
+
+  function commitTransform(node: Konva.Node, ratio: { sx: number; sy: number }) {
+    // Konva aplica escala no node; convertemos de volta para width/height em mm.
+    const baseW = (o.width ?? 0) * MM_TO_PX * zoom;
+    const baseH = (o.height ?? 0) * MM_TO_PX * zoom;
+    const newWidthPx = Math.max(2, baseW * ratio.sx);
+    const newHeightPx = Math.max(2, baseH * ratio.sy);
+    const xMm = pxToMm(node.x() / zoom);
+    const yMm = pxToMm(node.y() / zoom);
+    const wMm = pxToMm(newWidthPx / zoom);
+    const hMm = pxToMm(newHeightPx / zoom);
+    const rotation = node.rotation();
+    const stepX = snapEnabled ? grid : 0.1;
+    const stepY = snapEnabled ? grid : 0.1;
+    onChange({
+      x: roundMm(xMm, stepX),
+      y: roundMm(yMm, stepY),
+      width: roundMm(wMm, snapEnabled ? grid : 0.1),
+      height: roundMm(hMm, snapEnabled ? grid : 0.1),
+      rotation: roundMm(rotation, 0.5),
+    });
+    // Reset da escala — o tamanho real vai para width/height.
+    node.scaleX(1);
+    node.scaleY(1);
+  }
+
+  const commonProps = {
+    x: (o.x ?? 0) * MM_TO_PX * zoom,
+    y: (o.y ?? 0) * MM_TO_PX * zoom,
+    rotation: o.rotation ?? 0,
+    draggable: true,
+    onClick: onSelect,
+    onTap: onSelect,
+    onMouseDown: onSelect,
+    onDragEnd: (e: Konva.KonvaEventObject<DragEvent>) => commitDrag(e.target),
+    onTransformEnd: (e: Konva.KonvaEventObject<Event>) =>
+      commitTransform(e.target, { sx: e.target.scaleX(), sy: e.target.scaleY() }),
+  };
+
+  const widthPx = (o.width ?? 0) * MM_TO_PX * zoom;
+  const heightPx = (o.height ?? 0) * MM_TO_PX * zoom;
+
+  switch (o.type) {
+    case "rectangle":
+      return (
+        <Rect
+          ref={(n) => registerNode(n)}
+          {...commonProps}
+          width={widthPx}
+          height={heightPx}
+          fill={o.fill === "transparent" ? undefined : o.fill}
+          stroke={o.stroke ?? undefined}
+          strokeWidth={(o.strokeWidth ?? 0.3) * MM_TO_PX * zoom}
+          cornerRadius={(o.cornerRadius ?? 0) * MM_TO_PX * zoom}
+        />
+      );
+    case "ellipse":
+      return (
+        <Group ref={(n) => registerNode(n)} {...commonProps}>
+          <Ellipse
+            x={widthPx / 2}
+            y={heightPx / 2}
+            radiusX={widthPx / 2}
+            radiusY={heightPx / 2}
+            fill={o.fill === "transparent" ? undefined : o.fill}
+            stroke={o.stroke ?? undefined}
+            strokeWidth={(o.strokeWidth ?? 0.3) * MM_TO_PX * zoom}
+          />
+        </Group>
+      );
+    case "line": {
+      // Linha desenhada como retângulo fininho — preserva bounding box e
+      // permite o Transformer atuar normalmente.
+      const stroke = o.stroke ?? "#000000";
+      const lineH = Math.max(1, (o.height ?? 0.4) * MM_TO_PX * zoom);
+      return (
+        <Rect
+          ref={(n) => registerNode(n)}
+          {...commonProps}
+          width={widthPx}
+          height={lineH}
+          fill={stroke}
+        />
+      );
+    }
+    case "text":
+      return (
+        <Text
+          ref={(n) => registerNode(n)}
+          {...commonProps}
+          text={o.content ?? ""}
+          width={widthPx > 0 ? widthPx : undefined}
+          height={heightPx > 0 ? heightPx : undefined}
+          fontFamily={o.fontFamily ?? "Arial"}
+          // pt para px: 1pt ≈ 1.333 px em 96 dpi.
+          fontSize={(o.fontSize ?? 12) * 1.333 * zoom}
+          fontStyle={
+            o.fontWeight === "bold" && o.fontStyle === "italic"
+              ? "bold italic"
+              : o.fontWeight === "bold"
+                ? "bold"
+                : o.fontStyle === "italic"
+                  ? "italic"
+                  : "normal"
+          }
+          textDecoration={
+            o.textDecoration === "underline"
+              ? "underline"
+              : o.textDecoration === "line-through"
+                ? "line-through"
+                : ""
+          }
+          align={o.textAlign === "justify" ? "left" : o.textAlign ?? "left"}
+          fill={o.color ?? "#000000"}
+        />
+      );
+    case "image":
+      return (
+        <KonvaImageObject
+          object={o}
+          widthPx={widthPx}
+          heightPx={heightPx}
+          commonProps={commonProps}
+          registerNode={registerNode}
+        />
+      );
+    case "barcode":
+    case "qrcode":
+      // Placeholder até WP-07 chegar com o render real via bwip-js.
+      return (
+        <Group ref={(n) => registerNode(n)} {...commonProps}>
+          <Rect
+            width={widthPx}
+            height={heightPx}
+            fill="#fef9c3"
+            stroke="#ca8a04"
+            strokeWidth={1}
+            dash={[4, 4]}
+          />
+          <Text
+            x={4}
+            y={4}
+            text={`${o.type === "barcode" ? "Barcode" : "QR"} (WP-07)\n${o.value ?? ""}`}
+            fontSize={10}
+            fill="#854d0e"
+            width={Math.max(0, widthPx - 8)}
+          />
+        </Group>
+      );
+  }
+}
+
+interface KonvaImageObjectProps {
+  object: { src: string; x: number; y: number };
+  widthPx: number;
+  heightPx: number;
+  commonProps: Record<string, unknown>;
+  registerNode: (node: Konva.Node | null) => void;
+}
+
+function KonvaImageObject({
+  object,
+  widthPx,
+  heightPx,
+  commonProps,
+  registerNode,
+}: KonvaImageObjectProps) {
+  const [image, setImage] = React.useState<HTMLImageElement | null>(null);
+  React.useEffect(() => {
+    if (!object.src) {
+      setImage(null);
+      return;
+    }
+    const img = new window.Image();
+    img.src = object.src;
+    img.onload = () => setImage(img);
+    img.onerror = () => setImage(null);
+  }, [object.src]);
+
+  if (!image) {
+    return (
+      <Group ref={(n) => registerNode(n)} {...(commonProps as object)}>
+        <Rect width={widthPx} height={heightPx} fill="#f1f5f9" stroke="#94a3b8" dash={[4, 4]} />
+        <Text
+          x={4}
+          y={4}
+          text={object.src ? "Carregando…" : "Imagem"}
+          fontSize={10}
+          fill="#64748b"
+        />
+      </Group>
+    );
+  }
+  return (
+    <KImage
+      ref={(n) => registerNode(n)}
+      {...(commonProps as object)}
+      image={image}
+      width={widthPx}
+      height={heightPx}
+    />
+  );
+}
