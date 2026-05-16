@@ -1,8 +1,3 @@
-- [Project Conventions](conventions.md) — repo layout, tooling, naming patterns recurrent across WPs
-- [Validation Commands](validation.md) — type-check / lint / prisma generate commands that work in this monorepo
-- [Pre-existing Issues](preexisting-issues.md) — tsc/lint failures present on main that are NOT introduced by WPs
-- [Web Unit Test Patterns](web-unit-tests.md) — mocks/idiomas para tests em apps/web (WP-T04+)
-- [Integration Test Patterns](integration-tests.md) — setup helpers/db.ts + helpers/auth.ts + mocks padrão (WP-T05+)
-- [E2E Playwright Patterns](e2e-playwright.md) — _helpers/env.ts + _helpers/auth.ts + cookie SSR + skip path (WP-T08+)
-- [Security & Perf Tests](security-perf-tests.md) — padrões cross-tenant, RBAC bypass, portal enum, n+1, perf smoke (WP-T12)
-- [Auth Flows](auth-flows.md) — padrão `/auth/confirm` token_hash flow + reset de senha (WP-A01+)
+- [Project Conventions](conventions.md) — stack, layout do repo, scripts npm/Cargo, padrões Tauri 2.x
+- [Validation Commands](validation.md) — comandos exatos de lint/typecheck/build que funcionam neste repo
+- [Pre-existing Issues](preexisting-issues.md) — warnings/limites conhecidos do bootstrap

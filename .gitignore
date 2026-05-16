@@ -1,0 +1,36 @@
+# Node / Vite
+node_modules/
+dist/
+dist-ssr/
+*.log
+.vite/
+
+# Rust / Tauri
+src-tauri/target/
+src-tauri/gen/
+src-tauri/.cargo/
+src-tauri/Cargo.lock.bak
+
+# Build outputs
+*.msi
+*.dmg
+*.app
+*.pkg
+*.deb
+*.AppImage
+
+# Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+
+# Env / segredos
+.env
+.env.local
+.env.*.local
+*.p12
+*.cer
+*.pem
+*.key

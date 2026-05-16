@@ -33,6 +33,7 @@
 | Campo | Valor |
 |---|---|
 | **ID** | WP-01 |
+| **Status** | ✅ Concluído |
 | **Spec relacionada** | [SPEC-01 — Bootstrap, Infraestrutura e Build](./specs.md#spec-01--bootstrap-infraestrutura-e-build) |
 | **Estimativa** | 4d |
 | **Dependências** | Nenhuma |
