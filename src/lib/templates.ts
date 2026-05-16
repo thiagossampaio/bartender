@@ -259,6 +259,107 @@ export async function templatesCreate(
 }
 
 /**
+ * "Salvar como" do editor (WP-05 / RF-E-20).
+ *
+ * Cria um **novo** template a partir das mesmas dimensões do original, mas com
+ * o `canvas_json` em memória (estado atual, possivelmente diferente do que
+ * está persistido no original) e nome custom. Usado pelo atalho
+ * Ctrl/⌘+Shift+S no editor.
+ *
+ * O thumbnail é opcional aqui (é gerado a partir do canvas em memória pelo
+ * lado do frontend antes de chamar esta função).
+ *
+ * @param sourceId id do template-base (para herdar dimensões/dpi/orientação).
+ * @param newName nome do novo template (sanitizado pelo caller).
+ * @param canvasJson `canvas_json` do estado atual em memória.
+ * @param thumbnailPng PNG do thumbnail (opcional).
+ */
+export async function templatesSaveAs(
+  sourceId: number,
+  newName: string,
+  canvasJson: string,
+  thumbnailPng?: Uint8Array,
+): Promise<TemplateRow> {
+  const trimmed = newName.trim();
+  if (trimmed.length === 0) {
+    throw new Error("Nome do template não pode ser vazio.");
+  }
+  const original = await templatesGet(sourceId);
+  if (!original) {
+    throw new Error(`Template id=${sourceId} não encontrado para Salvar como.`);
+  }
+  const finalName = (await templateNameExists(trimmed))
+    ? await pickDuplicateName(trimmed)
+    : trimmed;
+  const result =
+    thumbnailPng !== undefined
+      ? await dbExecute(
+          `INSERT INTO templates
+             (name, description, width_mm, height_mm, dpi, orientation,
+              background_color, canvas_json, thumbnail_png)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+          [
+            finalName,
+            original.description,
+            original.widthMm,
+            original.heightMm,
+            original.dpi,
+            original.orientation,
+            original.backgroundColor,
+            canvasJson,
+            Array.from(thumbnailPng),
+          ],
+        )
+      : await dbExecute(
+          `INSERT INTO templates
+             (name, description, width_mm, height_mm, dpi, orientation,
+              background_color, canvas_json)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+          [
+            finalName,
+            original.description,
+            original.widthMm,
+            original.heightMm,
+            original.dpi,
+            original.orientation,
+            original.backgroundColor,
+            canvasJson,
+          ],
+        );
+  const newId = result.lastInsertId;
+  if (typeof newId !== "number") {
+    throw new Error("Falha em Salvar como: backend não retornou lastInsertId.");
+  }
+  const row = await templatesGet(newId);
+  if (!row) {
+    throw new Error(`Template (Salvar como) id=${newId} criado mas não relido.`);
+  }
+  return row;
+}
+
+/**
+ * Lê o thumbnail PNG cru (BLOB) de um template. Retorna `null` quando não
+ * há thumbnail ainda. Usado pela galeria a partir de [WP-05](../../../specs/work-plan.md#wp-05--editor-undoredo--atalhos--salvarcarregar--thumbnail)
+ * para exibir o preview real renderizado pelo editor.
+ *
+ * O plugin-sql desserializa BLOB como `number[]` (array de bytes) — convertemos
+ * para `Uint8Array` antes de devolver, que é a forma esperada pelos consumidores
+ * (Blob → ObjectURL).
+ */
+export async function templatesGetThumbnail(
+  id: number,
+): Promise<Uint8Array | null> {
+  const rows = await dbQuery<{ thumbnail_png: number[] | null }>(
+    "SELECT thumbnail_png FROM templates WHERE id = $1",
+    [id],
+  );
+  if (rows.length === 0) return null;
+  const blob = rows[0].thumbnail_png;
+  if (!blob || !Array.isArray(blob) || blob.length === 0) return null;
+  return new Uint8Array(blob);
+}
+
+/**
  * Duplica um template existente. Copia o `canvas_json` e o `thumbnail_png`,
  * incrementa o sufixo " (cópia)" / " (cópia N)" para não colidir em UX, e
  * reseta `version=1` (a cópia é tratada como um novo template).

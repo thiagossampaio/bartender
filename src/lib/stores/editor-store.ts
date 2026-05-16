@@ -1,5 +1,5 @@
 /**
- * Editor store (WP-04 / SPEC-04).
+ * Editor store (WP-04 / SPEC-04 + WP-05).
  *
  * Estado do editor de layout. Concentra:
  *  - `template` em edição (linha de `templates` carregada do banco).
@@ -7,16 +7,25 @@
  *  - Seleção (multi).
  *  - Zoom (níveis fixos, RF-E-04).
  *  - Grid (1 ou 5 mm) + snap on/off (RF-E-03).
- *  - Flag `dirty` para o indicador `•` no título (RF-E-19 — render fica em WP-05).
+ *  - Flag `dirty` para o indicador `•` no título (RF-E-19).
+ *  - **Histórico undo/redo** (WP-05 / RF-E-17): ring buffer de até 50 estados
+ *    com snapshots de `{canvas, objects, selectedIds}`. Pilhas `past[]` e
+ *    `future[]`; mutações commitam um snapshot ANTES de mudar o estado, e
+ *    limpam `future`. O save NÃO altera o histórico (só zera `dirty`).
+ *  - **Clipboard interno** (WP-05): cópia/colagem dentro do app (não usa
+ *    `navigator.clipboard` pois não trafega texto formatado — guarda os objetos
+ *    no próprio store, suficiente para copy/cut/paste entre templates abertos
+ *    na mesma sessão).
  *
  * Decisões:
- *  - Histórico undo/redo, atalhos e save persistido entram em [WP-05](../../../specs/work-plan.md#wp-05--editor-undoredo--atalhos--salvarcarregar--thumbnail).
- *    Aqui só preparamos o terreno (campo `dirty`, helpers de mutação isolados).
  *  - Operação `commit*` define o invariant: toda mutação que altera o conteúdo
- *    do canvas marca `dirty = true`. Mudanças de visualização (zoom, grid)
- *    NÃO marcam `dirty`.
+ *    do canvas marca `dirty = true` E empilha um snapshot em `past`. Mudanças
+ *    de visualização (zoom, grid) NÃO marcam `dirty` nem alteram histórico.
  *  - O store NÃO chama o banco. O wrapper UI (página `Editor`) é quem decide
  *    quando persistir. Assim o store fica fácil de testar / reusar no preview.
+ *  - O snapshot é raso (spread) — objetos imutáveis são compartilhados entre
+ *    snapshots, então o custo de memória cresce com mutações, não com tamanho
+ *    do canvas. 50 estados × ~poucos KB cada = sub-MB típico.
  */
 
 import { create } from "zustand";
@@ -32,6 +41,9 @@ import type { TemplateRow } from "@/lib/templates";
 
 export const ZOOM_LEVELS = [0.25, 0.5, 0.75, 1, 1.5, 2, 4] as const;
 
+/** Tamanho máximo do histórico undo/redo (RF-E-17 exige ≥ 50). */
+export const HISTORY_LIMIT = 50;
+
 export type GridSize = 1 | 5;
 
 export type AlignDirection =
@@ -43,6 +55,13 @@ export type AlignDirection =
   | "bottom";
 
 export type DistributeDirection = "horizontal" | "vertical";
+
+/** Snapshot mínimo persistido no histórico. */
+interface HistorySnapshot {
+  canvas: CanvasDef;
+  objects: CanvasObject[];
+  selectedIds: string[];
+}
 
 interface EditorState {
   /** Template carregado (do banco). `null` quando nenhum editor está aberto. */
@@ -58,10 +77,29 @@ interface EditorState {
   /** True quando houve mutação desde o último `markSaved()`. */
   dirty: boolean;
 
+  /** Pilha de estados anteriores (mais recente na cauda). */
+  past: HistorySnapshot[];
+  /** Pilha de estados refeitos (para Ctrl/⌘+Shift+Z). */
+  future: HistorySnapshot[];
+
+  /** Buffer de objetos copiados/cortados (sessão atual). */
+  clipboard: CanvasObject[];
+
   // --- Lifecycle ---
   loadTemplate: (template: TemplateRow, canvasJson: string | null) => void;
   closeTemplate: () => void;
   markSaved: () => void;
+
+  // --- Histórico (WP-05) ---
+  undo: () => void;
+  redo: () => void;
+  canUndo: () => boolean;
+  canRedo: () => boolean;
+
+  // --- Clipboard (WP-05) ---
+  copySelected: () => void;
+  cutSelected: () => void;
+  pasteFromClipboard: () => void;
 
   // --- Viewport ---
   setZoom: (zoom: number) => void;
@@ -117,6 +155,35 @@ function bboxOf(obj: CanvasObject): { x: number; y: number; w: number; h: number
   return { x: obj.x, y: obj.y, w, h };
 }
 
+/** Tira um snapshot raso do estado relevante para o histórico. */
+function snapshotOf(state: {
+  canvas: CanvasDef;
+  objects: CanvasObject[];
+  selectedIds: string[];
+}): HistorySnapshot {
+  return {
+    canvas: { ...state.canvas },
+    objects: state.objects,
+    selectedIds: state.selectedIds,
+  };
+}
+
+/**
+ * Empilha o estado atual no histórico antes de uma mutação. Limita a pilha em
+ * `HISTORY_LIMIT` descartando o mais antigo (cabeça). Limpa `future` porque
+ * qualquer nova mutação invalida o caminho de redo.
+ */
+function pushHistory(state: {
+  past: HistorySnapshot[];
+  canvas: CanvasDef;
+  objects: CanvasObject[];
+  selectedIds: string[];
+}): HistorySnapshot[] {
+  const next = [...state.past, snapshotOf(state)];
+  if (next.length > HISTORY_LIMIT) next.shift();
+  return next;
+}
+
 export const useEditorStore = create<EditorState>((set, get) => ({
   template: null,
   canvas: EMPTY_CANVAS,
@@ -126,6 +193,9 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   grid: 1,
   snapEnabled: true,
   dirty: false,
+  past: [],
+  future: [],
+  clipboard: [],
 
   loadTemplate: (template, canvasJson) => {
     const fallback: CanvasDef = {
@@ -144,6 +214,9 @@ export const useEditorStore = create<EditorState>((set, get) => ({
       grid: 1,
       snapEnabled: true,
       dirty: false,
+      past: [],
+      future: [],
+      // O clipboard sobrevive entre templates da mesma sessão (UX comum).
     });
   },
 
@@ -154,10 +227,104 @@ export const useEditorStore = create<EditorState>((set, get) => ({
       objects: [],
       selectedIds: [],
       dirty: false,
+      past: [],
+      future: [],
     });
   },
 
   markSaved: () => set({ dirty: false }),
+
+  // --- Histórico ---
+
+  undo: () => {
+    const { past, future, canvas, objects, selectedIds } = get();
+    if (past.length === 0) return;
+    const prev = past[past.length - 1];
+    const newPast = past.slice(0, -1);
+    const current = snapshotOf({ canvas, objects, selectedIds });
+    const newFuture = [...future, current];
+    // Limita o histórico de redo no mesmo tamanho do undo.
+    if (newFuture.length > HISTORY_LIMIT) newFuture.shift();
+    set({
+      past: newPast,
+      future: newFuture,
+      canvas: prev.canvas,
+      objects: prev.objects,
+      selectedIds: prev.selectedIds,
+      dirty: true,
+    });
+  },
+
+  redo: () => {
+    const { past, future, canvas, objects, selectedIds } = get();
+    if (future.length === 0) return;
+    const next = future[future.length - 1];
+    const newFuture = future.slice(0, -1);
+    const current = snapshotOf({ canvas, objects, selectedIds });
+    const newPast = [...past, current];
+    if (newPast.length > HISTORY_LIMIT) newPast.shift();
+    set({
+      past: newPast,
+      future: newFuture,
+      canvas: next.canvas,
+      objects: next.objects,
+      selectedIds: next.selectedIds,
+      dirty: true,
+    });
+  },
+
+  canUndo: () => get().past.length > 0,
+  canRedo: () => get().future.length > 0,
+
+  // --- Clipboard ---
+
+  copySelected: () => {
+    const { objects, selectedIds } = get();
+    if (selectedIds.length === 0) return;
+    const picked = objects.filter((o) => selectedIds.includes(o.id));
+    if (picked.length === 0) return;
+    // Snapshot raso: como CanvasObject é imutável no fluxo, podemos referenciar
+    // direto; o paste sempre clona com novo id antes de inserir.
+    set({ clipboard: picked });
+  },
+
+  cutSelected: () => {
+    const { objects, selectedIds } = get();
+    if (selectedIds.length === 0) return;
+    const picked = objects.filter((o) => selectedIds.includes(o.id));
+    if (picked.length === 0) return;
+    set((s) => ({
+      past: pushHistory(s),
+      future: [],
+      clipboard: picked,
+      objects: s.objects.filter((o) => !s.selectedIds.includes(o.id)),
+      selectedIds: [],
+      dirty: true,
+    }));
+  },
+
+  pasteFromClipboard: () => {
+    const { clipboard } = get();
+    if (clipboard.length === 0) return;
+    set((s) => {
+      const clones: CanvasObject[] = clipboard.map(
+        (src) =>
+          ({
+            ...src,
+            id: generateId(src.type),
+            x: roundMm(src.x + 2),
+            y: roundMm(src.y + 2),
+          }) as CanvasObject,
+      );
+      return {
+        past: pushHistory(s),
+        future: [],
+        objects: [...s.objects, ...clones],
+        selectedIds: clones.map((c) => c.id),
+        dirty: true,
+      };
+    });
+  },
 
   setZoom: (zoom) => {
     const clamped = ZOOM_LEVELS.reduce(
@@ -184,6 +351,8 @@ export const useEditorStore = create<EditorState>((set, get) => ({
 
   setBackgroundColor: (color) => {
     set((s) => ({
+      past: pushHistory(s),
+      future: [],
       canvas: { ...s.canvas, background: color },
       dirty: true,
     }));
@@ -191,6 +360,8 @@ export const useEditorStore = create<EditorState>((set, get) => ({
 
   addObject: (object) => {
     set((s) => ({
+      past: pushHistory(s),
+      future: [],
       objects: [...s.objects, object],
       selectedIds: [object.id],
       dirty: true,
@@ -199,6 +370,8 @@ export const useEditorStore = create<EditorState>((set, get) => ({
 
   updateObject: (id, patch) => {
     set((s) => ({
+      past: pushHistory(s),
+      future: [],
       objects: s.objects.map((o) =>
         o.id === id ? ({ ...o, ...patch } as CanvasObject) : o,
       ),
@@ -208,6 +381,8 @@ export const useEditorStore = create<EditorState>((set, get) => ({
 
   updateSelectedObjects: (patch) => {
     set((s) => ({
+      past: pushHistory(s),
+      future: [],
       objects: s.objects.map((o) =>
         s.selectedIds.includes(o.id) ? ({ ...o, ...patch } as CanvasObject) : o,
       ),
@@ -216,11 +391,16 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   },
 
   removeSelected: () => {
-    set((s) => ({
-      objects: s.objects.filter((o) => !s.selectedIds.includes(o.id)),
-      selectedIds: [],
-      dirty: s.selectedIds.length > 0 ? true : s.dirty,
-    }));
+    set((s) => {
+      if (s.selectedIds.length === 0) return {};
+      return {
+        past: pushHistory(s),
+        future: [],
+        objects: s.objects.filter((o) => !s.selectedIds.includes(o.id)),
+        selectedIds: [],
+        dirty: true,
+      };
+    });
   },
 
   duplicateSelected: () => {
@@ -241,50 +421,66 @@ export const useEditorStore = create<EditorState>((set, get) => ({
       newIds.push(clone.id);
     }
     if (clones.length === 0) return;
-    set({
+    set((s) => ({
+      past: pushHistory(s),
+      future: [],
       objects: [...objects, ...clones],
       selectedIds: newIds,
       dirty: true,
-    });
+    }));
   },
 
   bringForward: () => {
     set((s) => {
+      if (s.selectedIds.length === 0) return {};
       const arr = [...s.objects];
       for (let i = arr.length - 2; i >= 0; i -= 1) {
         if (s.selectedIds.includes(arr[i].id) && !s.selectedIds.includes(arr[i + 1].id)) {
           [arr[i], arr[i + 1]] = [arr[i + 1], arr[i]];
         }
       }
-      return { objects: arr, dirty: true };
+      return { past: pushHistory(s), future: [], objects: arr, dirty: true };
     });
   },
 
   sendBackward: () => {
     set((s) => {
+      if (s.selectedIds.length === 0) return {};
       const arr = [...s.objects];
       for (let i = 1; i < arr.length; i += 1) {
         if (s.selectedIds.includes(arr[i].id) && !s.selectedIds.includes(arr[i - 1].id)) {
           [arr[i], arr[i - 1]] = [arr[i - 1], arr[i]];
         }
       }
-      return { objects: arr, dirty: true };
+      return { past: pushHistory(s), future: [], objects: arr, dirty: true };
     });
   },
 
   bringToFront: () => {
     set((s) => {
+      if (s.selectedIds.length === 0) return {};
       const stayed = s.objects.filter((o) => !s.selectedIds.includes(o.id));
       const promoted = s.objects.filter((o) => s.selectedIds.includes(o.id));
-      return { objects: [...stayed, ...promoted], dirty: true };
+      return {
+        past: pushHistory(s),
+        future: [],
+        objects: [...stayed, ...promoted],
+        dirty: true,
+      };
     });
   },
 
   sendToBack: () => {
     set((s) => {
+      if (s.selectedIds.length === 0) return {};
       const demoted = s.objects.filter((o) => s.selectedIds.includes(o.id));
       const stayed = s.objects.filter((o) => !s.selectedIds.includes(o.id));
-      return { objects: [...demoted, ...stayed], dirty: true };
+      return {
+        past: pushHistory(s),
+        future: [],
+        objects: [...demoted, ...stayed],
+        dirty: true,
+      };
     });
   },
 
@@ -305,14 +501,19 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   clearSelection: () => set({ selectedIds: [] }),
 
   nudgeSelected: (dx, dy) => {
-    set((s) => ({
-      objects: s.objects.map((o) =>
-        s.selectedIds.includes(o.id)
-          ? { ...o, x: roundMm(o.x + dx), y: roundMm(o.y + dy) }
-          : o,
-      ),
-      dirty: s.selectedIds.length > 0 ? true : s.dirty,
-    }));
+    set((s) => {
+      if (s.selectedIds.length === 0) return {};
+      return {
+        past: pushHistory(s),
+        future: [],
+        objects: s.objects.map((o) =>
+          s.selectedIds.includes(o.id)
+            ? { ...o, x: roundMm(o.x + dx), y: roundMm(o.y + dy) }
+            : o,
+        ),
+        dirty: true,
+      };
+    });
   },
 
   alignSelected: (direction) => {
@@ -364,14 +565,16 @@ export const useEditorStore = create<EditorState>((set, get) => ({
       }
     }
 
-    set({
+    set((s) => ({
+      past: pushHistory(s),
+      future: [],
       objects: objects.map((o) => {
         const box = boxes.find((b) => b.obj.id === o.id);
         if (!box) return o;
         return { ...o, x: roundMm(getX(box)), y: roundMm(getY(box)) };
       }),
       dirty: true,
-    });
+    }));
   },
 
   distributeSelected: (direction) => {
@@ -393,12 +596,14 @@ export const useEditorStore = create<EditorState>((set, get) => ({
         positions.set(b.obj.id, cursor);
         cursor += b.w + gap;
       }
-      set({
+      set((s) => ({
+        past: pushHistory(s),
+        future: [],
         objects: objects.map((o) =>
           positions.has(o.id) ? { ...o, x: roundMm(positions.get(o.id)!) } : o,
         ),
         dirty: true,
-      });
+      }));
     } else {
       boxes.sort((a, b) => a.y - b.y);
       const first = boxes[0];
@@ -412,12 +617,14 @@ export const useEditorStore = create<EditorState>((set, get) => ({
         positions.set(b.obj.id, cursor);
         cursor += b.h + gap;
       }
-      set({
+      set((s) => ({
+        past: pushHistory(s),
+        future: [],
         objects: objects.map((o) =>
           positions.has(o.id) ? { ...o, y: roundMm(positions.get(o.id)!) } : o,
         ),
         dirty: true,
-      });
+      }));
     }
   },
 

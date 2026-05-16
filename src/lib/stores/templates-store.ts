@@ -23,8 +23,10 @@ import {
   templatesListTrashed,
   templatesRename,
   templatesRestore,
+  templatesSaveAs,
   templatesSearch,
   templatesSoftDelete,
+  templatesUpdateCanvas,
 } from "@/lib/templates";
 
 export type AppView = "gallery" | "trash" | "editor";
@@ -60,6 +62,27 @@ interface TemplatesState {
   softDeleteTemplate: (id: number) => Promise<void>;
   restoreTemplate: (id: number) => Promise<void>;
   hardDeleteTemplate: (id: number) => Promise<void>;
+
+  /**
+   * Persiste `canvas_json` (+ thumbnail) de um template existente (WP-05).
+   * Devolve a row atualizada para o editor sincronizar `updated_at`/`version`.
+   */
+  saveTemplate: (
+    id: number,
+    canvasJson: string,
+    thumbnailPng?: Uint8Array,
+  ) => Promise<TemplateRow>;
+
+  /**
+   * "Salvar como" — clona com novo nome a partir do estado em memória (WP-05).
+   * Retorna a row do novo template (id diferente do source).
+   */
+  saveTemplateAs: (
+    sourceId: number,
+    newName: string,
+    canvasJson: string,
+    thumbnailPng?: Uint8Array,
+  ) => Promise<TemplateRow>;
 }
 
 function describeError(e: unknown): string {
@@ -188,6 +211,37 @@ export const useTemplatesStore = create<TemplatesState>((set, get) => ({
     try {
       await templatesHardDelete(id);
       await get().refresh();
+    } catch (e) {
+      set({ error: describeError(e) });
+      throw e;
+    }
+  },
+
+  saveTemplate: async (id, canvasJson, thumbnailPng) => {
+    set({ error: null });
+    try {
+      const row = await templatesUpdateCanvas(id, canvasJson, thumbnailPng);
+      // Não chamamos `refresh()` aqui porque a view atual é "editor" e o
+      // próprio `refresh` no-op nesse caso (ver branch acima). A galeria
+      // recarrega quando o editor for fechado (`closeEditor`).
+      return row;
+    } catch (e) {
+      set({ error: describeError(e) });
+      throw e;
+    }
+  },
+
+  saveTemplateAs: async (sourceId, newName, canvasJson, thumbnailPng) => {
+    set({ error: null });
+    try {
+      const row = await templatesSaveAs(
+        sourceId,
+        newName,
+        canvasJson,
+        thumbnailPng,
+      );
+      // Idem `saveTemplate`: a galeria sincroniza ao fechar o editor.
+      return row;
     } catch (e) {
       set({ error: describeError(e) });
       throw e;

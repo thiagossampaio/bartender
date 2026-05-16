@@ -84,6 +84,31 @@ metadata:
 - Não usar `@radix-ui` para Dialog/Dropdown — primitivas customizadas em `components/ui/`
   são suficientes e mais leves.
 
+### WP-05 — Editor: Undo/Redo, atalhos, save, thumbnail
+- Histórico undo/redo no `editor-store` é ring buffer simples (`past[]`/`future[]`)
+  com snapshots rasos `{canvas, objects, selectedIds}`. Limite `HISTORY_LIMIT = 50`.
+  Toda mutação que altera canvas chama `pushHistory()` (zera `future`).
+- Atalhos centralizados em `useEditorShortcuts` (hook global em document.keydown).
+  Suporta ⌘ no macOS e Ctrl no resto (ambos aceitos sempre). Ignora inputs/textarea,
+  exceto Ctrl/⌘+S que precisa funcionar sempre. Inclui +Z/+Shift+Z/+Y, +C/X/V/D/A,
+  +S/+Shift+S, +/−/0, Delete, Esc, setas (Shift = 10mm).
+- Geração de thumbnail: `generateThumbnailPng()` em `lib/canvas/thumbnail.ts` —
+  monta `Konva.Stage` off-screen (div absolute oculto), renderiza objetos sem
+  zoom/grid/transformer, `stage.toDataURL({ pixelRatio })` → `Uint8Array`. Lado
+  maior limitado a 256px. Persistido no BLOB `templates.thumbnail_png`.
+- TemplateCard carrega thumbnail via `templatesGetThumbnail(id)` que devolve
+  `Uint8Array | null` (BLOB do SQLite vem como `number[]`); converte para
+  ObjectURL com `thumbnailToObjectUrl()` e revoga no cleanup. Cache invalida
+  quando `updatedAt` muda.
+- `templatesSaveAs(sourceId, newName, canvasJson, thumbnailPng?)` clona
+  dimensões/dpi/orientation do source mas usa o `canvas_json` em memória; faz
+  desconflito de nome via `pickDuplicateName()`.
+- Gotcha TS: `new Blob([uint8Array])` falha em libs recentes (ArrayBufferLike vs
+  ArrayBuffer). Copiar para ArrayBuffer fresh antes (`new ArrayBuffer(n)` →
+  `Uint8Array(buf).set(bytes)`).
+- Gotcha Konva: `Layer.add(node)` exige `Group | Shape`, não o base `Konva.Node`
+  retornado por funções genéricas. Cast explícito quando necessário.
+
 ### WP-04 — Editor (Konva)
 - **Konva 9.x + react-konva 18.2.16** (NÃO usar react-konva ^19, que exige React 19).
 - Pixel base do canvas: **`MM_TO_PX = 4`** (em `src/lib/canvas/units.ts`). Zoom é um Konva

@@ -41,8 +41,6 @@ export function CanvasArea() {
   const clearSelection = useEditorStore((s) => s.clearSelection);
   const updateObject = useEditorStore((s) => s.updateObject);
   const addObject = useEditorStore((s) => s.addObject);
-  const removeSelected = useEditorStore((s) => s.removeSelected);
-  const nudgeSelected = useEditorStore((s) => s.nudgeSelected);
 
   const containerRef = React.useRef<HTMLDivElement | null>(null);
   const stageRef = React.useRef<Konva.Stage | null>(null);
@@ -60,41 +58,11 @@ export function CanvasArea() {
     tr.getLayer()?.batchDraw();
   }, [selectedIds, objects]);
 
-  // Atalhos básicos (Delete + setas). O conjunto completo de atalhos
-  // (Ctrl/⌘ +Z, +C, +V, +S, etc.) entra em WP-05.
-  React.useEffect(() => {
-    function onKeyDown(e: KeyboardEvent) {
-      const target = e.target as HTMLElement | null;
-      if (target && /^(INPUT|TEXTAREA|SELECT)$/.test(target.tagName)) return;
-      if (target?.isContentEditable) return;
-      if (e.key === "Delete" || e.key === "Backspace") {
-        if (selectedIds.length > 0) {
-          e.preventDefault();
-          removeSelected();
-        }
-        return;
-      }
-      if (e.key === "Escape") {
-        clearSelection();
-        return;
-      }
-      const step = e.shiftKey ? 10 : 1;
-      let dx = 0;
-      let dy = 0;
-      if (e.key === "ArrowLeft") dx = -step;
-      else if (e.key === "ArrowRight") dx = step;
-      else if (e.key === "ArrowUp") dy = -step;
-      else if (e.key === "ArrowDown") dy = step;
-      if (dx !== 0 || dy !== 0) {
-        if (selectedIds.length > 0) {
-          e.preventDefault();
-          nudgeSelected(dx, dy);
-        }
-      }
-    }
-    document.addEventListener("keydown", onKeyDown);
-    return () => document.removeEventListener("keydown", onKeyDown);
-  }, [selectedIds, removeSelected, clearSelection, nudgeSelected]);
+  // Atalhos completos (Ctrl/⌘+Z/Y/C/X/V/D/A/S/+/−/0, Delete, setas, Esc) são
+  // tratados pelo `useEditorShortcuts` (montado pela página `Editor`). Aqui
+  // mantemos apenas o handler de **paste de imagem** da área de transferência,
+  // que precisa ser global (Ctrl/⌘+V pelo store cola objetos do clipboard
+  // interno; só interceptamos o evento `paste` quando houver arquivo de imagem).
 
   // Paste de imagem da área de transferência.
   React.useEffect(() => {

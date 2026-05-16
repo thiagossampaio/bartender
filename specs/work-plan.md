@@ -184,6 +184,7 @@
 | Campo | Valor |
 |---|---|
 | **ID** | WP-05 |
+| **Status** | ✅ Concluído |
 | **Spec relacionada** | [SPEC-04 — Editor de Layout WYSIWYG (Canvas Konva)](./specs.md#spec-04--editor-de-layout-wysiwyg-canvas-konva) |
 | **Estimativa** | 4d |
 | **Dependências** | WP-04 |
