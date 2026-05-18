@@ -348,6 +348,21 @@ function TextProperties({
             ))}
           </div>
         </div>
+        <div className="flex flex-col gap-1.5">
+          <Label className="text-[11px]">Alinhamento vertical</Label>
+          <div className="flex gap-1" role="group" aria-label="Alinhamento vertical">
+            {(["top", "middle", "bottom"] as const).map((align) => (
+              <ToggleChip
+                key={align}
+                active={(object.verticalAlign ?? "top") === align}
+                onClick={() => onChange({ verticalAlign: align })}
+                title={verticalAlignLabel(align)}
+              >
+                <span aria-hidden>{verticalAlignGlyph(align)}</span>
+              </ToggleChip>
+            ))}
+          </div>
+        </div>
         <div className="grid grid-cols-2 gap-2">
           <NumberField
             label="Espaçamento (px)"
@@ -423,6 +438,29 @@ function alignGlyph(a: NonNullable<TextObject["textAlign"]>): string {
       return "​≣";
     case "justify":
       return "☰";
+  }
+}
+
+function verticalAlignLabel(a: NonNullable<TextObject["verticalAlign"]>): string {
+  switch (a) {
+    case "top":
+      return "Topo";
+    case "middle":
+      return "Meio";
+    case "bottom":
+      return "Base";
+  }
+}
+
+function verticalAlignGlyph(a: NonNullable<TextObject["verticalAlign"]>): string {
+  // Glyphs Unicode com barra superior/central/inferior para evocar a posição.
+  switch (a) {
+    case "top":
+      return "⤒";
+    case "middle":
+      return "⇔";
+    case "bottom":
+      return "⤓";
   }
 }
 

@@ -166,6 +166,8 @@ struct TextObj {
     color: Option<String>,
     #[serde(default, rename = "textAlign")]
     text_align: Option<String>,
+    #[serde(default, rename = "verticalAlign")]
+    vertical_align: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -416,8 +418,24 @@ fn draw_text(
     // Posição: o `y` do canvas é o topo do texto; o PDF posiciona pela baseline.
     // Aproximamos descida da baseline como `font_size * 0.8 / 72 * 25.4` mm.
     let baseline_offset_mm = font_size_pt * 0.8 * MM_PER_INCH / 72.0;
+    let line_height_mm = font_size_pt * 1.2 * MM_PER_INCH / 72.0;
+    let line_count = content.split('\n').count().max(1) as f64;
+    let block_height_mm = line_height_mm * line_count;
+    // Offset vertical dentro da caixa do objeto: `top` (default), `middle` ou
+    // `bottom`. Quando a caixa não tem altura definida, mantemos comportamento
+    // anterior (top). RF-F-09 / WP-06.
+    let box_height_mm = obj.base.height.unwrap_or(0.0);
+    let v_offset_mm = if box_height_mm > 0.0 {
+        match obj.vertical_align.as_deref() {
+            Some("middle") => ((box_height_mm - block_height_mm) / 2.0).max(0.0),
+            Some("bottom") => (box_height_mm - block_height_mm).max(0.0),
+            _ => 0.0,
+        }
+    } else {
+        0.0
+    };
     let x_mm = obj.base.x;
-    let y_top_mm = obj.base.y;
+    let y_top_mm = obj.base.y + v_offset_mm;
     let pdf_y_mm = page_h - y_top_mm - baseline_offset_mm;
 
     let color = obj
@@ -432,7 +450,6 @@ fn draw_text(
     // Texto multi-linha: o canvas pode quebrar em `\n`; emitimos cada linha
     // por baseline subsequente. Wrap por largura fica para um polimento
     // futuro — para PDF de etiqueta, quase todo texto é uma linha.
-    let line_height_mm = font_size_pt * 1.2 * MM_PER_INCH / 72.0;
     for (i, line) in content.split('\n').enumerate() {
         let line_y = pdf_y_mm - (i as f64) * line_height_mm;
         // Alinhamento horizontal aproximado (sem width measurement preciso —

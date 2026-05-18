@@ -60,6 +60,9 @@ export interface TextObject extends BaseObject {
   fontStyle?: "normal" | "italic";
   textDecoration?: "none" | "underline" | "line-through";
   textAlign?: "left" | "center" | "right" | "justify";
+  /** Alinhamento vertical dentro da bounding box (`top`/`middle`/`bottom`).
+   *  Quando ausente, defaulta para `top` (compat com templates antigos). */
+  verticalAlign?: "top" | "middle" | "bottom";
   color?: string;
   /** Espaçamento entre caracteres em px (RF-F-07; WP-06). */
   letterSpacing?: number;

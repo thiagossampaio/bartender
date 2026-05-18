@@ -619,6 +619,7 @@ function TextObjectNode({
             : ""
       }
       align={o.textAlign === "justify" ? "left" : (o.textAlign ?? "left")}
+      verticalAlign={o.verticalAlign ?? "top"}
       letterSpacing={(o.letterSpacing ?? 0) * zoom}
       lineHeight={o.lineHeight ?? 1}
       fill={o.color ?? "#000000"}

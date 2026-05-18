@@ -186,6 +186,7 @@ function buildNode(o: CanvasObject, canvasDpi: number): Konva.Node | null {
               ? "line-through"
               : "",
         align: o.textAlign === "justify" ? "left" : (o.textAlign ?? "left"),
+        verticalAlign: o.verticalAlign ?? "top",
         letterSpacing: o.letterSpacing ?? 0,
         lineHeight: o.lineHeight ?? 1,
         wrap: "word",

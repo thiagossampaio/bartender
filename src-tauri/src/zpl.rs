@@ -163,6 +163,8 @@ struct TextObj {
     font_size: Option<f64>,
     #[serde(default, rename = "fontWeight")]
     font_weight: Option<String>,
+    #[serde(default, rename = "verticalAlign")]
+    vertical_align: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -389,10 +391,27 @@ fn emit_text(out: &mut String, obj: &TextObj, dpi: f64) {
     if content.is_empty() {
         return;
     }
-    let x = mm_to_dots(obj.base.x, dpi);
-    let y = mm_to_dots(obj.base.y, dpi);
-    let rot = zpl_rotation_letter(obj.base.rotation.unwrap_or(0.0));
     let font_size = obj.font_size.unwrap_or(12.0);
+    // Offset vertical "best-effort": o `^FO` posiciona pelo canto superior
+    // esquerdo do glyph; para `middle`/`bottom` simulamos deslocando `y` por
+    // uma estimativa do bloco (line_height_mm × n_linhas). Só aplica quando
+    // a caixa tem altura definida.
+    let line_count = content.split('\n').count().max(1) as f64;
+    let line_height_mm = font_size * 1.2 * 25.4 / 72.0;
+    let block_height_mm = line_height_mm * line_count;
+    let box_h_mm = obj.base.height.unwrap_or(0.0);
+    let v_offset_mm = if box_h_mm > 0.0 {
+        match obj.vertical_align.as_deref() {
+            Some("middle") => ((box_h_mm - block_height_mm) / 2.0).max(0.0),
+            Some("bottom") => (box_h_mm - block_height_mm).max(0.0),
+            _ => 0.0,
+        }
+    } else {
+        0.0
+    };
+    let x = mm_to_dots(obj.base.x, dpi);
+    let y = mm_to_dots(obj.base.y + v_offset_mm, dpi);
+    let rot = zpl_rotation_letter(obj.base.rotation.unwrap_or(0.0));
     let bold = obj.font_weight.as_deref() == Some("bold");
     let h = font_height_dots(font_size, dpi);
     // Largura proporcional (heurística aproximada). Bold ⇒ aumenta levemente

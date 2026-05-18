@@ -192,6 +192,12 @@ export function jsonToCanvas(
             item.textAlign === "left"
               ? item.textAlign
               : undefined,
+          verticalAlign:
+            item.verticalAlign === "middle" ||
+            item.verticalAlign === "bottom" ||
+            item.verticalAlign === "top"
+              ? item.verticalAlign
+              : undefined,
           color: pickString(item.color),
           letterSpacing: pickNumber(item.letterSpacing),
           lineHeight: pickNumber(item.lineHeight),
