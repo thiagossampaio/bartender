@@ -1,0 +1,17 @@
+.env
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.so
+*.egg
+*.egg-info/
+dist/
+build/
+temp/
+*.png
+*.jpg
+*.jpeg
+*.svg
+node_modules/

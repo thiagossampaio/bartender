@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bartender — Logo Design Exploration</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@200;300;400;500;600&family=JetBrains+Mono:wght@300;400&display=swap" rel="stylesheet">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+            background: #FAFAFA;
+            color: #1A1A1A;
+            overflow-x: hidden;
+        }
+
+        .font-mono { font-family: 'JetBrains Mono', 'Courier New', monospace; }
+
+        body::before {
+            content: '';
+            position: fixed;
+            inset: 0;
+            background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 400 400' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)' opacity='0.03'/%3E%3C/svg%3E");
+            pointer-events: none;
+            z-index: 9999;
+        }
+
+        html { scroll-behavior: smooth; }
+
+        .logo-card { transition: all 0.7s cubic-bezier(0.16, 1, 0.3, 1); }
+        .logo-card:hover { transform: translateY(-4px); }
+        .logo-canvas { position: relative; transition: transform 0.7s cubic-bezier(0.16, 1, 0.3, 1); }
+
+        .logo-aura {
+            position: absolute;
+            inset: 0;
+            background: radial-gradient(circle, rgba(0,0,0,0.06) 0%, transparent 70%);
+            border-radius: 50%;
+            transform: scale(0.5);
+            opacity: 0;
+            transition: all 1s cubic-bezier(0.16, 1, 0.3, 1);
+            filter: blur(40px);
+            pointer-events: none;
+        }
+
+        .logo-card:hover .logo-aura { transform: scale(1); opacity: 1; }
+
+        .divider-line {
+            width: 0;
+            height: 1px;
+            background: #1A1A1A;
+            opacity: 0.2;
+            transition: width 0.7s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+        .logo-card:hover .divider-line { width: 100%; }
+
+        .tracking-ultra-wide { letter-spacing: 0.2em; }
+        .text-balance { text-wrap: balance; }
+
+        .swatch {
+            transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+        .swatch:hover { transform: scale(1.04); }
+    </style>
+</head>
+<body>
+
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState } = React;
+
+        const BarcodeBar = () => (
+            <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" style={{width: '100%', height: '100%', color: '#1A1A1A'}}>
+                <g fill="currentColor">
+                    <rect x="22" y="30" width="3" height="40" rx="1"/>
+                    <rect x="29" y="35" width="2" height="30" rx="1"/>
+                    <rect x="35" y="25" width="4" height="50" rx="1"/>
+                    <rect x="43" y="32" width="2" height="36" rx="1"/>
+                    <rect x="49" y="20" width="5" height="60" rx="1.5"/>
+                    <rect x="58" y="35" width="2" height="30" rx="1"/>
+                    <rect x="64" y="28" width="3" height="44" rx="1"/>
+                    <rect x="71" y="32" width="2" height="36" rx="1"/>
+                    <rect x="77" y="35" width="3" height="30" rx="1"/>
+                </g>
+            </svg>
+        );
+
+        const LabelTag = () => (
+            <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" style={{width: '100%', height: '100%', color: '#1A1A1A'}}>
+                <g fill="none" stroke="currentColor" strokeWidth="3" strokeLinejoin="round" strokeLinecap="round">
+                    <path d="M 30 26 L 75 26 A 4 4 0 0 1 79 30 L 79 70 A 4 4 0 0 1 75 74 L 30 74 L 18 50 Z"/>
+                    <circle cx="32" cy="50" r="2.5" fill="currentColor"/>
+                </g>
+                <g fill="currentColor">
+                    <rect x="44" y="42" width="28" height="2.5" rx="1"/>
+                    <rect x="44" y="48.5" width="20" height="2.5" rx="1"/>
+                    <rect x="44" y="55" width="24" height="2.5" rx="1"/>
+                </g>
+            </svg>
+        );
+
+        const BMark = () => (
+            <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" style={{width: '100%', height: '100%', color: '#1A1A1A'}}>
+                <g fill="currentColor">
+                    <rect x="28" y="22" width="5" height="56" rx="1.5"/>
+                    <path d="M 33 22 L 53 22 A 14 14 0 0 1 53 50 L 33 50 Z M 33 27 L 53 27 A 9 9 0 0 1 53 45 L 33 45 Z" fillRule="evenodd"/>
+                    <rect x="39" y="55" width="2" height="18" rx="1"/>
+                    <rect x="44" y="58" width="2" height="15" rx="1"/>
+                    <rect x="49" y="55" width="3" height="18" rx="1"/>
+                    <rect x="55" y="58" width="2" height="15" rx="1"/>
+                    <rect x="60" y="55" width="2" height="18" rx="1"/>
+                    <rect x="65" y="58" width="3" height="15" rx="1"/>
+                </g>
+            </svg>
+        );
+
+        const MatrixGrid = () => (
+            <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" style={{width: '100%', height: '100%', color: '#1A1A1A'}}>
+                <g fill="currentColor">
+                    <rect x="22" y="22" width="10" height="10" rx="2"/>
+                    <rect x="34" y="22" width="10" height="10" rx="2"/>
+                    <rect x="46" y="22" width="10" height="10" rx="2"/>
+                    <rect x="68" y="22" width="10" height="10" rx="2"/>
+
+                    <rect x="22" y="34" width="10" height="10" rx="2"/>
+                    <rect x="46" y="34" width="10" height="10" rx="2"/>
+                    <rect x="68" y="34" width="10" height="10" rx="2"/>
+
+                    <rect x="22" y="46" width="10" height="10" rx="2"/>
+                    <rect x="34" y="46" width="10" height="10" rx="2"/>
+                    <rect x="46" y="46" width="10" height="10" rx="2"/>
+                    <rect x="58" y="46" width="10" height="10" rx="2"/>
+                    <rect x="68" y="46" width="10" height="10" rx="2"/>
+
+                    <rect x="22" y="58" width="10" height="10" rx="2"/>
+                    <rect x="46" y="58" width="10" height="10" rx="2"/>
+                    <rect x="68" y="58" width="10" height="10" rx="2"/>
+
+                    <rect x="22" y="70" width="10" height="10" rx="2"/>
+                    <rect x="34" y="70" width="10" height="10" rx="2"/>
+                    <rect x="46" y="70" width="10" height="10" rx="2"/>
+                    <rect x="68" y="70" width="10" height="10" rx="2"/>
+                </g>
+            </svg>
+        );
+
+        const PrintRoll = () => (
+            <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" style={{width: '100%', height: '100%', color: '#1A1A1A'}}>
+                <g fill="none" stroke="currentColor" strokeLinecap="round">
+                    <circle cx="38" cy="50" r="22" strokeWidth="3"/>
+                    <circle cx="38" cy="50" r="14" strokeWidth="2" opacity="0.55"/>
+                    <circle cx="38" cy="50" r="6" fill="currentColor" stroke="none"/>
+                </g>
+                <g fill="currentColor">
+                    <rect x="65" y="36" width="22" height="3" rx="1.5"/>
+                    <rect x="65" y="44" width="16" height="3" rx="1.5"/>
+                    <rect x="65" y="52" width="22" height="3" rx="1.5"/>
+                    <rect x="65" y="60" width="13" height="3" rx="1.5"/>
+                </g>
+            </svg>
+        );
+
+        const StackedLabels = () => (
+            <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" style={{width: '100%', height: '100%', color: '#1A1A1A'}}>
+                <g>
+                    <rect x="22" y="22" width="48" height="34" rx="4" fill="none" stroke="currentColor" strokeWidth="2.5" opacity="0.35"/>
+                    <rect x="28" y="32" width="48" height="34" rx="4" fill="none" stroke="currentColor" strokeWidth="2.5" opacity="0.65"/>
+                    <rect x="34" y="42" width="48" height="34" rx="4" fill="currentColor"/>
+                </g>
+                <g fill="#FAFAFA">
+                    <rect x="40" y="50" width="22" height="2.5" rx="1"/>
+                    <rect x="40" y="56" width="16" height="2.5" rx="1"/>
+                    <g>
+                        <rect x="40" y="63" width="1.5" height="8"/>
+                        <rect x="43" y="63" width="1" height="8"/>
+                        <rect x="45.5" y="63" width="2" height="8"/>
+                        <rect x="49" y="63" width="1" height="8"/>
+                        <rect x="51" y="63" width="1.5" height="8"/>
+                        <rect x="54" y="63" width="2.5" height="8"/>
+                        <rect x="58" y="63" width="1" height="8"/>
+                        <rect x="60" y="63" width="1.5" height="8"/>
+                        <rect x="63" y="63" width="1" height="8"/>
+                        <rect x="65" y="63" width="2" height="8"/>
+                        <rect x="68.5" y="63" width="1" height="8"/>
+                        <rect x="71" y="63" width="2" height="8"/>
+                        <rect x="74" y="63" width="1" height="8"/>
+                    </g>
+                </g>
+            </svg>
+        );
+
+        const LogoShowcase = () => {
+            const logos = [
+                {
+                    Component: BarcodeBar,
+                    title: "Barcode Bar",
+                    subtitle: "01 — RHYTHMIC BARS",
+                    philosophy: "Barras verticais com pesos e alturas variadas formam a assinatura mais direta do produto: o próprio código de barras. A barra central, mais alta, age como âncora visual e dá hierarquia. Limpo, técnico e instantaneamente legível."
+                },
+                {
+                    Component: LabelTag,
+                    title: "Label Tag",
+                    subtitle: "02 — PHYSICAL ARTIFACT",
+                    philosophy: "Recorta o formato icônico de uma etiqueta com furo lateral. As três linhas internas evocam conteúdo impresso (texto, peso, SKU). Referência literal ao objeto físico — perfeita para um software que materializa dados em papel."
+                },
+                {
+                    Component: BMark,
+                    title: "B Mark",
+                    subtitle: "03 — MONOGRAM HYBRID",
+                    philosophy: "A letra B construída geometricamente, com a parte inferior dissolvendo em código de barras. Une iniciais do produto à sua natureza — uma assinatura monogramática que funciona como avatar, favicon e marca isolada."
+                },
+                {
+                    Component: MatrixGrid,
+                    title: "Matrix Grid",
+                    subtitle: "04 — DATA MATRIX",
+                    philosophy: "Grid 5x5 de quadrados arredondados que evoca Data Matrix e QR Code — os formatos modernos de etiquetagem. A remoção seletiva de células forma uma letra B implícita no negativo. Modular, escalável e visualmente denso."
+                },
+                {
+                    Component: PrintRoll,
+                    title: "Print Roll",
+                    subtitle: "05 — ROLL & OUTPUT",
+                    philosophy: "Círculos concêntricos representam o rolo de etiquetas; as quatro linhas à direita são as etiquetas saindo da impressora. Captura a ação central do produto: do rolo bruto à etiqueta pronta. Movimento implícito da esquerda para a direita."
+                },
+                {
+                    Component: StackedLabels,
+                    title: "Stacked Labels",
+                    subtitle: "06 — MULTI-COLUMN",
+                    philosophy: "Três etiquetas empilhadas em profundidade, com conteúdo completo na frente (texto + barcode). Comunica diretamente a feature de múltiplas colunas e impressão em lote. Estrutura tridimensional que dá peso e presença visual."
+                }
+            ];
+
+            const palette = ["#0F172A", "#1A1A1A", "#374151", "#FAFAFA"];
+
+            return (
+                <div className="min-h-screen flex flex-col items-center py-20 px-6">
+
+                    <div className="text-center mb-20 max-w-3xl">
+                        <h1 className="text-6xl md:text-7xl font-extralight tracking-wider mb-6">
+                            Bartender
+                        </h1>
+                        <p className="font-mono text-xs opacity-40 uppercase tracking-ultra-wide mb-8">
+                            Label generation &amp; printing system — 06 logo concepts
+                        </p>
+                        <div className="w-12 h-[1px] bg-[#1A1A1A] mx-auto opacity-30"></div>
+                    </div>
+
+                    <div className="max-w-7xl w-full grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-16 mb-32">
+                        {logos.map((logo, index) => (
+                            <div key={index} className="flex flex-col items-center logo-card cursor-pointer">
+
+                                <div className="w-64 h-64 mb-10 flex items-center justify-center relative">
+                                    <div className="logo-aura"></div>
+                                    <div className="w-32 h-32 relative z-10 logo-canvas">
+                                        <logo.Component />
+                                    </div>
+                                </div>
+
+                                <div className="text-center w-full px-4">
+                                    <h2 className="text-xl font-medium tracking-wider mb-2 uppercase">
+                                        {logo.title}
+                                    </h2>
+                                    <h3 className="text-xs font-mono opacity-50 tracking-widest mb-6">
+                                        {logo.subtitle}
+                                    </h3>
+                                    <p className="text-sm leading-relaxed opacity-70 text-left font-light text-balance">
+                                        {logo.philosophy}
+                                    </p>
+                                </div>
+
+                                <div className="divider-line mt-8 mx-auto"></div>
+                            </div>
+                        ))}
+                    </div>
+
+                    {/* Color palette */}
+                    <div className="max-w-3xl w-full mb-32">
+                        <div className="text-center mb-10">
+                            <p className="font-mono text-xs opacity-40 uppercase tracking-ultra-wide">
+                                Recommended Palette
+                            </p>
+                        </div>
+                        <div className="flex justify-center gap-6 flex-wrap">
+                            {palette.map((color, i) => (
+                                <div key={i} className="flex flex-col items-center gap-2 swatch">
+                                    <div className="w-20 h-20 rounded-md shadow-sm" style={{backgroundColor: color, border: color === "#FAFAFA" ? "1px solid rgba(0,0,0,0.08)" : "none"}}></div>
+                                    <span className="font-mono text-[10px] opacity-50 uppercase">{color}</span>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+
+                    <div className="mt-8 max-w-2xl text-center">
+                        <p className="font-mono text-xs opacity-40 uppercase tracking-ultra-wide leading-loose">
+                            Generated with Logo Generator<br/>
+                            2026
+                        </p>
+                    </div>
+
+                </div>
+            );
+        };
+
+        ReactDOM.render(<LogoShowcase />, document.getElementById('root'));
+    </script>
+
+</body>
+</html>
