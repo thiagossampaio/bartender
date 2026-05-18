@@ -291,6 +291,7 @@ fn map_zpl_1d_cmd(sym: &str) -> Option<&'static str> {
     match sym.to_ascii_uppercase().as_str() {
         "CODE128" => Some("BC"),
         "CODE39" => Some("B3"),
+        "CODE11" => Some("B1"), // Code 11 (ZPL II §^B1)
         "EAN13" => Some("BE"),
         "EAN8" => Some("B8"),
         "UPCA" => Some("BU"),
@@ -618,6 +619,9 @@ fn emit_barcode(out: &mut String, obj: &BarcodeObj, dpi: f64) {
     // A forma canônica de cada comando varia ligeiramente entre simbologias:
     // - CODE128: ^BC<rot>,<height>,<print_interp>,<above>,<check>
     // - CODE39:  ^B3<rot>,<check>,<height>,<print_interp>,<above>
+    // - CODE11:  ^B1<rot>,<check_digit_count>,<height>,<print_interp>,<above>
+    //            (slot 2: Y = 1 check digit, N = 2; alinhamos com o default
+    //             do bwip-js que usa 1 check digit.)
     // - EAN-13:  ^BE<rot>,<height>,<print_interp>,<above>
     // - EAN-8:   ^B8<rot>,<height>,<print_interp>,<above>
     // - UPC-A:   ^BU<rot>,<height>,<print_interp>,<above>,<check>
@@ -628,6 +632,10 @@ fn emit_barcode(out: &mut String, obj: &BarcodeObj, dpi: f64) {
     // assumem default N e N — coerente com firmware Link-OS).
     let above = 'N';
     let cmd_string = match cmd {
+        "B1" => format!(
+            "^{}{},Y,{},{},{}",
+            cmd, rot, height_dots, hrt, above
+        ),
         "B3" | "BK" => format!(
             "^{}{},N,{},{},{}",
             cmd, rot, height_dots, hrt, above
@@ -1130,6 +1138,7 @@ mod tests {
         // Sanity: cada simbologia 1D do catálogo WP-07 tem comando ZPL.
         assert_eq!(map_zpl_1d_cmd("CODE128"), Some("BC"));
         assert_eq!(map_zpl_1d_cmd("CODE39"), Some("B3"));
+        assert_eq!(map_zpl_1d_cmd("CODE11"), Some("B1"));
         assert_eq!(map_zpl_1d_cmd("EAN13"), Some("BE"));
         assert_eq!(map_zpl_1d_cmd("EAN8"), Some("B8"));
         assert_eq!(map_zpl_1d_cmd("UPCA"), Some("BU"));

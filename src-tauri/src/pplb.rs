@@ -296,6 +296,7 @@ fn map_pplb_1d_code(sym: &str) -> Option<&'static str> {
     match sym.to_ascii_uppercase().as_str() {
         "CODE128" => Some("1"),
         "CODE39" => Some("3"),
+        "CODE11" => Some("9"), // Code 11 (Argox PPLB §B)
         "EAN13" => Some("E30"),
         "EAN8" => Some("E20"),
         "UPCA" => Some("E80"),

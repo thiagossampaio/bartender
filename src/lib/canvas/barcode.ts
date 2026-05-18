@@ -67,6 +67,9 @@ export const DEFAULT_MODULE_WIDTH_MM = 0.33;
 const ONLY_DIGITS = /^\d+$/;
 const CODE39_CHARSET = /^[0-9A-Z\-. $/+%*]+$/;
 const CODABAR_CHARSET = /^[A-D][0-9\-$:/.+]+[A-D]$/i;
+/** CODE 11: dígitos 0-9 e hífen `-` (11 caracteres no alfabeto). O dígito
+ *  verificador é calculado pelo bwip-js quando `includecheck=true` (default). */
+const CODE11_CHARSET = /^[0-9\-]+$/;
 
 /** Regex que reconhece placeholders `{{ campo }}` no valor. */
 const PLACEHOLDER_RE = /\{\{\s*([a-zA-Z0-9_.-]+)\s*\}\}/g;
@@ -306,6 +309,25 @@ function validateCode39(raw: string): BarcodeValidation {
   return { ok: true, effectiveValue: value };
 }
 
+function validateCode11(raw: string): BarcodeValidation {
+  const value = (raw ?? "").trim();
+  if (value.length === 0) {
+    return {
+      ok: false,
+      message: "CODE 11 exige pelo menos 1 caractere.",
+      effectiveValue: value,
+    };
+  }
+  if (!CODE11_CHARSET.test(value)) {
+    return {
+      ok: false,
+      message: "CODE 11 aceita apenas dígitos (0-9) e hífen (-).",
+      effectiveValue: value,
+    };
+  }
+  return { ok: true, effectiveValue: value };
+}
+
 function validateCodabar(raw: string): BarcodeValidation {
   const value = (raw ?? "").trim();
   if (value.length < 3) {
@@ -382,6 +404,14 @@ export const SYMBOLOGY_SPECS: Record<BarcodeSymbology, SymbologySpec> = {
     bcid: "code39",
     validate: validateCode39,
     hint: "0-9 A-Z e - . $ / + % espaço.",
+  },
+  CODE11: {
+    id: "CODE11",
+    label: "CODE 11",
+    kind: "1D",
+    bcid: "code11",
+    validate: validateCode11,
+    hint: "Dígitos 0-9 e hífen (-); check digit calculado automaticamente.",
   },
   EAN13: {
     id: "EAN13",

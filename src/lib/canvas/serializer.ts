@@ -24,6 +24,7 @@ import type {
 const VALID_SYMBOLOGIES: readonly BarcodeSymbology[] = [
   "CODE128",
   "CODE39",
+  "CODE11",
   "EAN13",
   "EAN8",
   "UPCA",

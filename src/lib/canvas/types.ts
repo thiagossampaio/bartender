@@ -113,6 +113,7 @@ export interface ImageObject extends BaseObject {
 export type Barcode1DSymbology =
   | "CODE128"
   | "CODE39"
+  | "CODE11"
   | "EAN13"
   | "EAN8"
   | "UPCA"
