@@ -1,0 +1,88 @@
+---
+title: Impressão via driver do SO
+description: Imprima em qualquer impressora instalada no Windows ou macOS. Configure densidade, margens, preview e impressora padrão.
+order: 5
+category: printing
+---
+
+O Bartender suporta dois caminhos para a etiqueta sair do app: o **driver do sistema operacional** (este guia) e os **comandos nativos PPLB / ZPL** (veja [PPLB & ZPL](/bartender/pt-BR/docs/pplb-zpl/)).
+
+A rota via driver do SO funciona com **qualquer impressora** que apareça na lista de impressoras instaladas — jato de tinta, laser ou térmica.
+
+## Diálogo de impressão
+
+Da Galeria ou do editor, clique em **Imprimir** para abrir o diálogo:
+
+1. **Impressora** — dropdown com todas as impressoras instaladas no SO.
+2. **Densidade** — DPI da renderização. Padrão: 300 para térmicas, 600 para laser. Ajuste conforme as especificações da sua impressora.
+3. **Margens** — em mm. Use para compensar deslocamentos físicos da impressora (veja [Calibração](/bartender/pt-BR/docs/history-calibration/)).
+4. **Quantidade** — quantas cópias da mesma etiqueta imprimir.
+5. **Modo** — Driver do SO (este modo) ou comando nativo (PPLB / ZPL, se aplicável).
+6. **Pré-visualizar** — mostra exatamente o que vai sair impresso.
+
+## Como funciona internamente
+
+1. O Bartender renderiza sua etiqueta em um **canvas off-screen** na densidade escolhida.
+2. O resultado é convertido para um **bitmap raster** dimensionado para o tamanho físico da etiqueta.
+3. O bitmap é entregue ao **spooler do SO** (GDI no Windows, CUPS no Linux, Quartz no macOS).
+4. O driver da impressora cuida da conversão final para o protocolo nativo da impressora.
+
+> **Para impressoras térmicas:** essa rota é mais lenta e produz barcodes menos nítidos do que enviar PPLB/ZPL nativo. Se sua impressora suporta esses comandos e está conectada via USB ou serial, prefira os [comandos nativos](/bartender/pt-BR/docs/pplb-zpl/).
+
+## Impressora padrão
+
+Defina a impressora padrão em **Configurações** → **Impressão** → **Impressora padrão**. Ela já vem pré-selecionada no diálogo de impressão, economizando cliques.
+
+## Densidade — qual usar?
+
+| Impressora | Densidade recomendada |
+|---|---|
+| Térmica 200 dpi (Argox OS-214, Zebra GK420) | 200 |
+| Térmica 300 dpi (Zebra ZD420, Argox CP-2140) | 300 |
+| Laser de escritório | 600 |
+| Jato de tinta | 300–600 (manual da impressora) |
+
+A densidade no Bartender deve **coincidir com a densidade nativa da impressora**. Densidade abaixo gera bordas borradas; acima é redundante (o driver vai resamplear).
+
+## Pré-visualização
+
+A pré-visualização mostra o bitmap exato que será enviado, na escala física correta. Use para:
+
+- Verificar margens e cortes.
+- Conferir nitidez de barcodes (se o preview está borrado, a impressão estará também — aumente a densidade).
+- Confirmar texto truncado por bounding boxes muito apertados.
+
+## Configurações de impressão
+
+Em **Configurações** → **Impressão**:
+
+- **Modo padrão** — driver do SO ou comando nativo.
+- **Margens globais** — aplicadas a todas as impressões. Útil se sua impressora tem um deslocamento físico consistente.
+- **Pré-visualizar antes de imprimir** — toggle. Se desligado, o app envia direto após confirmar.
+- **Pós-impressão** — abrir o histórico, voltar para a Galeria, ou ficar no editor.
+
+## Problemas comuns
+
+### "Impressora não aparece na lista"
+
+O Bartender lista as mesmas impressoras que o seu SO. Se uma impressora não aparece:
+
+- Verifique se está conectada e ligada.
+- Abra **Configurações do SO** → **Impressoras** e confirme que ela está listada.
+- Reinicie o Bartender (ele faz scan ao abrir).
+
+### "Sai borrado ou pixelado"
+
+- Aumente a densidade no diálogo de impressão para a densidade nativa da impressora.
+- Verifique se o driver do SO está atualizado.
+- Tente a rota [comandos nativos](/bartender/pt-BR/docs/pplb-zpl/) se for térmica.
+
+### "Desloca para a esquerda / direita / cima"
+
+Use a página de [calibração](/bartender/pt-BR/docs/history-calibration/) para medir o deslocamento e configurar margens corretivas.
+
+## Próximos passos
+
+- [PPLB & ZPL](/bartender/pt-BR/docs/pplb-zpl/) — comandos nativos para Argox e Zebra.
+- [Calibração & reimpressão](/bartender/pt-BR/docs/history-calibration/) — ajuste fino e histórico.
+- [Impressão em lote](/bartender/pt-BR/docs/batch-printing/) — N etiquetas via CSV.

@@ -5,6 +5,11 @@ dist-ssr/
 *.log
 .vite/
 
+# Site (Astro)
+site/node_modules/
+site/dist/
+site/.astro/
+
 # Rust / Tauri
 src-tauri/target/
 src-tauri/gen/

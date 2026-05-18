@@ -1,0 +1,100 @@
+---
+import Logo from './Logo.astro';
+import { useTranslations, pagePath, docPath } from '../i18n/utils';
+import { REPO_URL, latestAssetUrl } from '../lib/releases';
+import type { Locale } from '../i18n/ui';
+
+interface Props {
+  locale: Locale;
+}
+const { locale } = Astro.props;
+const t = useTranslations(locale);
+const year = new Date().getFullYear();
+
+const cols = [
+  {
+    title: t('footer.product'),
+    links: [
+      { label: t('nav.home'), href: pagePath(locale, 'home') },
+      { label: t('nav.features'), href: pagePath(locale, 'features') },
+      { label: t('nav.download'), href: pagePath(locale, 'download') },
+    ],
+  },
+  {
+    title: t('footer.documentation'),
+    links: [
+      { label: locale === 'pt-BR' ? 'Primeiros passos' : 'Getting started', href: docPath(locale, 'getting-started') },
+      { label: locale === 'pt-BR' ? 'Editor' : 'Editor', href: docPath(locale, 'editor') },
+      { label: locale === 'pt-BR' ? 'Códigos de barras' : 'Barcodes', href: docPath(locale, 'barcodes') },
+      { label: locale === 'pt-BR' ? 'Impressão' : 'Printing', href: docPath(locale, 'printing') },
+      { label: locale === 'pt-BR' ? 'Impressão em lote' : 'Batch printing', href: docPath(locale, 'batch-printing') },
+      { label: 'FAQ', href: docPath(locale, 'faq') },
+    ],
+  },
+  {
+    title: t('footer.community'),
+    links: [
+      { label: 'GitHub', href: REPO_URL, external: true },
+      { label: 'Issues', href: `${REPO_URL}/issues`, external: true },
+      { label: 'Releases', href: `${REPO_URL}/releases`, external: true },
+      { label: locale === 'pt-BR' ? 'Discussões' : 'Discussions', href: `${REPO_URL}/discussions`, external: true },
+    ],
+  },
+  {
+    title: t('footer.resources'),
+    links: [
+      { label: locale === 'pt-BR' ? 'Licença MIT' : 'MIT License', href: `${REPO_URL}/blob/main/LICENSE`, external: true },
+      { label: locale === 'pt-BR' ? 'Notas de versão' : 'Changelog', href: `${REPO_URL}/releases`, external: true },
+      { label: locale === 'pt-BR' ? 'Compilar do código' : 'Build from source', href: `${REPO_URL}#desenvolvimento`, external: true },
+    ],
+  },
+  {
+    title: t('footer.downloads'),
+    links: [
+      { label: 'Windows (.msi)', href: latestAssetUrl('win'), external: true, download: true },
+      { label: 'macOS (.dmg)', href: latestAssetUrl('mac'), external: true, download: true },
+      { label: 'Linux (.deb)', href: latestAssetUrl('linux-deb'), external: true, download: true },
+      { label: 'Linux (.AppImage)', href: latestAssetUrl('linux-appimage'), external: true, download: true },
+    ],
+  },
+];
+---
+
+<footer class="border-t border-hairline bg-canvas">
+  <div class="container-page py-16 md:py-20">
+    <div class="grid gap-10 md:grid-cols-2 lg:grid-cols-6">
+      <div class="lg:col-span-1 flex flex-col gap-4">
+        <a href={pagePath(locale, 'home')} class="inline-flex items-center gap-2 text-ink" aria-label="Bartender">
+          <Logo size={28} class="text-ink" />
+          <span class="display-sm leading-none">Bartender</span>
+        </a>
+        <p class="body-sm text-muted max-w-xs">{t('footer.tagline')}</p>
+      </div>
+      {
+        cols.map((c) => (
+          <nav aria-label={c.title} class="flex flex-col gap-3">
+            <h4 class="caption-uppercase text-ink">{c.title}</h4>
+            <ul class="flex flex-col gap-2">
+              {c.links.map((l) => (
+                <li>
+                  <a
+                    href={l.href}
+                    class="body-sm text-body hover:text-ink transition-colors"
+                    {...(l.external ? { target: '_blank', rel: 'noopener noreferrer' } : {})}
+                  >
+                    {l.label}
+                  </a>
+                </li>
+              ))}
+            </ul>
+          </nav>
+        ))
+      }
+    </div>
+
+    <div class="mt-12 flex flex-col gap-3 border-t border-hairline pt-8 md:flex-row md:items-center md:justify-between">
+      <p class="caption text-muted">{t('footer.copy', { year })}</p>
+      <p class="caption-uppercase text-muted">{t('footer.no.telemetry')}</p>
+    </div>
+  </div>
+</footer>

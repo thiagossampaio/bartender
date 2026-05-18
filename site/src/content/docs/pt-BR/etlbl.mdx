@@ -1,0 +1,89 @@
+---
+title: Formato .etlbl
+description: Exporte e importe templates como arquivos .etlbl portáveis — ZIP com manifest JSON e hash de integridade. Backup e compartilhamento seguros.
+order: 8
+category: files
+---
+
+`.etlbl` é o formato nativo de exportação do Bartender — um pacote portável que carrega tudo o que define um template: layout, fontes, imagens embarcadas, configurações de impressão e metadados.
+
+## Estrutura
+
+Um arquivo `.etlbl` é um **ZIP** com:
+
+```
+template.etlbl/
+├── manifest.json          # Metadados + schema version + hash
+├── template.json          # Estrutura do template (objetos, dimensões)
+├── assets/
+│   ├── logo.svg           # Imagens embarcadas
+│   ├── icon.png
+│   └── ...
+└── fonts/                 # (opcional) fontes não-padrão
+    └── CustomFont.ttf
+```
+
+### manifest.json
+
+```json
+{
+  "schema": 1,
+  "name": "Etiqueta produto 50x30",
+  "version": "1.0.0",
+  "created_at": "2026-05-01T10:00:00Z",
+  "bartender_version": "0.1.0",
+  "sha256": "abc123…"
+}
+```
+
+O `sha256` é o hash do conteúdo de `template.json` + `assets/`. Na importação, o Bartender recalcula e compara — se diferente, mostra aviso de integridade e bloqueia a importação.
+
+## Exportar
+
+Da Galeria, clique direito no template → **Exportar como `.etlbl`**. Escolha o destino e o nome do arquivo. O app empacota tudo, calcula o hash e gera o arquivo.
+
+Use casos:
+
+- **Backup local**: copie para um drive externo ou cloud (Dropbox, iCloud) para ter cópia de segurança.
+- **Compartilhamento entre máquinas**: envie por e-mail, Slack, AirDrop. A outra máquina importa e tem o template idêntico.
+- **Catálogo interno**: armazene `.etlbl`s num drive compartilhado da empresa; cada colaborador importa o que precisa.
+- **Versionamento**: comite `.etlbl`s em um repositório Git para rastrear evolução do design.
+
+## Importar
+
+Da Galeria, clique em **Importar template** no topo → escolha um `.etlbl`. O Bartender valida:
+
+1. **Schema version** — compatível com a versão do app instalada.
+2. **Hash sha256** — confirma integridade.
+3. **Fontes referenciadas** — se uma fonte não-padrão é usada e não vem no pacote, o app pede para substituir ou aborta.
+
+Se tudo OK, o template aparece na Galeria com o nome do `manifest.json`. Se já existir um template com o mesmo nome, o app pede para renomear.
+
+## Compatibilidade de versões
+
+| Schema | Versões do Bartender | Notas |
+|---|---|---|
+| 1 | 0.1.0+ | Versão inicial |
+
+O Bartender é **retrocompatível** — versões novas conseguem importar `.etlbl`s mais antigos. O oposto não é garantido (uma versão antiga pode não entender campos novos).
+
+## Quando NÃO usar .etlbl
+
+- **Backup do banco inteiro**: para isso, copie o diretório de dados do Bartender. Veja [Galeria → Armazenamento local](/bartender/pt-BR/docs/gallery/#armazenamento-local).
+- **Compartilhar dados de impressão**: `.etlbl` não inclui o CSV de batch, nem o histórico. Compartilhe o CSV separadamente.
+
+## Segurança
+
+Como `.etlbl` pode embarcar imagens e fontes, valide a origem antes de importar arquivos de fontes desconhecidas. O Bartender executa apenas leitura (não roda código), mas SVGs maliciosos podem ter scripts inertes — o Bartender sanitiza SVGs na importação removendo `<script>` e atributos `on*`.
+
+## Tamanho típico
+
+- Template simples (texto + barcode, sem imagens): **~5 KB**.
+- Template com logo SVG: **~30 KB**.
+- Template com várias imagens PNG: **100 KB – 2 MB**.
+
+## Próximos passos
+
+- [Galeria](/bartender/pt-BR/docs/gallery/) — gerencie seus templates importados.
+- [Editor](/bartender/pt-BR/docs/editor/) — edite após importar.
+- [PDF export](/bartender/pt-BR/docs/pdf-export/) — alternativa para distribuir uma versão "imprimível" (não-editável).

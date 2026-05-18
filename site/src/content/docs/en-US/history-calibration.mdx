@@ -1,0 +1,96 @@
+---
+title: History & calibration
+description: Every print is logged locally. Reprint any batch without redesigning. Calibrate the printer with the test page.
+order: 10
+category: files
+---
+
+Bartender keeps a **local history** of every label printed, plus **calibration** tools to make sure every millimeter of the design matches the paper.
+
+## Print history
+
+Open it via the **History** button in the Gallery. Each entry shows:
+
+- **Template** used
+- **Quantity** printed
+- **Mode**: OS driver, PPLB, ZPL
+- **Printer**: name and type
+- **Date and time**
+- **Data source**: single, batch (with reference to the CSV used)
+
+Filters available: by template, by printer, by date, by mode.
+
+### Reprint
+
+Pick an entry → **Reprint**. Bartender:
+
+1. Loads the template (even if it has been modified since the original print, **the old version is restored**).
+2. Re-applies the same batch CSV, if any (the file must still exist at the original path — otherwise the app prompts you to re-point it).
+3. Opens the print dialog pre-filled with the same settings.
+
+Useful for:
+
+- Reprinting a lost label.
+- Re-running a whole batch after a paper change.
+- Auditing: confirm a specific print actually happened.
+
+### Export history
+
+The **Export CSV** button generates a report of the filtered prints. Use for accounting, auditing or analysis.
+
+### Clear history
+
+**Settings** → **History** → **Clear**. Options:
+
+- Delete all
+- Delete records older than X days
+- Delete records from a specific printer
+
+By default, history grows indefinitely. In heavy use, configure automatic cleanup for the last 90 days.
+
+## Calibration
+
+Every printer has a **physical offset** — the logical (0,0) doesn't quite match the corner of the label. Calibration measures that offset and applies a correction.
+
+### When to calibrate
+
+- Right after installing a new printer.
+- When output is consistently shifted (e.g. everything drops 2 mm).
+- After changing paper or label roll.
+
+### Calibration page
+
+**Settings** → **Printing** → **Calibrate printer**.
+
+Bartender generates a calibration page with **marks on a 5 mm grid**. Print it on the target printer.
+
+With the printed label in hand:
+
+1. **Measure the horizontal offset** (X) — how far the grid mark "0" is from the actual left edge of the paper. Note in mm.
+2. **Measure the vertical offset** (Y) — how much it shifted down/up from the top edge.
+3. Back in the app, enter the values in the **Corrective margins** form.
+
+From there, every print on that printer applies `-X` horizontally and `-Y` vertically. Result: perfect alignment.
+
+### Per-printer margins
+
+Each printer registered in history has its own corrective margins. If you use two printers, calibrate each — Bartender applies the right calibration based on the selected printer.
+
+## History shortcuts
+
+| Shortcut | Action |
+|---|---|
+| `Cmd/Ctrl + H` | Open History |
+| `Cmd/Ctrl + R` (in History) | Reprint selection |
+| `Cmd/Ctrl + F` | Search History |
+| `Delete` | Delete selected entry |
+
+## History privacy
+
+History is **100% local** — saved in the same SQLite database as templates. Nothing leaves your machine. To wipe everything at once, use **Clear history** or delete the data directory (see [Gallery → Local storage](/bartender/docs/gallery/#local-storage)).
+
+## Next steps
+
+- [OS driver](/bartender/docs/printing/) — calibration works in either mode.
+- [PPLB & ZPL](/bartender/docs/pplb-zpl/) — extra calibration for thermal (physical FEED button).
+- [Autosave & recovery](/bartender/docs/autosave-recovery/) — recovery after crash.

@@ -1,0 +1,131 @@
+---
+title: Frequently asked questions
+description: Answers to common questions about installation, privacy, requirements, compatibility and licensing of Bartender.
+order: 12
+category: reliability
+---
+
+## About Bartender
+
+### What is Bartender?
+
+A **free, open source** desktop app for designing and printing labels. Runs on Windows, macOS and Linux, with support for thermal printers (Argox PPLB, Zebra ZPL) and any OS print driver.
+
+### How much does it cost?
+
+Zero. Always. The source is under the **MIT License** — use, modify and redistribute freely, including commercially.
+
+### Is there a paid or enterprise edition?
+
+No. The project's scope is the current open source version. If your company needs specific features, open an issue or contribute directly on the [repository](https://github.com/thiagossampaio/bartender).
+
+## Requirements
+
+### Which operating systems are supported?
+
+- **Windows 10** (1809) and **Windows 11** — 64-bit.
+- **macOS 12 Monterey** or later — Intel + Apple Silicon (single universal build).
+- **Linux**: Ubuntu 22.04+, Debian 12+ (via `.deb`), or any x86_64 distro with glibc 2.35+ (via AppImage).
+
+### How much RAM / disk do I need?
+
+- **RAM**: 200–400 MB during typical use.
+- **Disk**: ~150 MB for installation + growth per template (hundreds of KB each).
+
+### Does it run on ARM Linux?
+
+Current official builds are x86_64 only. For ARM (Raspberry Pi 4+, etc.), build from source — Tauri 2.x supports `aarch64-unknown-linux-gnu` natively.
+
+## Privacy and data
+
+### Does Bartender send data to external servers?
+
+**No.** The app has `default-src 'self'` in its Content Security Policy — no external requests allowed. No telemetry, no analytics, no auto-update.
+
+The only exception: the **official website** (this one) makes one call to the GitHub API to display the latest available version. That call is in the site only, not in the app.
+
+### Where is my data stored?
+
+Local SQLite database:
+
+- **Windows**: `%APPDATA%/io.bartender.app/`
+- **macOS**: `~/Library/Application Support/io.bartender.app/`
+- **Linux**: `~/.local/share/io.bartender.app/`
+
+Templates, history, settings — all in one directory you can copy/move for backup.
+
+### How do I delete all my data?
+
+Delete the directory above. Next time you open the app, Bartender creates a fresh empty database.
+
+## Install and update
+
+### How do I update to a new version?
+
+There's no auto-update — download the new installer from the [Download page](/bartender/download/) and install over the previous one. Your templates and history stay intact.
+
+### Why no auto-update?
+
+Architecture decision ([offline-first](#privacy-and-data)). Auto-update would require a constant connection to the release server and would conflict with the zero-external-requests requirement. In exchange, manual updates are a single click every few months.
+
+### Is the installer signed?
+
+Not at the moment. Binaries are built publicly via GitHub Actions (verifiable), but Apple Developer ID and Windows Code Signing certs are expensive. When sponsorship is available, signing will be added — the `release.yml` infrastructure is already wired up for it.
+
+Until then:
+
+- **Windows**: SmartScreen warns on first run; click "More info" → "Run anyway".
+- **macOS**: on first run, Control-click → "Open" → "Open".
+
+## Features
+
+### Can I use custom fonts?
+
+Yes — the editor accepts any system-installed font. For portability, export as [.etlbl](/bartender/docs/etlbl/) — the package can embed the font if you enable that option.
+
+### Does it print over network (Ethernet/Wi-Fi)?
+
+Yes, via the OS driver. For direct PPLB/ZPL over network, it's an advanced TCP setup (port 9100). Open an issue if you'd like guidance.
+
+### Can I import labels from other software (BarTender, NiceLabel, etc.)?
+
+Not directly — proprietary formats aren't supported. You can recreate the design in the editor from a screenshot or PDF of the original. For mass automation, importer contributions are welcome.
+
+### Does it support continuous-roll labels?
+
+Yes. In the template properties panel, set **mode: continuous** instead of **mode: gap between labels**. The thermal printer must be configured the same way (physical FEED button).
+
+## For developers
+
+### How do I contribute?
+
+The code is at [github.com/thiagossampaio/bartender](https://github.com/thiagossampaio/bartender). Issues and PRs are welcome. See the README for the dev environment setup (Node 20, Rust 1.77+, Tauri CLI).
+
+### Can I use Bartender as the base for a commercial product?
+
+Yes — the MIT License allows commercial use, redistribution and modification. Attribution optional but appreciated.
+
+### Is the backend in Rust?
+
+The shell is Tauri 2.x (Rust + WebView). The frontend is React + TypeScript. Canvas logic in Konva.js, barcodes in bwip-js, PDF via jsPDF.
+
+## Support
+
+### I found a bug. Where do I report it?
+
+Open an issue at [GitHub Issues](https://github.com/thiagossampaio/bartender/issues). Include:
+
+- Bartender version (shown in the bottom-right of the window)
+- Operating system and version
+- Steps to reproduce
+- Logs (see [Autosave & recovery → Logs](/bartender/docs/autosave-recovery/#logs))
+
+### Is there documentation for system administrators?
+
+For bulk installation across a fleet, use:
+
+- **Windows**: `msiexec /i Bartender_X.Y.Z_x64_pt-BR.msi /quiet` via GPO or Intune.
+- **macOS**: distribute the `.dmg` via Munki, Jamf or MDM.
+- **Linux**: `.deb` via internal APT repo, or AppImage via NFS / GitOps.
+
+There are no centralized settings (registry/plist) yet — all config is per user. Roadmap includes this.

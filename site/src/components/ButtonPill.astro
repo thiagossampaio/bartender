@@ -1,0 +1,50 @@
+---
+/**
+ * Pill button — DESIGN.md §button-primary / §button-outline.
+ *
+ * `variant=primary` é o ink pill (única cor de CTA do brand).
+ * `variant=outline` é a versão transparente com hairline.
+ */
+interface Props {
+  href: string;
+  variant?: 'primary' | 'outline';
+  size?: 'md' | 'lg';
+  external?: boolean;
+  class?: string;
+  download?: boolean;
+  data?: Record<string, string>;
+}
+
+const {
+  href,
+  variant = 'primary',
+  size = 'md',
+  external = false,
+  class: className = '',
+  download = false,
+  data = {},
+} = Astro.props;
+
+const classes = [
+  'btn-pill',
+  variant === 'primary' ? 'btn-pill-primary' : 'btn-pill-outline',
+  size === 'lg' ? 'btn-pill-lg' : '',
+  className,
+]
+  .filter(Boolean)
+  .join(' ');
+
+const externalProps = external
+  ? { target: '_blank', rel: 'noopener noreferrer' }
+  : {};
+---
+
+<a
+  href={href}
+  class={classes}
+  {...externalProps}
+  {...(download ? { download: '' } : {})}
+  {...data}
+>
+  <slot />
+</a>

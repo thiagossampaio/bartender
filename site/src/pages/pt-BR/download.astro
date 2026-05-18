@@ -1,0 +1,150 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import GradientOrb from '../../components/GradientOrb.astro';
+import BadgePill from '../../components/BadgePill.astro';
+import DownloadCard from '../../components/DownloadCard.astro';
+import DownloadHero from '../../components/DownloadHero.astro';
+import { useTranslations } from '../../i18n/utils';
+import { buildDownloadCards, buildTimeVersion, releasesPage, REPO_URL, latestReleasePage } from '../../lib/releases';
+
+const locale = 'pt-BR' as const;
+const t = useTranslations(locale);
+const version = buildTimeVersion();
+
+const labels = {
+  win: { short: t('os.windows'), full: t('os.windows.full'), notes: t('download.notes.win') },
+  mac: { short: t('os.mac'), full: t('os.mac.full'), notes: t('download.notes.mac') },
+  'linux-deb': { short: t('os.linux'), full: t('os.linux.deb.full'), notes: t('download.notes.deb') },
+  'linux-appimage': { short: t('os.linux'), full: t('os.linux.appimage.full'), notes: t('download.notes.appimage') },
+} as const;
+
+const cards = buildDownloadCards(version, labels);
+
+const installSteps = [
+  {
+    os: 'Windows',
+    steps: [
+      'Abra o instalador .msi baixado.',
+      'Clique em "Avançar" até o fim do wizard. O instalador está em pt-BR (template WiX).',
+      'Encontre "Bartender" no menu Iniciar e abra-o.',
+      'Na primeira execução, o Windows SmartScreen pode avisar — clique em "Mais informações" → "Executar assim mesmo" (o binário ainda não tem assinatura de código).',
+    ],
+  },
+  {
+    os: 'macOS',
+    steps: [
+      'Abra o .dmg baixado.',
+      'Arraste o Bartender para a pasta Aplicativos.',
+      'Na primeira execução, segure Control + clique no app → "Abrir" → "Abrir" (Gatekeeper exige isso em builds sem assinatura).',
+      'Requer macOS 12 Monterey ou superior. Build universal — mesmo DMG para Intel e Apple Silicon.',
+    ],
+  },
+  {
+    os: 'Linux (.deb)',
+    steps: [
+      'sudo dpkg -i bartender_*.deb (ou abra com Discover / GNOME Software).',
+      'Bibliotecas necessárias são instaladas automaticamente pelo gerenciador de pacotes.',
+      'Abra pelo menu de aplicações.',
+    ],
+  },
+  {
+    os: 'Linux (AppImage)',
+    steps: [
+      'chmod +x bartender_*.AppImage',
+      './bartender_*.AppImage',
+      'Opcional: integre ao seu launcher usando o AppImageLauncher.',
+    ],
+  },
+];
+---
+
+<BaseLayout
+  locale={locale}
+  title="Baixar Bartender · Windows, macOS, Linux"
+  description="Baixe os instaladores mais recentes do Bartender para Windows (.msi), macOS (.dmg universal), Linux (.deb e .AppImage). Gratuito e open source."
+>
+  <!-- HERO -->
+  <section class="relative overflow-hidden">
+    <GradientOrb variant="peach" size="xl" position="-top-40 -right-40" opacity={0.4} />
+    <div class="container-page section-pad relative">
+      <div class="flex flex-col items-center text-center gap-4 max-w-2xl mx-auto">
+        <BadgePill>{t('download.latest')} · v{version}</BadgePill>
+        <h1 class="display-xl text-ink">Baixar Bartender</h1>
+        <p class="body-md text-body">
+          Um download por sistema operacional. O build macOS é um único DMG universal —
+          Intel e Apple Silicon. Gratuito para sempre, open source sob a Licença MIT.
+        </p>
+      </div>
+
+      <div class="mt-12 max-w-3xl mx-auto">
+        <DownloadHero locale={locale} />
+      </div>
+    </div>
+  </section>
+
+  <!-- ALL DOWNLOADS -->
+  <section id="all-downloads" class="bg-canvas-soft">
+    <div class="container-page section-pad">
+      <header class="flex flex-col items-center text-center gap-3 mb-12 max-w-2xl mx-auto">
+        <BadgePill>Todos os downloads</BadgePill>
+        <h2 class="display-lg text-ink">Todos os builds, todas as plataformas.</h2>
+      </header>
+      <div class="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
+        {
+          cards.map((c) => (
+            <DownloadCard
+              os={c.os}
+              label={c.full}
+              notes={c.notes}
+              size={c.size}
+              href={c.href}
+              filename={c.filename}
+              ctaLabel={t('cta.download')}
+              verifyLabel={t('download.verify')}
+              verifyHref={latestReleasePage()}
+            />
+          ))
+        }
+      </div>
+    </div>
+  </section>
+
+  <!-- INSTALL INSTRUCTIONS -->
+  <section class="container-page section-pad">
+    <header class="flex flex-col items-center text-center gap-3 mb-12 max-w-2xl mx-auto">
+      <BadgePill>Instalação</BadgePill>
+      <h2 class="display-lg text-ink">{t('download.install.guide')}</h2>
+    </header>
+    <div class="grid gap-4 max-w-3xl mx-auto">
+      {
+        installSteps.map((s) => (
+          <details class="card-feature group">
+            <summary class="flex items-center justify-between cursor-pointer list-none">
+              <span class="title-md text-ink">{s.os}</span>
+              <span class="caption-uppercase text-muted group-open:rotate-180 transition-transform">▾</span>
+            </summary>
+            <ol class="mt-4 flex flex-col gap-2 text-body body-md list-decimal pl-5">
+              {s.steps.map((line) => <li>{line}</li>)}
+            </ol>
+          </details>
+        ))
+      }
+    </div>
+  </section>
+
+  <!-- OTHER -->
+  <section class="border-t border-hairline">
+    <div class="container-page py-12 grid gap-6 md:grid-cols-2">
+      <a href={releasesPage()} target="_blank" rel="noopener noreferrer" class="card-feature">
+        <p class="caption-uppercase text-muted">{t('download.older')}</p>
+        <h3 class="title-md text-ink mt-1">Todas as releases no GitHub</h3>
+        <p class="body-sm text-body mt-2">Navegue pelas versões anteriores e notas de release.</p>
+      </a>
+      <a href={`${REPO_URL}#desenvolvimento`} target="_blank" rel="noopener noreferrer" class="card-feature">
+        <p class="caption-uppercase text-muted">{t('download.source')}</p>
+        <h3 class="title-md text-ink mt-1">Compile você mesmo</h3>
+        <p class="body-sm text-body mt-2">Node 20, Rust 1.77+, Tauri CLI. Veja o README do projeto.</p>
+      </a>
+    </div>
+  </section>
+</BaseLayout>

@@ -1,0 +1,68 @@
+---
+title: Galeria de templates
+description: Crie, organize, duplique e recupere templates de etiqueta. A Galeria é a tela inicial do Bartender e o hub do seu trabalho.
+order: 2
+category: designing
+---
+
+A **Galeria** é a tela inicial do Bartender e a casa de todos os seus templates de etiqueta. Cada cartão na grade representa um template salvo, com miniatura, nome, dimensões e data da última edição.
+
+## Ações por template
+
+Cada template suporta as seguintes ações:
+
+| Ação | Como acionar | Resultado |
+|---|---|---|
+| **Abrir** | Clique no cartão | Abre o template no editor canvas. |
+| **Renomear** | Clique direito → Renomear | Edita o nome em modo inline. |
+| **Duplicar** | Clique direito → Duplicar | Cria uma cópia idêntica com sufixo "(cópia)". |
+| **Excluir** | Clique direito → Excluir | Move o template para a **Lixeira** (não é deletado de imediato). |
+| **Exportar `.etlbl`** | Clique direito → Exportar | Gera um arquivo portátil com hash de integridade. Veja [.etlbl](/bartender/pt-BR/docs/etlbl/). |
+| **Imprimir** | Clique direito → Imprimir | Abre o diálogo de impressão direto, sem editar. |
+
+## Lixeira
+
+Templates excluídos vão para a **Lixeira** — acessível pelo botão no canto superior direito da Galeria. Lá você pode:
+
+- **Restaurar** um template (volta para a Galeria com o nome original).
+- **Excluir permanentemente** (deleta do banco local, sem reversão).
+- **Esvaziar Lixeira** (remove tudo de uma vez).
+
+A Lixeira é persistente — os templates ficam disponíveis até serem excluídos permanentemente ou a Lixeira ser esvaziada manualmente. Não há expiração automática.
+
+## Criando templates
+
+### Novo template em branco
+
+Clique em **+ Novo template** no topo da Galeria. Defina nome, largura × altura em milímetros e densidade da impressora (200 ou 300 dpi).
+
+### A partir de duplicação
+
+Para reaproveitar um layout existente, **Duplique** um template já testado e renomeie a cópia. Isso preserva todos os elementos, configurações de impressão e mapeamentos de placeholders.
+
+### A partir de `.etlbl`
+
+Use **Importar template** no topo da Galeria para abrir um arquivo `.etlbl` recebido de um colega, exportado de outra máquina ou baixado de um catálogo interno. O Bartender valida o hash de integridade antes de importar.
+
+## Buscar e filtrar
+
+A barra de busca no topo filtra templates pelo **nome**. Para listas grandes, use também:
+
+- **Ordenar por**: nome (A-Z), última edição, data de criação, dimensões.
+- **Visualização**: grade (cartões com miniatura) ou lista (mais densa).
+
+## Armazenamento local
+
+Todos os templates são armazenados em um banco SQLite local — caminho exato depende do SO:
+
+- **Windows**: `%APPDATA%/io.bartender.app/`
+- **macOS**: `~/Library/Application Support/io.bartender.app/`
+- **Linux**: `~/.local/share/io.bartender.app/`
+
+Nada é enviado para servidores externos. Para backup, exporte como `.etlbl` ou copie o diretório acima.
+
+## Próximos passos
+
+- [Editor canvas](/bartender/pt-BR/docs/editor/) — desenhe sua etiqueta.
+- [Formato .etlbl](/bartender/pt-BR/docs/etlbl/) — backup e compartilhamento.
+- [Autosave & recuperação](/bartender/pt-BR/docs/autosave-recovery/) — como o Bartender protege seu trabalho.

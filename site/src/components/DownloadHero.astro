@@ -1,0 +1,54 @@
+---
+import OsIcon from './OsIcon.astro';
+import GradientOrb from './GradientOrb.astro';
+import { ASSETS, assetUrl, type OS, buildTimeVersion } from '../lib/releases';
+import { useTranslations } from '../i18n/utils';
+import type { Locale } from '../i18n/ui';
+
+interface Props {
+  locale: Locale;
+}
+const { locale } = Astro.props;
+const t = useTranslations(locale);
+const version = buildTimeVersion();
+
+const osLabels: Record<OS, { short: string; full: string }> = {
+  win: { short: t('os.windows'), full: t('os.windows.full') },
+  mac: { short: t('os.mac'), full: t('os.mac.full') },
+  'linux-deb': { short: t('os.linux'), full: t('os.linux.deb.full') },
+  'linux-appimage': { short: t('os.linux'), full: t('os.linux.appimage.full') },
+};
+
+// Server-side: default para Windows (cobre maior fatia de usuários desktop).
+// Client-side, `live-version.ts` reordena.
+const defaultOs: OS = 'win';
+---
+
+<section class="relative overflow-hidden rounded-2xl border border-hairline bg-canvas-soft p-8 md:p-12">
+  <GradientOrb variant="peach" size="lg" position="-top-32 -right-32" opacity={0.55} />
+  <GradientOrb variant="sky" size="md" position="-bottom-24 -left-24" opacity={0.4} />
+
+  <div class="relative flex flex-col gap-6">
+    <p class="caption-uppercase text-muted" data-detected-label>
+      <span data-detect-fallback>{t('download.detecting')}</span>
+    </p>
+    <h2 class="display-xl text-ink" data-detected-headline>
+      {t('cta.download.for', { os: osLabels[defaultOs].full })}
+    </h2>
+    <div class="flex flex-wrap items-center gap-3">
+      <a
+        href={assetUrl(defaultOs, version)}
+        class="btn-pill btn-pill-primary btn-pill-lg"
+        data-detected-cta
+        data-bartender-download={defaultOs}
+        data-asset-filename={ASSETS[defaultOs].filename(version)}
+      >
+        <OsIcon os={defaultOs} size={18} class="text-on-primary" />
+        {t('cta.download.for', { os: osLabels[defaultOs].short })}
+      </a>
+      <span class="caption text-muted">
+        {t('download.version', { version: `v${version}` })}
+      </span>
+    </div>
+  </div>
+</section>

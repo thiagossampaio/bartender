@@ -1,0 +1,75 @@
+---
+title: PDF export
+description: Export labels as single or multi-page vector PDFs. Ideal for archiving, sharing and sending to print shops.
+order: 9
+category: files
+---
+
+Bartender exports labels as **vector PDFs** — text, shapes and barcodes become vector objects (not rasterized). The result is crisp at any zoom and produces an optimized file size.
+
+## Single-page export
+
+From the editor, click **PDF** on the top toolbar. Bartender writes a one-page PDF with:
+
+- Exact physical dimensions (in points, 1:1 scale with mm).
+- Text as vector text (selectable, copyable).
+- Barcodes as vector objects.
+- SVG images stay vector; PNG/JPG embed as bitmap.
+
+## Multi-page (batch)
+
+From the [batch printing](/bartender/docs/batch-printing/) wizard, instead of printing, pick **Export PDF**. Each CSV/XLSX row becomes a page in the PDF.
+
+Use cases:
+
+- **Pre-approval**: generate a PDF and send it to someone for review before printing 500 labels.
+- **Archiving**: keep a PDF of the batch alongside the source spreadsheet.
+- **External print shop**: many shops accept PDF directly.
+
+## Export options
+
+| Option | Default | Description |
+|---|---|---|
+| **Fidelity** | Vector | Vector (keep text/shapes) or rasterized (flatten everything to bitmap). |
+| **Raster density** | 300 dpi | Applied only if "Fidelity = rasterized" or to embedded bitmaps. |
+| **Bleed** | 0 mm | Extra margin for print shops that require one. Typically 3 mm. |
+| **Crop marks** | Off | Thin corner marks showing the final size. |
+| **Color** | RGB | RGB (screen/inkjet) or CMYK (offset printing). |
+| **Embed fonts** | Yes | Embed fonts in the PDF (more portable; slightly larger file). |
+| **Image compression** | JPEG q85 | JPEG q85, q95, or none. |
+
+## When to rasterize
+
+The **Fidelity = rasterized** option flattens everything to bitmap. Use when:
+
+- The print shop complains about some specific vector element.
+- You need to guarantee 100% identical rendering in any PDF reader (some old readers render vectors differently).
+
+For everyday use, keep **vector** — max quality, smaller file.
+
+## Color: RGB vs CMYK
+
+- **RGB** (default): for screen viewing and inkjet/laser home printing.
+- **CMYK**: for offset printing. Bartender does a simple conversion (no complex ICC profiles). For top-grade graphical accuracy, tweak in the print shop's software.
+
+## File size
+
+| Content | Typical size |
+|---|---|
+| Simple label (text + barcode) | 3–10 KB |
+| Label with SVG logo | 20–50 KB |
+| Label with PNG photo | 100–500 KB |
+| 100-page batch (text + barcode) | 500 KB – 1.5 MB |
+| 1000-page batch with images | 30–80 MB |
+
+## Limits
+
+- Vector text: Bartender ensures every used font is **embedded** or **subset**.
+- Colors: only "Color = RGB or CMYK" available — no direct Pantone support.
+- Layers: the generated PDF is flat — no separate layers. For post-editing, keep the `.etlbl` instead.
+
+## Next steps
+
+- [Batch printing](/bartender/docs/batch-printing/) — generate multi-page PDFs from CSV.
+- [.etlbl format](/bartender/docs/etlbl/) — editable alternative for sharing.
+- [History](/bartender/docs/history-calibration/) — records keep a reference to the exported PDF.

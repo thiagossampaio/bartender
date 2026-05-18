@@ -1,0 +1,75 @@
+---
+title: Exportação PDF
+description: Exporte etiquetas como PDF vetorial single ou multi-página. Ideal para arquivamento, compartilhamento e envio para gráficas.
+order: 9
+category: files
+---
+
+O Bartender exporta etiquetas como **PDF vetorial** — texto, formas e códigos de barras viram objetos vetoriais (não rasterizados). O resultado é nítido em qualquer zoom e tem tamanho de arquivo otimizado.
+
+## Single-page export
+
+Do editor, clique em **PDF** na toolbar superior. O Bartender gera um PDF de uma página com:
+
+- Dimensões físicas exatas (em pontos, escala 1:1 com mm).
+- Texto como texto vetorial (selecionável, copiável).
+- Barcodes como objetos vetoriais.
+- Imagens SVG mantém vetor; PNG/JPG são embarcadas como bitmap.
+
+## Multi-page (lote)
+
+Do wizard de [impressão em lote](/bartender/pt-BR/docs/batch-printing/), em vez de imprimir, escolha **Exportar PDF**. Cada linha do CSV/XLSX vira uma página do PDF.
+
+Casos de uso:
+
+- **Pré-aprovação**: gerar PDF e mandar para alguém revisar antes de imprimir 500 etiquetas.
+- **Arquivamento**: manter PDF do lote junto com a planilha original.
+- **Envio para gráfica externa**: muitas gráficas aceitam PDF direto.
+
+## Opções de exportação
+
+| Opção | Padrão | Descrição |
+|---|---|---|
+| **Fidelidade** | Vetorial | Vetorial (manter texto/formas) ou rasterizada (achatar tudo em bitmap). |
+| **Densidade rasterização** | 300 dpi | Aplicada apenas se "Fidelidade = rasterizada" ou em bitmaps embarcados. |
+| **Sangria (bleed)** | 0 mm | Margem extra para gráficas que exigem. Tipicamente 3 mm. |
+| **Marcas de corte** | Desligado | Linhas finas nos cantos indicando o tamanho final. |
+| **Cor** | RGB | RGB (tela/inkjet) ou CMYK (gráfica offset). |
+| **Incorporar fontes** | Sim | Embeda fontes no PDF (mais portátil; arquivo um pouco maior). |
+| **Compressão de imagens** | JPEG q85 | JPEG q85, q95, ou sem compressão. |
+
+## Quando rasterizar
+
+A opção **Fidelidade = rasterizada** converte tudo em bitmap. Use quando:
+
+- A gráfica reclama de algum elemento vetorial específico.
+- Você precisa garantir aparência 100% idêntica em qualquer leitor de PDF (alguns leitores antigos renderizam vetor diferente).
+
+Para o uso comum, mantenha **vetorial** — qualidade máxima, tamanho menor.
+
+## Cor: RGB vs. CMYK
+
+- **RGB** (padrão): para visualização em tela e impressão em inkjet/laser doméstico.
+- **CMYK**: para gráficas offset. O Bartender faz a conversão simples (sem perfis ICC complexos). Para máxima fidelidade gráfica profissional, ajuste no software da gráfica.
+
+## Tamanho de arquivo
+
+| Conteúdo | Tamanho típico |
+|---|---|
+| Etiqueta simples (texto + barcode) | 3-10 KB |
+| Etiqueta com logo SVG | 20-50 KB |
+| Etiqueta com foto PNG | 100-500 KB |
+| Lote 100 páginas (texto + barcode) | 500 KB - 1.5 MB |
+| Lote 1000 páginas com imagens | 30-80 MB |
+
+## Limites
+
+- Texto vetorial: o Bartender garante que toda fonte usada seja **embedded** ou **subset**.
+- Cores: a única opção atual é "Cor = RGB ou CMYK" sem suporte a Pantone direto.
+- Camadas: o PDF gerado é flat — sem layers separadas. Para edição posterior, prefira manter o `.etlbl`.
+
+## Próximos passos
+
+- [Impressão em lote](/bartender/pt-BR/docs/batch-printing/) — gere multi-page PDF a partir de CSV.
+- [Formato .etlbl](/bartender/pt-BR/docs/etlbl/) — alternativa editável para compartilhar.
+- [Histórico](/bartender/pt-BR/docs/history-calibration/) — registros mantêm referência ao PDF exportado.

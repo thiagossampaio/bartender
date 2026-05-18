@@ -1,0 +1,88 @@
+---
+title: Barcodes
+description: Complete reference of 1D and 2D barcode types supported by Bartender, with check-digit rules, QR levels and examples.
+order: 4
+category: barcodes
+---
+
+Bartender generates barcodes via [bwip-js](https://github.com/metafloor/bwip-js) — the same library enterprise label software relies on. Full coverage of 1D and 2D standards, real-time validation, automatic check digits when applicable.
+
+## Adding a barcode
+
+In the editor, click the **Barcode** tool (shortcut `B`) and drag on the canvas. In the right panel, pick the **type** and enter the **data**. The render updates in real time.
+
+## Supported types
+
+### 1D (linear) codes
+
+| Type | Character set | Check digit | Common use |
+|---|---|---|---|
+| **CODE128** | Full ASCII | Mod 103 (auto) | Logistics, shipping, generic |
+| **CODE39** | A-Z, 0-9, `- . $ / + % SPACE` | Optional (Mod 43) | Industrial inventory |
+| **CODE93** | A-Z, 0-9, symbols | C + K (auto) | Denser Code 39 variant |
+| **CODE11** | 0-9, dash | Mod 11 (optional) | Telecom |
+| **EAN-13** | 12 digits | Mod 10 (auto) | International retail products |
+| **EAN-8** | 7 digits | Mod 10 (auto) | Small packaging |
+| **UPC-A** | 11 digits | Mod 10 (auto) | US/Canada retail |
+| **UPC-E** | 6 digits | Compressed | Small US packaging |
+| **ITF (Interleaved 2 of 5)** | Digit pairs | Optional | Cartons, pallets |
+| **Codabar** | 0-9, `- $ : / . +`, A-D (start/stop) | Not applicable | Libraries, blood banks |
+
+### 2D codes
+
+| Type | Capacity | Levels | Common use |
+|---|---|---|---|
+| **QR Code** | Up to ~4,300 alphanumeric chars | L, M, Q, H (7%, 15%, 25%, 30% correction) | URLs, payments, any data |
+
+> **More 2D formats** (Data Matrix, PDF417, Aztec) can be added via advanced bwip-js config. File an issue at [GitHub Issues](https://github.com/thiagossampaio/bartender/issues) if you need them.
+
+## Check digits
+
+For types that need a check digit (EAN, UPC, ITF pair, CODE128, CODE93), Bartender **computes it automatically** — you supply only the useful data and the app appends the final digit. If you pass an EAN-13 with all 13 digits (including the check), the app validates — wrong check = inline error.
+
+## QR levels
+
+QR codes have four error-correction levels:
+
+- **L (Low)** — 7% redundancy. Maximum density.
+- **M (Medium)** — 15%. Recommended default.
+- **Q (Quartile)** — 25%. Survives light dirt.
+- **H (High)** — 30%. Survives significant damage (ideal for industrial).
+
+Higher levels mean the QR uses more modules for the same data. For tiny labels (≤20 mm), prefer **M**.
+
+## Placeholders and dynamic data
+
+Like any text, a barcode's **data** field accepts `{{field}}` placeholders for batch printing. Example:
+
+```text
+Type: CODE128
+Data: {{sku}}
+```
+
+When printing a batch from a CSV with an `sku` column, each label generates its own barcode. See [Batch printing](/bartender/docs/batch-printing/).
+
+## Real-time validation
+
+The properties panel shows:
+
+- **Green** — data valid for the chosen type.
+- **Red** — invalid (chars outside set, wrong length, wrong manual check digit).
+
+You cannot save or print a template with an invalid barcode.
+
+## Rendering and sharpness
+
+Bartender renders the barcode as SVG on the canvas and as **high-resolution bitmap** at print time. For thermal printers with native PPLB/ZPL, Bartender emits the **native barcode command** (no rasterization) — peak sharpness.
+
+## Best practices
+
+- **Minimum height**: for 1D, keep at least 15% of the width as height — squashed codes are hard to scan.
+- **Quiet zone**: keep blank space around the barcode (minimum 2 mm for 1D, 4 modules for QR). Bartender adds the quiet zone automatically when you give the bounding box room.
+- **Right type for the job**: use EAN/UPC only for retail products with a registered GTIN. For internal use, **CODE128** is the most flexible standard.
+
+## Next steps
+
+- [Canvas editor](/bartender/docs/editor/) — place the barcode on the label.
+- [Batch printing](/bartender/docs/batch-printing/) — generate dynamic barcodes from CSV.
+- [PPLB & ZPL](/bartender/docs/pplb-zpl/) — native commands for thermal printers.

@@ -1,0 +1,63 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import GradientOrb from '../../components/GradientOrb.astro';
+import BadgePill from '../../components/BadgePill.astro';
+import FeatureCard from '../../components/FeatureCard.astro';
+import { useTranslations, pagePath, docPath } from '../../i18n/utils';
+
+const locale = 'pt-BR' as const;
+const t = useTranslations(locale);
+
+const features = [
+  { title: 'Galeria de templates', body: 'Crie, duplique, renomeie, exclua e restaure modelos de etiqueta. A Lixeira persistente protege você de erros.', href: docPath(locale, 'gallery'), cta: 'Documentação' },
+  { title: 'Editor WYSIWYG', body: 'Texto, retângulos, linhas, elipses, imagens e códigos de barras em um canvas milimetricamente preciso, com painel de propriedades para controle fino.', href: docPath(locale, 'editor'), cta: 'Documentação do editor' },
+  { title: 'Desfazer / Refazer', body: 'Cada edição é registrada. Volte passos sem medo de perder trabalho.', href: docPath(locale, 'editor'), cta: 'Ver atalhos' },
+  { title: 'Códigos 1D e 2D', body: 'CODE128, EAN-13/8, UPC-A/E, ITF, Codabar, Code39, Code93, Code11 e QR com quatro níveis de correção. Dígito verificador automático.', href: docPath(locale, 'barcodes'), cta: 'Referência completa' },
+  { title: 'Importação CSV / XLSX', body: 'Solte uma planilha, mapeie colunas para {{placeholders}}, veja cada etiqueta e imprima o lote inteiro.', href: docPath(locale, 'batch-printing'), cta: 'Fluxo em lote' },
+  { title: 'Impressão via driver do SO', body: 'Imprima em qualquer impressora jato de tinta, laser ou térmica com driver instalado no Windows ou macOS.', href: docPath(locale, 'printing'), cta: 'Configurar impressão' },
+  { title: 'PPLB nativo (Argox)', body: 'Gera PPLB e envia via USB / serial para Argox OS-214 Plus. Sem tradução de driver no caminho.', href: docPath(locale, 'pplb-zpl'), cta: 'Guia PPLB / ZPL' },
+  { title: 'ZPL nativo (Zebra)', body: 'Mesma rota direta para impressoras Zebra — códigos de barras impecáveis, throughput maior.', href: docPath(locale, 'pplb-zpl'), cta: 'Guia PPLB / ZPL' },
+  { title: 'Calibração e reimpressão', body: 'Imprima uma página de calibração para ajustar margens e reimprima qualquer lote anterior pelo histórico — sem redesenhar.', href: docPath(locale, 'history-calibration'), cta: 'Histórico e calibração' },
+  { title: 'Histórico de impressões', body: 'Todo job é registrado localmente — busque, reimprima, audite.', href: docPath(locale, 'history-calibration'), cta: 'Documentação' },
+  { title: 'Exportação PDF vetorial', body: 'Exporte etiquetas single ou multi-página como PDF vetorial — sem compressão, ideal para arquivamento ou compartilhamento.', href: docPath(locale, 'pdf-export'), cta: 'Exportar PDF' },
+  { title: '.etlbl: backup e compartilhamento', body: 'Empacote templates como arquivos .etlbl portáveis — ZIP com manifest e hash de integridade. Mova templates entre máquinas com segurança.', href: docPath(locale, 'etlbl'), cta: 'Formato .etlbl' },
+  { title: 'Autosave e recuperação', body: 'Seu trabalho é salvo continuamente. Se o app ou o SO travar, retome exatamente de onde parou.', href: docPath(locale, 'autosave-recovery'), cta: 'Como funciona' },
+  { title: 'Offline-first por design', body: 'CSP travada em default-src \'self\'. Zero telemetria, sem auto-update, sem CDNs externas. Seus dados nunca saem da sua máquina.', href: docPath(locale, 'faq'), cta: 'FAQ' },
+];
+---
+
+<BaseLayout
+  locale={locale}
+  title="Recursos · Bartender"
+  description="Todos os recursos do Bartender, do editor WYSIWYG à impressão nativa PPLB/ZPL, importação em lote, exportação PDF vetorial e autosave."
+>
+  <section class="relative overflow-hidden">
+    <GradientOrb variant="sky" size="xl" position="-top-40 -right-40" opacity={0.45} />
+    <GradientOrb variant="mint" size="lg" position="top-1/3 -left-32" opacity={0.35} />
+    <div class="container-page section-pad relative">
+      <div class="flex flex-col items-center text-center gap-6 max-w-3xl mx-auto">
+        <BadgePill>Recursos</BadgePill>
+        <h1 class="display-mega text-ink">Tudo o que o Bartender faz.</h1>
+        <p class="body-md text-body max-w-xl">
+          Um mapa completo do app — do design da sua primeira etiqueta até rodar um
+          lote de 1.000 linhas em uma Zebra térmica via USB. Clique em qualquer card
+          para ir à documentação correspondente.
+        </p>
+        <div class="flex flex-wrap gap-3">
+          <a href={pagePath(locale, 'download')} class="btn-pill btn-pill-primary">Baixar</a>
+          <a href={docPath(locale)} class="btn-pill btn-pill-outline">Documentação</a>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="container-page section-pad">
+    <div class="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+      {features.map((f) => (
+        <FeatureCard title={f.title} href={f.href} cta={f.cta}>
+          {f.body}
+        </FeatureCard>
+      ))}
+    </div>
+  </section>
+</BaseLayout>

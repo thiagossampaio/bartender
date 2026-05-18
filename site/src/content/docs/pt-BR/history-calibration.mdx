@@ -1,0 +1,96 @@
+---
+title: Histórico & calibração
+description: Toda impressão é registrada localmente. Reimprima qualquer lote sem redesenhar. Calibre a impressora com a página de teste.
+order: 10
+category: files
+---
+
+O Bartender mantém um **histórico local** de toda etiqueta impressa, mais ferramentas de **calibração** para garantir que cada milímetro do design corresponda exatamente ao papel.
+
+## Histórico de impressões
+
+Acesse pelo botão **Histórico** na Galeria. Cada entrada mostra:
+
+- **Template** usado
+- **Quantidade** impressa
+- **Modo**: driver do SO, PPLB, ZPL
+- **Impressora**: nome e tipo
+- **Data e hora**
+- **Origem dos dados**: individual, lote (com referência ao CSV usado)
+
+Filtros disponíveis: por template, por impressora, por data, por modo.
+
+### Reimprimir
+
+Selecione uma entrada → **Reimprimir**. O Bartender:
+
+1. Carrega o template (mesmo que tenha sido modificado desde a impressão original, **a versão antiga é restaurada**).
+2. Aplica o mesmo CSV de lote, se houver (o arquivo precisa ainda existir no caminho original — caso contrário, o app pede para você reapontar).
+3. Abre o diálogo de impressão pré-preenchido com as mesmas configurações.
+
+Útil para:
+
+- Reimprimir uma etiqueta perdida.
+- Refazer um lote inteiro após troca de papel.
+- Auditoria: confirmar que uma impressão específica foi feita.
+
+### Exportar histórico
+
+Botão **Exportar CSV** gera um relatório das impressões filtradas. Use para contabilidade, auditoria ou análise.
+
+### Limpar histórico
+
+**Configurações** → **Histórico** → **Limpar**. Opções:
+
+- Apagar tudo
+- Apagar registros mais antigos que X dias
+- Apagar registros de uma impressora específica
+
+Por padrão, o histórico cresce indefinidamente. Em uso intenso, configure limpeza automática para os últimos 90 dias.
+
+## Calibração
+
+Toda impressora tem **deslocamento físico** — o ponto (0,0) lógico não corresponde exatamente ao canto da etiqueta. A calibração mede esse deslocamento e aplica correção.
+
+### Quando calibrar
+
+- Logo após instalar uma impressora nova.
+- Quando o resultado fica deslocado consistentemente (ex.: tudo desce 2 mm).
+- Após troca de papel ou rolo.
+
+### Página de calibração
+
+**Configurações** → **Impressão** → **Calibrar impressora**.
+
+O Bartender gera uma página de calibração com **marcas em uma grade de 5 mm**. Imprima na impressora-alvo.
+
+Com a etiqueta impressa em mãos:
+
+1. **Meça o deslocamento horizontal** (X) — quanto a marca "0" da grade ficou da borda esquerda real do papel. Anote em mm.
+2. **Meça o deslocamento vertical** (Y) — quanto desceu/subiu da borda superior.
+3. Volte ao app e digite os valores no formulário **Margens corretivas**.
+
+A partir daí, toda impressão nessa impressora aplica `-X` na posição horizontal e `-Y` na vertical. Resultado: alinhamento perfeito.
+
+### Margens por impressora
+
+Cada impressora cadastrada no histórico tem suas próprias margens corretivas. Se você usa duas impressoras diferentes, calibre cada uma separadamente — o Bartender aplica a calibração correta com base na impressora selecionada no diálogo.
+
+## Atalhos do histórico
+
+| Atalho | Ação |
+|---|---|
+| `Cmd/Ctrl + H` | Abrir Histórico |
+| `Cmd/Ctrl + R` (no Histórico) | Reimprimir selecionado |
+| `Cmd/Ctrl + F` | Buscar no Histórico |
+| `Delete` | Apagar entrada selecionada |
+
+## Privacidade do histórico
+
+O histórico é **100% local** — salvo no mesmo banco SQLite dos templates. Nada vai para servidores externos. Para apagar tudo de uma vez, use **Limpar histórico** ou apague o diretório de dados (veja [Galeria → Armazenamento local](/bartender/pt-BR/docs/gallery/#armazenamento-local)).
+
+## Próximos passos
+
+- [Driver do SO](/bartender/pt-BR/docs/printing/) — calibração funciona em ambos os modos.
+- [PPLB & ZPL](/bartender/pt-BR/docs/pplb-zpl/) — calibração extra para térmicas (botão físico de FEED).
+- [Autosave & recuperação](/bartender/pt-BR/docs/autosave-recovery/) — recuperação após crash.

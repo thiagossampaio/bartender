@@ -1,0 +1,75 @@
+---
+import BaseLayout from '../../../layouts/BaseLayout.astro';
+import GradientOrb from '../../../components/GradientOrb.astro';
+import BadgePill from '../../../components/BadgePill.astro';
+import FeatureCard from '../../../components/FeatureCard.astro';
+import { getCollection } from 'astro:content';
+import { docPath } from '../../../i18n/utils';
+
+const locale = 'pt-BR' as const;
+const entries = await getCollection('docs', (e) => e.id.startsWith(`${locale}/`));
+entries.sort((a, b) => a.data.order - b.data.order);
+
+const groups: Record<string, typeof entries> = {};
+for (const entry of entries) {
+  const cat = entry.data.category;
+  (groups[cat] ??= []).push(entry);
+}
+
+const groupOrder: Array<{ id: string; label: string; description: string }> = [
+  { id: 'getting-started', label: 'Primeiros passos', description: 'Instale, configure e imprima sua primeira etiqueta.' },
+  { id: 'designing', label: 'Design de etiquetas', description: 'Use o editor canvas e a galeria de templates.' },
+  { id: 'barcodes', label: 'Códigos de barras', description: 'Padrões 1D e 2D, dígito verificador, níveis QR.' },
+  { id: 'printing', label: 'Impressão', description: 'Drivers do SO, PPLB / ZPL nativos, calibração.' },
+  { id: 'data', label: 'Dados & lote', description: 'Importação CSV / XLSX e mapeamento de placeholders.' },
+  { id: 'files', label: 'Arquivos & formatos', description: 'Exportação PDF, pacotes .etlbl, histórico.' },
+  { id: 'reliability', label: 'Confiabilidade', description: 'Autosave, recuperação, FAQ.' },
+];
+
+function slug(id: string) {
+  return id.replace(/^[^/]+\//, '').replace(/\.(md|mdx)$/, '');
+}
+---
+
+<BaseLayout
+  locale={locale}
+  title="Documentação · Bartender"
+  description="Central de documentação do Bartender — todas as funcionalidades, fluxos e dicas de troubleshooting."
+>
+  <section class="relative overflow-hidden">
+    <GradientOrb variant="mint" size="xl" position="-top-40 -left-40" opacity={0.4} />
+    <div class="container-page section-pad relative">
+      <div class="flex flex-col items-center text-center gap-4 max-w-2xl mx-auto">
+        <BadgePill>Documentação</BadgePill>
+        <h1 class="display-mega text-ink">Aprenda o Bartender por completo.</h1>
+        <p class="body-md text-body">Do seu primeiro template a lotes avançados em hardware Argox e Zebra. Está tudo aqui.</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="container-page pb-24">
+    <div class="flex flex-col gap-16">
+      {
+        groupOrder.map((g) => {
+          const items = groups[g.id] ?? [];
+          if (!items.length) return null;
+          return (
+            <div class="flex flex-col gap-6">
+              <header class="flex flex-col gap-2">
+                <p class="caption-uppercase text-muted">{g.label}</p>
+                <h2 class="display-md text-ink">{g.description}</h2>
+              </header>
+              <div class="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+                {items.map((e) => (
+                  <FeatureCard title={e.data.title} href={docPath(locale, slug(e.id))} cta="Ler">
+                    {e.data.description}
+                  </FeatureCard>
+                ))}
+              </div>
+            </div>
+          );
+        })
+      }
+    </div>
+  </section>
+</BaseLayout>

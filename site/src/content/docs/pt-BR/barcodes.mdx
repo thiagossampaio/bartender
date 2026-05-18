@@ -1,0 +1,88 @@
+---
+title: Códigos de barras
+description: Tabela completa de códigos de barras 1D e 2D suportados pelo Bartender, com regras de dígito verificador, níveis QR e exemplos.
+order: 4
+category: barcodes
+---
+
+O Bartender gera códigos de barras via [bwip-js](https://github.com/metafloor/bwip-js) — a mesma biblioteca usada por softwares corporativos de etiquetagem. Cobertura completa de padrões 1D e 2D, validação em tempo real, dígito verificador calculado automaticamente quando aplicável.
+
+## Adicionar um código de barras
+
+No editor, clique na ferramenta **Código de barras** (atalho `B`), arraste no canvas para definir o tamanho. No painel direito, escolha o **tipo** e digite os **dados**. A renderização atualiza em tempo real.
+
+## Tipos suportados
+
+### Códigos 1D (lineares)
+
+| Tipo | Faixa de caracteres | Dígito verificador | Uso comum |
+|---|---|---|---|
+| **CODE128** | ASCII completo | Mod 103 (automático) | Logística, transporte, geral |
+| **CODE39** | A-Z, 0-9, `- . $ / + % SPACE` | Opcional (Mod 43) | Inventário industrial |
+| **CODE93** | A-Z, 0-9, símbolos | C + K (automático) | Variante densa do Code 39 |
+| **CODE11** | 0-9, hífen | Mod 11 (opcional) | Telecom |
+| **EAN-13** | 12 dígitos numéricos | Mod 10 (automático) | Varejo internacional (produtos) |
+| **EAN-8** | 7 dígitos numéricos | Mod 10 (automático) | Embalagens pequenas |
+| **UPC-A** | 11 dígitos numéricos | Mod 10 (automático) | Varejo EUA/Canadá |
+| **UPC-E** | 6 dígitos numéricos | Comprimido | Embalagens compactas EUA |
+| **ITF (Interleaved 2 of 5)** | Dígitos em pares | Opcional | Caixas, paletes |
+| **Codabar** | 0-9, `- $ : / . +`, A-D (start/stop) | Não aplicável | Bibliotecas, bancos de sangue |
+
+### Códigos 2D
+
+| Tipo | Capacidade | Níveis | Uso comum |
+|---|---|---|---|
+| **QR Code** | Até ~4.300 caracteres alfanuméricos | L, M, Q, H (7%, 15%, 25%, 30% de correção) | URLs, pagamentos, qualquer dado |
+
+> **Mais formatos 2D** (Data Matrix, PDF417, Aztec) podem ser adicionados via configuração avançada da bwip-js. Solicite no [GitHub Issues](https://github.com/thiagossampaio/bartender/issues) se precisar.
+
+## Dígito verificador
+
+Para tipos que exigem dígito verificador (EAN, UPC, ITF par, CODE128, CODE93), o Bartender **calcula automaticamente** — você fornece apenas os dados úteis e o app adiciona o dígito final. Se você fornecer um EAN-13 com 13 dígitos (já incluindo o verificador), o app valida — se estiver errado, mostra erro inline.
+
+## Níveis QR
+
+QR codes têm quatro níveis de correção de erro:
+
+- **L (Low)** — 7% de redundância. Maior densidade.
+- **M (Medium)** — 15%. Padrão recomendado para uso geral.
+- **Q (Quartile)** — 25%. Resistente a sujeira leve.
+- **H (High)** — 30%. Sobrevive a danos significativos (ideal para industriais).
+
+Quanto maior o nível, mais módulos o QR ocupa para a mesma quantidade de dados. Para etiquetas pequenas (≤20 mm), prefira **M**.
+
+## Placeholders e dados dinâmicos
+
+Como qualquer texto, o campo **dados** do código de barras aceita placeholders `{{campo}}` para impressão em lote. Exemplo:
+
+```text
+Tipo: CODE128
+Dados: {{sku}}
+```
+
+Ao imprimir um lote a partir de um CSV com a coluna `sku`, cada etiqueta gera o barcode correspondente. Veja [Impressão em lote](/bartender/pt-BR/docs/batch-printing/).
+
+## Validação em tempo real
+
+O painel de propriedades mostra:
+
+- **Verde** — dados válidos para o tipo escolhido.
+- **Vermelho** — dados inválidos (caracteres fora do conjunto, comprimento errado, dígito verificador errado se manual).
+
+Você não consegue salvar nem imprimir um template com barcode inválido.
+
+## Renderização e nitidez
+
+O Bartender renderiza o barcode em SVG no canvas e como **bitmap de alta resolução** no momento da impressão. Para impressoras térmicas com PPLB/ZPL nativos, o Bartender emite o **comando nativo** do barcode (sem rasterizar) — máxima nitidez possível.
+
+## Boas práticas
+
+- **Altura mínima**: para 1D, mantenha pelo menos 15% da largura como altura — códigos achatados ficam difíceis de ler.
+- **Margem (quiet zone)**: deixe uma área em branco em volta do barcode (mínimo 2 mm para 1D, 4 módulos para QR). O Bartender adiciona a quiet zone automaticamente quando você dimensiona o bounding box com folga.
+- **Tipo certo para o caso de uso**: use EAN/UPC apenas para produtos de varejo com GTIN registrado. Para uso interno, **CODE128** é o padrão mais flexível.
+
+## Próximos passos
+
+- [Editor canvas](/bartender/pt-BR/docs/editor/) — posicione o barcode na etiqueta.
+- [Impressão em lote](/bartender/pt-BR/docs/batch-printing/) — gere barcodes dinâmicos a partir de CSV.
+- [PPLB & ZPL](/bartender/pt-BR/docs/pplb-zpl/) — comandos nativos para impressoras térmicas.

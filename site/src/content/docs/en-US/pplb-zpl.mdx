@@ -1,0 +1,128 @@
+---
+title: PPLB & ZPL — native commands
+description: Send native PPLB (Argox) or ZPL (Zebra) commands directly over USB or serial — bypass the OS driver. Sharper, faster.
+order: 6
+category: printing
+---
+
+PPLB ("Printer Programming Language B") is the native language of **Argox OS-214 Plus** and family thermal printers. ZPL ("Zebra Programming Language") is the Zebra equivalent. Both are compact text-based protocols that describe every label element directly to the printer firmware.
+
+When you use this route:
+
+- **Barcodes are sharper** — the printer generates them in hardware, no rasterization.
+- **Higher throughput** — without raster rendering, time per label drops sharply.
+- **No OS driver dependency** — you can print even without any driver installed.
+
+## When to pick PPLB or ZPL
+
+Use native commands whenever:
+
+- Your printer supports the protocol (Argox OS-214 Plus, OS-214EX, Zebra GK420, ZD220, ZD420, ZT231, etc.).
+- The printer is on **USB or serial** (not network).
+- You want **maximum speed** or **perfect barcode sharpness**.
+
+Use [OS-driver printing](/bartender/docs/printing/) when:
+
+- The printer is inkjet, laser, or another non-thermal type.
+- The thermal printer uses a protocol Bartender doesn't support yet.
+- The printer is network-only (network can work with native via TCP but it's advanced).
+
+## Setup
+
+### 1. Connect the printer
+
+USB: plug the cable, turn the printer on. The OS recognizes it automatically.
+
+Serial (RS-232): connect via direct serial cable or a USB-to-Serial adapter. Note the **device path**:
+
+- **Windows**: `COM1`, `COM3`, `COM4`…
+- **macOS**: `/dev/tty.usbserial-*`
+- **Linux**: `/dev/ttyUSB0`, `/dev/ttyS0`
+
+### 2. Configure the mode in Bartender
+
+In the print dialog, pick **Mode: Native command (PPLB)** or **Native command (ZPL)**. Bartender opens connection fields:
+
+- **Type**: USB or Serial.
+- **Path**: for serial, enter the device (`COM3`, `/dev/ttyUSB0`, etc.).
+- **Baud rate** (serial): typically 9600 for Argox, 9600 or 115200 for Zebra. Check the printer manual.
+- **Label size**: confirm width × height in mm and gap between labels.
+
+### 3. Print
+
+Click **Preview**. Bartender generates the PPLB/ZPL command and shows the preview. If it looks right, **Print** sends it to the printer.
+
+## What Bartender translates
+
+Bartender maps canvas objects to native commands:
+
+| Bartender object | PPLB | ZPL |
+|---|---|---|
+| Text | `TEXT` / internal font or TTF | `^FO ^A ^FD` |
+| Rectangle | `BOX` | `^FO ^GB` |
+| Line | `LINE` | `^FO ^GB` (height or width = 0) |
+| 1D barcode | `BARCODE` (CODE128, EAN, UPC, ITF…) | `^FO ^BC ^BE ^BU…` |
+| QR Code | `QRCODE` | `^FO ^BQ` |
+| Image | Embedded bitmap | `^FO ^GFA` (inline bitmap) |
+| Ellipse | Approximated as rectangle | Approximated as `^GE` or `^GB` |
+
+> **Limitations:** PPLB and ZPL have smaller vocabularies than a full vector canvas. Rotations are limited to 0°, 90°, 180°, 270°. Ellipses are approximated. For layouts requiring total geometric precision, use the OS driver.
+
+## Example ZPL output
+
+```zpl
+^XA
+^PW400
+^LL240
+^FO20,30^A0N,40,40^FDPRODUCT^FS
+^FO20,90^BCN,80,Y,N,N^FD12345678^FS
+^FO260,30^BQN,2,4^FDLA,https://example.com^FS
+^XZ
+```
+
+Each `^FO` is a position cursor (in dots: 200dpi → 8 dots/mm). `^A0` is text in font 0, `^BC` is a CODE128 barcode, `^BQ` is a QR.
+
+## Example PPLB output
+
+```pplb
+N
+q400
+Q240,24
+A20,30,0,3,1,1,N,"PRODUCT"
+B20,90,0,1,2,4,80,N,"12345678"
+b260,30,Q,m2,s4,"LA,https://example.com"
+P1
+```
+
+`N` clears the buffer, `q` sets width, `Q` sets height and gap. `A` is text, `B` is 1D barcode, `b` (lowercase) is 2D. `P1` prints one copy.
+
+## Inspect the generated command
+
+For advanced debugging, enable **Settings** → **Printing** → **Developer mode**. In developer mode, Bartender shows the PPLB/ZPL command in the preview — useful for verifying what's actually being sent.
+
+## Common issues
+
+### "The printer receives nothing"
+
+- Confirm it accepts the chosen protocol (printer manual or display).
+- USB: check the cable connection.
+- Serial: confirm baud rate and cable type (cross/null-modem vs. direct).
+- Linux permissions: you may need to add your user to `dialout`: `sudo usermod -aG dialout $USER`.
+
+### "Output is distorted or blank"
+
+- Wrong density or label size — check `width × height` and the native density (200 or 300 dpi).
+- Wrong gap between labels — usually 3 mm.
+- Calibrate the printer (physical FEED + POWER button; see manual).
+
+### "Unreadable barcode"
+
+- Insufficient quiet zone: increase margin around it.
+- 1D minimum height: at least 15% of the width.
+- Verify printer density vs. Bartender setting.
+
+## Next steps
+
+- [Calibration & reprint](/bartender/docs/history-calibration/) — fine-tune for Argox/Zebra.
+- [Batch printing](/bartender/docs/batch-printing/) — CSV-driven batches over PPLB/ZPL.
+- [OS driver](/bartender/docs/printing/) — alternative for generic printers.

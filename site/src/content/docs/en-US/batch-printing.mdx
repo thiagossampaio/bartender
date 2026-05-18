@@ -1,0 +1,129 @@
+---
+title: Batch printing
+description: Import a CSV or XLSX, map columns to {{field}} placeholders, preview and print N labels in sequence.
+order: 7
+category: data
+---
+
+Batch printing is at the heart of professional Bartender usage — you design **one template** with placeholders, import a spreadsheet, and the app generates a label per row.
+
+## Wizard overview
+
+```
+┌──────────────────────────────────────────────────────────┐
+│  1. Import  →  2. Map  →  3. Preview  →  4. Print        │
+└──────────────────────────────────────────────────────────┘
+```
+
+Open it via the **Batch print** button in the Gallery or editor.
+
+## Step 1 — Import CSV / XLSX
+
+Drop the file into the wizard or click **Choose file**. Supported formats:
+
+- **CSV** (separators `,`, `;`, `\t`). UTF-8 or Latin-1 encoding, auto-detected.
+- **XLSX** (Excel 2007+). First sheet by default; other sheets selectable in "Advanced settings".
+
+Bartender shows a preview of the first 20 rows so you can confirm columns and encoding.
+
+## Step 2 — Map placeholders
+
+Your template uses placeholders shaped `{{column}}`. The wizard lists every placeholder it finds in the template and asks you to map each to a CSV column.
+
+Example:
+
+| Template placeholder | CSV column | Row 1 | Row 2 |
+|---|---|---|---|
+| `{{product}}` | `product_name` | Lavender Soap | Coconut Shampoo |
+| `{{sku}}` | `sku` | SOA-001 | SHP-002 |
+| `{{price}}` | `final_price` | $12.90 | $22.50 |
+
+Auto-map: if a placeholder name matches a column name (case-insensitive), Bartender fills it in — you only adjust what you need.
+
+### Where placeholders appear
+
+Placeholders can be used in:
+
+- **Text**: `{{product}}` as content, or mixed: `SKU: {{sku}}`.
+- **Barcodes**: the "Data" field accepts placeholders. Generates a dynamic barcode per row.
+- **Images**: image path as a placeholder, e.g. `{{logo_path}}`. Useful for per-product logos.
+
+### Row filters
+
+To print only some rows:
+
+- **Range**: rows 10 to 50.
+- **Filter by value**: print only where `category = "sale"`.
+- **Quantity per row**: print each label N times (a `qty` column in the CSV).
+
+## Step 3 — Preview
+
+Bartender renders every label (or the first 50, paginated) so you can verify before sending.
+
+Use the `← →` arrows to navigate. Click **Back** to tweak the mapping if anything is off.
+
+## Step 4 — Print
+
+Same setup as single-label printing:
+
+- Printer
+- Mode (OS driver or native PPLB/ZPL)
+- Density, margins, quantity
+
+Click **Print batch**. Bartender sends labels one at a time, with progress feedback ("12 of 145 sent…"). You can **Pause** or **Cancel** at any moment — labels already sent don't come back, but the rest stop.
+
+## Post-print
+
+When the batch finishes, Bartender logs the job in [History](/bartender/docs/history-calibration/) with:
+
+- Template used
+- CSV/XLSX file imported
+- Column mapping
+- Quantity printed
+- Date and time
+- Printer and mode
+
+You can **reprint** the entire batch from History, no re-import required.
+
+## Worked example: 500 product labels
+
+1. **Template**: 50×30 mm, with:
+   - Text `{{product}}` at 14pt
+   - Text `$ {{price}}` at 12pt bold
+   - CODE128 barcode with data `{{sku}}`
+2. **CSV**: 500 rows with columns `product`, `price`, `sku`.
+3. **Wizard**:
+   - Import the CSV.
+   - Auto-map associates the three columns.
+   - Preview the first 20.
+   - Print.
+4. **Result**: 500 unique labels in about 3–5 minutes on a Zebra ZD420 via native ZPL.
+
+## Limits and performance
+
+- **Max rows per batch**: no theoretical limit. Tested up to 10,000.
+- **Memory**: Bartender processes rows in streaming — it does not load the full CSV into RAM.
+- **Speed**: bound by the printer. On thermal via ZPL/PPLB, ~5–10 labels/sec. Via OS driver, ~1–2/sec.
+
+## Common issues
+
+### "Column doesn't appear in the wizard"
+
+- Check that the first row of the CSV is a header with column names.
+- For XLSX, make sure the active sheet has data in the first row.
+
+### "Placeholder prints literal `{{field}}` on the label"
+
+- The placeholder isn't mapped, or the column is empty on that row.
+- Re-check step 2 — every placeholder needs a valid association.
+
+### "Batch stopped midway"
+
+- Check the printer connection (paper, ribbon, USB).
+- Check History to identify the row where it stopped and resume from there.
+
+## Next steps
+
+- [History & reprint](/bartender/docs/history-calibration/) — re-run entire batches.
+- [Dynamic barcodes](/bartender/docs/barcodes/) — barcodes from placeholders.
+- [PDF export](/bartender/docs/pdf-export/) — produce a multi-page PDF instead of printing.

@@ -1,0 +1,31 @@
+---
+import { getLocalizedHref } from '../i18n/utils';
+import { locales, localeNames, type Locale } from '../i18n/ui';
+
+interface Props {
+  currentLocale: Locale;
+}
+const { currentLocale } = Astro.props;
+---
+
+<div class="relative inline-flex items-center gap-1 rounded-pill border border-hairline bg-surface-card px-1 py-1">
+  {
+    locales.map((loc) => {
+      const isActive = loc === currentLocale;
+      const href = getLocalizedHref(Astro.url, loc);
+      const label = loc === 'en-US' ? 'EN' : 'PT';
+      return (
+        <a
+          href={href}
+          class={`rounded-pill px-3 py-1 caption-uppercase transition-colors ${
+            isActive ? 'bg-ink text-on-primary' : 'text-muted hover:text-ink'
+          }`}
+          aria-label={localeNames[loc]}
+          aria-current={isActive ? 'true' : 'false'}
+        >
+          {label}
+        </a>
+      );
+    })
+  }
+</div>

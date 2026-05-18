@@ -1,9 +1,22 @@
-# Bartender
+<p align="center">
+  <img src="src/assets/apple/logo.svg" width="96" alt="Bartender logo">
+</p>
 
-Aplicativo desktop offline-first para criação, edição e impressão de etiquetas.
-Stack: **Tauri 2.x + React + TypeScript + Vite + Tailwind CSS + shadcn/ui**.
+<h1 align="center">Bartender</h1>
 
-> **Status atual:** WP-01 (Bootstrap). A galeria, o editor e a impressão entram nas WPs seguintes — veja [`specs/work-plan.md`](./specs/work-plan.md).
+<p align="center">
+  Aplicativo desktop offline-first para criação, edição e impressão de etiquetas.<br>
+  <strong>Tauri 2.x · React · TypeScript · Vite · Tailwind CSS · shadcn/ui</strong>
+</p>
+
+<p align="center">
+  <a href="https://thiagossampaio.github.io/bartender/"><strong>Website</strong></a> ·
+  <a href="https://thiagossampaio.github.io/bartender/docs/"><strong>Documentação</strong></a> ·
+  <a href="https://thiagossampaio.github.io/bartender/download/"><strong>Download</strong></a> ·
+  <a href="https://github.com/thiagossampaio/bartender/releases"><strong>Releases</strong></a>
+</p>
+
+---
 
 ## Downloads
 
@@ -119,7 +132,26 @@ Adota [SemVer](https://semver.org/). Versões devem ser mantidas em sync entre
 instaladores. Veja `bundle.createUpdaterArtifacts = false` em
 `src-tauri/tauri.conf.json`.
 
-## Próximas WPs
+## Website
 
-Consulte [`specs/work-plan.md`](./specs/work-plan.md) para o roteiro completo
-(WP-02 banco SQLite → WP-03 galeria → WP-04 editor → ... → WP-17 polimento).
+O site institucional do projeto vive em [`site/`](./site/) e é publicado
+automaticamente em [thiagossampaio.github.io/bartender](https://thiagossampaio.github.io/bartender/)
+a cada release publicada. Stack: Astro + Tailwind + MDX, com versões em
+en-US (default) e pt-BR.
+
+Para desenvolver localmente:
+
+```bash
+cd site
+npm install
+npm run dev
+```
+
+Detalhes em [`site/README.md`](./site/README.md).
+
+## Status do projeto
+
+Roteiro WP-01 → WP-17 concluído (galeria, editor, barcodes 1D/2D, impressão
+via driver do SO, PPLB/ZPL nativos, importação CSV/XLSX, exportação PDF,
+.etlbl, histórico, calibração, autosave). Consulte
+[`specs/work-plan.md`](./specs/work-plan.md) para detalhes técnicos.

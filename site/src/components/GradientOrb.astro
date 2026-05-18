@@ -1,0 +1,47 @@
+---
+/**
+ * Atmospheric gradient orb — DESIGN.md §`gradient-orb-card`.
+ *
+ * NUNCA usar como fundo de botão, texto colorido ou container interativo.
+ * Apenas atmosfera decorativa, blur generoso, opacity contida.
+ */
+interface Props {
+  variant?: 'mint' | 'peach' | 'lavender' | 'sky' | 'rose';
+  size?: 'sm' | 'md' | 'lg' | 'xl';
+  position?: string; // CSS shorthand: ex. "top-0 right-0"
+  className?: string;
+  blur?: string; // ex. "blur-3xl"
+  opacity?: number; // 0..1
+}
+
+const {
+  variant = 'mint',
+  size = 'lg',
+  position = '',
+  className = '',
+  blur = 'blur-3xl',
+  opacity = 0.7,
+} = Astro.props;
+
+const sizeMap = {
+  sm: 'w-64 h-64',
+  md: 'w-96 h-96',
+  lg: 'w-[32rem] h-[32rem]',
+  xl: 'w-[48rem] h-[48rem]',
+};
+
+const colorMap = {
+  mint: 'var(--gradient-mint)',
+  peach: 'var(--gradient-peach)',
+  lavender: 'var(--gradient-lavender)',
+  sky: 'var(--gradient-sky)',
+  rose: 'var(--gradient-rose)',
+};
+---
+
+<div
+  aria-hidden="true"
+  class={`pointer-events-none absolute rounded-full ${sizeMap[size]} ${blur} ${position} ${className}`}
+  style={`background: radial-gradient(circle at center, ${colorMap[variant]} 0%, transparent 60%); opacity: ${opacity};`}
+>
+</div>

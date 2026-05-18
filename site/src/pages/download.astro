@@ -1,0 +1,150 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+import GradientOrb from '../components/GradientOrb.astro';
+import BadgePill from '../components/BadgePill.astro';
+import DownloadCard from '../components/DownloadCard.astro';
+import DownloadHero from '../components/DownloadHero.astro';
+import { useTranslations } from '../i18n/utils';
+import { buildDownloadCards, buildTimeVersion, releasesPage, REPO_URL, latestReleasePage } from '../lib/releases';
+
+const locale = 'en-US' as const;
+const t = useTranslations(locale);
+const version = buildTimeVersion();
+
+const labels = {
+  win: { short: t('os.windows'), full: t('os.windows.full'), notes: t('download.notes.win') },
+  mac: { short: t('os.mac'), full: t('os.mac.full'), notes: t('download.notes.mac') },
+  'linux-deb': { short: t('os.linux'), full: t('os.linux.deb.full'), notes: t('download.notes.deb') },
+  'linux-appimage': { short: t('os.linux'), full: t('os.linux.appimage.full'), notes: t('download.notes.appimage') },
+} as const;
+
+const cards = buildDownloadCards(version, labels);
+
+const installSteps = [
+  {
+    os: 'Windows',
+    steps: [
+      'Open the downloaded .msi installer.',
+      'Click "Next" through the wizard. The installer is in pt-BR (WiX template).',
+      'Find "Bartender" in the Start menu and launch it.',
+      'On first run, Windows SmartScreen may warn — click "More info" → "Run anyway" (the binary is not yet code-signed).',
+    ],
+  },
+  {
+    os: 'macOS',
+    steps: [
+      'Open the downloaded .dmg.',
+      'Drag Bartender into Applications.',
+      'On first launch, Control-click the app → "Open" → "Open" (Gatekeeper requires this on unsigned builds).',
+      'macOS 12 Monterey or later required. The build is universal — same DMG for Intel and Apple Silicon.',
+    ],
+  },
+  {
+    os: 'Linux (.deb)',
+    steps: [
+      'sudo dpkg -i bartender_*.deb (or open with Discover / GNOME Software).',
+      'Required libs are pulled by the package manager automatically.',
+      'Launch from the application menu.',
+    ],
+  },
+  {
+    os: 'Linux (AppImage)',
+    steps: [
+      'chmod +x bartender_*.AppImage',
+      './bartender_*.AppImage',
+      'Optional: integrate with your launcher using AppImageLauncher.',
+    ],
+  },
+];
+---
+
+<BaseLayout
+  locale={locale}
+  title="Download Bartender · Windows, macOS, Linux"
+  description="Download the latest Bartender installers for Windows (.msi), macOS (.dmg universal), Linux (.deb and .AppImage). Free and open source."
+>
+  <!-- HERO -->
+  <section class="relative overflow-hidden">
+    <GradientOrb variant="peach" size="xl" position="-top-40 -right-40" opacity={0.4} />
+    <div class="container-page section-pad relative">
+      <div class="flex flex-col items-center text-center gap-4 max-w-2xl mx-auto">
+        <BadgePill>Latest release · v{version}</BadgePill>
+        <h1 class="display-xl text-ink">Download Bartender</h1>
+        <p class="body-md text-body">
+          One download per operating system. The macOS build is a single universal
+          DMG — Intel and Apple Silicon. Free forever, open source under the MIT License.
+        </p>
+      </div>
+
+      <div class="mt-12 max-w-3xl mx-auto">
+        <DownloadHero locale={locale} />
+      </div>
+    </div>
+  </section>
+
+  <!-- ALL DOWNLOADS -->
+  <section id="all-downloads" class="bg-canvas-soft">
+    <div class="container-page section-pad">
+      <header class="flex flex-col items-center text-center gap-3 mb-12 max-w-2xl mx-auto">
+        <BadgePill>All downloads</BadgePill>
+        <h2 class="display-lg text-ink">All builds, every platform.</h2>
+      </header>
+      <div class="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
+        {
+          cards.map((c) => (
+            <DownloadCard
+              os={c.os}
+              label={c.full}
+              notes={c.notes}
+              size={c.size}
+              href={c.href}
+              filename={c.filename}
+              ctaLabel={t('cta.download')}
+              verifyLabel={t('download.verify')}
+              verifyHref={latestReleasePage()}
+            />
+          ))
+        }
+      </div>
+    </div>
+  </section>
+
+  <!-- INSTALL INSTRUCTIONS -->
+  <section class="container-page section-pad">
+    <header class="flex flex-col items-center text-center gap-3 mb-12 max-w-2xl mx-auto">
+      <BadgePill>Installation</BadgePill>
+      <h2 class="display-lg text-ink">{t('download.install.guide')}</h2>
+    </header>
+    <div class="grid gap-4 max-w-3xl mx-auto">
+      {
+        installSteps.map((s) => (
+          <details class="card-feature group">
+            <summary class="flex items-center justify-between cursor-pointer list-none">
+              <span class="title-md text-ink">{s.os}</span>
+              <span class="caption-uppercase text-muted group-open:rotate-180 transition-transform">▾</span>
+            </summary>
+            <ol class="mt-4 flex flex-col gap-2 text-body body-md list-decimal pl-5">
+              {s.steps.map((line) => <li>{line}</li>)}
+            </ol>
+          </details>
+        ))
+      }
+    </div>
+  </section>
+
+  <!-- OTHER -->
+  <section class="border-t border-hairline">
+    <div class="container-page py-12 grid gap-6 md:grid-cols-2">
+      <a href={releasesPage()} target="_blank" rel="noopener noreferrer" class="card-feature">
+        <p class="caption-uppercase text-muted">{t('download.older')}</p>
+        <h3 class="title-md text-ink mt-1">All GitHub Releases</h3>
+        <p class="body-sm text-body mt-2">Browse previous versions and release notes.</p>
+      </a>
+      <a href={`${REPO_URL}#desenvolvimento`} target="_blank" rel="noopener noreferrer" class="card-feature">
+        <p class="caption-uppercase text-muted">{t('download.source')}</p>
+        <h3 class="title-md text-ink mt-1">Compile it yourself</h3>
+        <p class="body-sm text-body mt-2">Node 20, Rust 1.77+, Tauri CLI. See the project README.</p>
+      </a>
+    </div>
+  </section>
+</BaseLayout>

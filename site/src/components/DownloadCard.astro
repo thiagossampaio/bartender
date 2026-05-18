@@ -1,0 +1,69 @@
+---
+import OsIcon from './OsIcon.astro';
+import type { OS } from '../lib/releases';
+
+interface Props {
+  os: OS;
+  label: string;
+  notes: string;
+  size: string;
+  href: string;
+  filename: string;
+  ctaLabel: string;
+  verifyLabel: string;
+  verifyHref: string;
+  primary?: boolean;
+}
+
+const {
+  os,
+  label,
+  notes,
+  size,
+  href,
+  filename,
+  ctaLabel,
+  verifyLabel,
+  verifyHref,
+  primary = false,
+} = Astro.props;
+---
+
+<article
+  class={`card-feature flex flex-col gap-4 ${primary ? 'border-ink/20 shadow-soft-drop' : ''}`}
+  data-os={os}
+>
+  <div class="flex items-center gap-3">
+    <span class="inline-flex h-10 w-10 items-center justify-center rounded-full bg-surface-strong text-ink">
+      <OsIcon os={os} size={20} />
+    </span>
+    <h3 class="title-md text-ink">{label}</h3>
+  </div>
+
+  <p class="body-sm text-body flex-1">{notes}</p>
+
+  <div class="flex items-center gap-2 text-muted caption">
+    <span>{size}</span>
+    <span aria-hidden="true">·</span>
+    <code class="rounded bg-surface-strong px-2 py-0.5 text-[12px] text-ink">{filename}</code>
+  </div>
+
+  <div class="flex flex-wrap items-center gap-3">
+    <a
+      href={href}
+      class="btn-pill btn-pill-primary"
+      data-bartender-download={os}
+      data-asset-filename={filename}
+    >
+      ↓ {ctaLabel}
+    </a>
+    <a
+      href={verifyHref}
+      class="caption-uppercase text-muted hover:text-ink underline-offset-4 hover:underline"
+      target="_blank"
+      rel="noopener noreferrer"
+    >
+      {verifyLabel}
+    </a>
+  </div>
+</article>

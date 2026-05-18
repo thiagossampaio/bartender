@@ -1,0 +1,129 @@
+---
+title: Impressão em lote
+description: Importe um CSV ou XLSX, mapeie colunas para placeholders {{campo}}, pré-visualize e imprima N etiquetas em sequência.
+order: 7
+category: data
+---
+
+A impressão em lote é o coração do uso profissional do Bartender — você desenha **um template** com placeholders, importa uma planilha, e o app gera uma etiqueta para cada linha.
+
+## Visão geral do wizard
+
+```
+┌──────────────────────────────────────────────────────────┐
+│ 1. Importar  →  2. Mapear  →  3. Pré-visualizar  →  4. Imprimir │
+└──────────────────────────────────────────────────────────┘
+```
+
+Acesse pelo botão **Imprimir em lote** na Galeria ou no editor.
+
+## Passo 1 — Importar CSV / XLSX
+
+Solte o arquivo no wizard ou clique em **Selecionar arquivo**. Formatos suportados:
+
+- **CSV** (separadores `,`, `;`, `\t`). Encoding UTF-8 ou Latin-1, detectado automaticamente.
+- **XLSX** (Excel 2007+). Primeira sheet por padrão; outras sheets podem ser escolhidas em "Configurações avançadas".
+
+O Bartender mostra uma pré-visualização das primeiras 20 linhas para você conferir colunas e encoding.
+
+## Passo 2 — Mapear placeholders
+
+Seu template usa placeholders no formato `{{coluna}}`. O wizard lista todos os placeholders detectados no template e pede que você associe cada um a uma coluna do CSV.
+
+Exemplo:
+
+| Placeholder no template | Coluna CSV | Linha 1 | Linha 2 |
+|---|---|---|---|
+| `{{produto}}` | `nome_produto` | Sabonete Lavanda | Shampoo Coco |
+| `{{sku}}` | `sku` | SAB-001 | SHP-002 |
+| `{{preço}}` | `preco_final` | R$ 12,90 | R$ 22,50 |
+
+Auto-mapeamento: se o nome do placeholder bater (case-insensitive) com o nome da coluna, o Bartender preenche sozinho — você só ajusta o que precisar.
+
+### Onde placeholders aparecem
+
+Placeholders podem ser usados em:
+
+- **Texto**: `{{produto}}` no conteúdo, ou misturado: `SKU: {{sku}}`.
+- **Códigos de barras**: o campo "Dados" aceita placeholders. Gera barcode dinâmico por linha.
+- **Imagens**: caminho da imagem como placeholder, ex: `{{caminho_logo}}`. Útil para logos diferentes por produto.
+
+### Filtros de linhas
+
+Se você quer imprimir apenas algumas linhas:
+
+- **Range**: linhas 10 a 50.
+- **Filtro por valor**: imprimir só onde `categoria = "promoção"`.
+- **Quantidade por linha**: imprima cada etiqueta N vezes (coluna `qtd` no CSV).
+
+## Passo 3 — Pré-visualizar
+
+O Bartender renderiza todas as etiquetas (ou as primeiras 50, com paginação) para você conferir antes de mandar imprimir.
+
+Use as setas `← →` para navegar. Clique em **Voltar** para ajustar o mapeamento se algo estiver errado.
+
+## Passo 4 — Imprimir
+
+Mesma configuração da impressão individual:
+
+- Impressora
+- Modo (driver do SO ou nativo PPLB/ZPL)
+- Densidade, margens, quantidade
+
+Clique em **Imprimir lote**. O Bartender envia uma etiqueta por vez, com feedback de progresso ("12 de 145 enviadas…"). Você pode **Pausar** ou **Cancelar** a qualquer momento — etiquetas já enviadas não voltam, mas as restantes param.
+
+## Pós-impressão
+
+Ao fim do lote, o Bartender registra o job no [Histórico](/bartender/pt-BR/docs/history-calibration/) com:
+
+- Template usado
+- Arquivo CSV/XLSX importado
+- Mapeamento de colunas
+- Quantidade impressa
+- Data e hora
+- Impressora e modo
+
+Você pode **reimprimir** o lote inteiro pelo Histórico, sem precisar reimportar o CSV.
+
+## Exemplo prático: 500 etiquetas de produto
+
+1. **Template**: 50×30 mm, com:
+   - Texto `{{produto}}` em 14pt
+   - Texto `R$ {{preço}}` em 12pt bold
+   - Barcode CODE128 com dados `{{sku}}`
+2. **CSV**: 500 linhas com colunas `produto`, `preço`, `sku`.
+3. **Wizard**:
+   - Importe o CSV.
+   - Auto-mapeamento associa as três colunas.
+   - Pré-visualize as primeiras 20.
+   - Imprima.
+4. **Resultado**: 500 etiquetas únicas em ~3-5 minutos em Zebra ZD420 via ZPL nativo.
+
+## Limites e performance
+
+- **Linhas máximas por lote**: sem limite teórico. Testado até 10.000 linhas.
+- **Memória**: o Bartender processa linhas em streaming — não carrega o CSV inteiro na RAM.
+- **Velocidade**: limitada pela impressora. Em térmicas via ZPL/PPLB, ~5-10 etiquetas/segundo. Via driver do SO, ~1-2/segundo.
+
+## Problemas comuns
+
+### "Coluna não aparece no wizard"
+
+- Confira que a primeira linha do CSV é um cabeçalho com nomes de colunas.
+- Para XLSX, certifique-se de que a sheet ativa tem dados na primeira linha.
+
+### "Placeholder sai literal `{{campo}}` na etiqueta"
+
+- O placeholder não foi mapeado, ou a coluna está vazia naquela linha.
+- Confira o passo 2 — todos os placeholders precisam de uma associação válida.
+
+### "Lote parou no meio"
+
+- Verifique conexão da impressora (papel, fita, USB).
+- Veja o Histórico para identificar a linha exata onde parou e retomar a partir dela.
+
+## Próximos passos
+
+- [Histórico & reimpressão](/bartender/pt-BR/docs/history-calibration/) — refaça lotes inteiros.
+- [Códigos de barras dinâmicos](/bartender/pt-BR/docs/barcodes/) — barcodes a partir de placeholders.
+- [Exportação PDF](/bartender/pt-BR/docs/pdf-export/) — gere PDF multi-página em vez de imprimir.

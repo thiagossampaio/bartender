@@ -1,0 +1,128 @@
+---
+title: PPLB & ZPL — comandos nativos
+description: Envie comandos nativos PPLB (Argox) ou ZPL (Zebra) direto via USB ou serial, sem passar pelo driver do SO. Mais nítido, mais rápido.
+order: 6
+category: printing
+---
+
+PPLB ("Printer Programming Language B") é a linguagem nativa das impressoras térmicas **Argox OS-214 Plus** e família. ZPL ("Zebra Programming Language") é o equivalente para impressoras **Zebra**. Ambos são protocolos compactos baseados em texto que descrevem cada elemento da etiqueta diretamente para o firmware da impressora.
+
+Quando você usa essa rota:
+
+- **Barcodes ficam mais nítidos** — a impressora gera o barcode em hardware, sem rasterização.
+- **Throughput maior** — sem renderização raster, o tempo por etiqueta cai drasticamente.
+- **Sem dependência de driver do SO** — você pode usar mesmo sem instalar nenhum driver.
+
+## Quando usar PPLB ou ZPL
+
+Use comandos nativos sempre que:
+
+- Sua impressora suporta o protocolo (Argox OS-214 Plus, OS-214EX, Zebra GK420, ZD220, ZD420, ZT231, etc.).
+- A impressora está conectada via **USB ou serial** (não rede).
+- Você quer **velocidade máxima** ou **nitidez perfeita** em barcodes.
+
+Use o [driver do SO](/bartender/pt-BR/docs/printing/) quando:
+
+- A impressora é jato de tinta, laser ou outro tipo não-térmico.
+- A impressora térmica usa um protocolo que o Bartender ainda não suporta.
+- A impressora está apenas em rede (rede também pode funcionar com nativos via TCP, mas é configuração avançada).
+
+## Configuração
+
+### 1. Conecte a impressora
+
+USB: ligue o cabo e a impressora. O SO normalmente reconhece automaticamente.
+
+Serial (RS-232): conecte com cabo serial direto ou adaptador USB-Serial. Anote o **caminho do dispositivo**:
+
+- **Windows**: `COM1`, `COM3`, `COM4`…
+- **macOS**: `/dev/tty.usbserial-*`
+- **Linux**: `/dev/ttyUSB0`, `/dev/ttyS0`
+
+### 2. Configure o modo no Bartender
+
+No diálogo de impressão, escolha **Modo: Comando nativo (PPLB)** ou **Comando nativo (ZPL)**. O Bartender abre os campos de conexão:
+
+- **Tipo**: USB ou Serial.
+- **Caminho**: para serial, informe o dispositivo (`COM3`, `/dev/ttyUSB0`, etc.).
+- **Baud rate** (serial): geralmente 9600 para Argox, 9600 ou 115200 para Zebra. Veja o manual da sua impressora.
+- **Tamanho da etiqueta**: confirme largura × altura em mm e o gap entre etiquetas.
+
+### 3. Imprima
+
+Clique em **Pré-visualizar**. O Bartender gera o comando PPLB/ZPL e mostra o preview. Se estiver tudo certo, **Imprimir** envia para a impressora.
+
+## O que o Bartender traduz
+
+O Bartender mapeia objetos do canvas para comandos nativos:
+
+| Objeto Bartender | PPLB | ZPL |
+|---|---|---|
+| Texto | `TEXT` / fonte interna ou TTF | `^FO ^A ^FD` |
+| Retângulo | `BOX` | `^FO ^GB` |
+| Linha | `LINE` | `^FO ^GB` (altura ou largura = 0) |
+| Código de barras 1D | `BARCODE` (CODE128, EAN, UPC, ITF…) | `^FO ^BC ^BE ^BU…` |
+| QR Code | `QRCODE` | `^FO ^BQ` |
+| Imagem | Bitmap embarcado | `^FO ^GFA` (bitmap inline) |
+| Elipse | Aproximada como retângulo | Aproximada como `^GE` ou `^GB` |
+
+> **Limitações:** PPLB e ZPL têm vocabulários menores que um canvas vetorial completo. Rotações são limitadas a 0°, 90°, 180°, 270°. Elipses são aproximadas. Para layouts que exigem precisão geométrica total, use o driver do SO.
+
+## Exemplo de comando ZPL gerado
+
+```zpl
+^XA
+^PW400
+^LL240
+^FO20,30^A0N,40,40^FDPRODUTO^FS
+^FO20,90^BCN,80,Y,N,N^FD12345678^FS
+^FO260,30^BQN,2,4^FDLA,https://example.com^FS
+^XZ
+```
+
+Cada `^FO` é um cursor de posição (em pontos: 200dpi → 8 pontos/mm). `^A0` é texto na fonte 0, `^BC` é um barcode CODE128, `^BQ` é um QR.
+
+## Exemplo de comando PPLB gerado
+
+```pplb
+N
+q400
+Q240,24
+A20,30,0,3,1,1,N,"PRODUTO"
+B20,90,0,1,2,4,80,N,"12345678"
+b260,30,Q,m2,s4,"LA,https://example.com"
+P1
+```
+
+`N` limpa o buffer, `q` define largura, `Q` define altura e gap. `A` é texto, `B` é barcode 1D, `b` (minúsculo) é 2D. `P1` imprime uma cópia.
+
+## Inspecionar o comando gerado
+
+Para depuração avançada, ative **Configurações** → **Impressão** → **Modo desenvolvedor**. Em modo desenvolvedor, o Bartender mostra o comando PPLB/ZPL na pré-visualização — útil para conferir o que está sendo enviado.
+
+## Problemas comuns
+
+### "A impressora não recebe nada"
+
+- Confirme que ela aceita o protocolo escolhido (consulte o manual ou o display da impressora).
+- USB: verifique se o cabo está bem encaixado.
+- Serial: confirme baud rate e tipo do cabo (cross/null-modem vs. direto).
+- Permissões Linux: você pode precisar adicionar seu usuário ao grupo `dialout`: `sudo usermod -aG dialout $USER`.
+
+### "Sai distorcido ou em branco"
+
+- Densidade ou tamanho de etiqueta errado — confira `largura × altura` e a densidade nativa (200 ou 300 dpi).
+- Gap entre etiquetas mal configurado — geralmente 3 mm.
+- Calibre a impressora (botão físico de FEED + LIGAR; veja o manual).
+
+### "Barcode ilegível"
+
+- Quiet zone insuficiente: aumente a margem em volta.
+- Altura mínima (1D): pelo menos 15% da largura.
+- Verifique a densidade da impressora vs. configuração no Bartender.
+
+## Próximos passos
+
+- [Calibração & reimpressão](/bartender/pt-BR/docs/history-calibration/) — ajuste fino para Argox/Zebra.
+- [Impressão em lote](/bartender/pt-BR/docs/batch-printing/) — lote a partir de CSV via PPLB/ZPL.
+- [Driver do SO](/bartender/pt-BR/docs/printing/) — alternativa para impressoras genéricas.

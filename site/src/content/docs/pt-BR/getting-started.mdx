@@ -1,0 +1,79 @@
+---
+title: Primeiros passos
+description: Instale o Bartender, crie seu primeiro template e imprima sua primeira etiqueta em menos de 10 minutos.
+order: 1
+category: getting-started
+---
+
+import ScreenshotFrame from '../../../components/ScreenshotFrame.astro';
+
+Este guia leva você do zero ao "primeira etiqueta impressa" em menos de dez minutos. Não há cadastro, nem dados na nuvem — tudo roda local na sua máquina.
+
+## 1. Baixe e instale
+
+Escolha o instalador adequado ao seu sistema na [página de download](/bartender/pt-BR/download/):
+
+- **Windows 10 / 11 (64 bits)**: `Bartender_X.Y.Z_x64_pt-BR.msi`
+- **macOS 12+ (Intel + Apple Silicon)**: `Bartender_X.Y.Z_universal.dmg`
+- **Linux**: `bartender_X.Y.Z_amd64.deb` (Debian/Ubuntu) ou `bartender_X.Y.Z_amd64.AppImage` (qualquer distro x86_64)
+
+> **macOS sem assinatura.** Na primeira abertura, segure `Control` e clique no app na pasta Aplicativos → escolha **Abrir**. A partir da segunda execução o macOS lembra a permissão.
+> **Windows sem assinatura.** Se o SmartScreen avisar, clique em "Mais informações" → "Executar assim mesmo".
+
+## 2. Conheça a Galeria
+
+Ao abrir o Bartender pela primeira vez, você cai na **Galeria** — sua biblioteca de templates de etiqueta. Aqui você pode:
+
+- Criar um novo template do zero (botão **+ Novo template**)
+- Importar um arquivo `.etlbl` (formato portátil do Bartender)
+- Restaurar templates apagados pela **Lixeira**
+
+<ScreenshotFrame alt="Galeria de templates do Bartender" caption="A Galeria é seu ponto de partida toda vez que você abre o app." />
+
+## 3. Crie seu primeiro template
+
+Clique em **+ Novo template**. Defina:
+
+1. **Nome** — algo como "Etiqueta de prateleira 50×30 mm".
+2. **Dimensões** em milímetros — largura × altura. Esses são os valores físicos da etiqueta.
+3. **Densidade da impressora** (200 ou 300 dpi) — confira no manual da sua impressora.
+
+O Bartender abre o editor já com a tela do tamanho correto.
+
+## 4. Desenhe a etiqueta
+
+Use a barra de ferramentas para adicionar objetos:
+
+| Ferramenta | Atalho | O que faz |
+|---|---|---|
+| **Texto** | `T` | Bloco de texto com fonte, alinhamento, peso. |
+| **Retângulo** | `R` | Retângulo com borda e/ou preenchimento. |
+| **Linha** | `L` | Linha reta, qualquer ângulo. |
+| **Elipse** | `E` | Círculo ou elipse. |
+| **Imagem** | `I` | PNG / JPG / SVG do seu disco. |
+| **Código de barras** | `B` | 1D ou 2D — veja a [referência de barcodes](/bartender/pt-BR/docs/barcodes/). |
+
+Cada objeto pode ser arrastado, redimensionado, rotacionado e ajustado pelo **painel de propriedades** à direita. Posição e tamanho são sempre em **milímetros**.
+
+> **Dica:** segure `Shift` ao arrastar para restringir o movimento a um eixo. Use `Cmd/Ctrl + Z` para desfazer.
+
+## 5. Salve e volte para a Galeria
+
+O Bartender salva automaticamente enquanto você trabalha (veja [Autosave & recuperação](/bartender/pt-BR/docs/autosave-recovery/)). Para sair com segurança, clique em **Voltar para Galeria** no canto superior esquerdo.
+
+## 6. Imprima
+
+Da Galeria, clique no template e escolha **Imprimir**. O Bartender abre o diálogo de impressão:
+
+1. **Selecione a impressora** — qualquer uma instalada no seu SO aparece na lista.
+2. **Densidade e margens** — ajuste se sua impressora tem deslocamento.
+3. **Pré-visualizar** — confira o resultado antes de enviar.
+4. **Imprimir**.
+
+Para impressoras Argox ou Zebra com USB/serial, o Bartender oferece o modo **comandos nativos** (PPLB ou ZPL) — mais rápido e preciso. Veja [Impressão via driver do SO](/bartender/pt-BR/docs/printing/) ou [PPLB & ZPL](/bartender/pt-BR/docs/pplb-zpl/).
+
+## Próximos passos
+
+- [Editor canvas](/bartender/pt-BR/docs/editor/) — domine o canvas e seus atalhos.
+- [Códigos de barras](/bartender/pt-BR/docs/barcodes/) — todos os tipos suportados.
+- [Impressão em lote](/bartender/pt-BR/docs/batch-printing/) — N etiquetas a partir de uma planilha.

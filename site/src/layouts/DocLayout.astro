@@ -1,0 +1,112 @@
+---
+import BaseLayout from './BaseLayout.astro';
+import DocSidebar from '../components/DocSidebar.astro';
+import { getCollection, type CollectionEntry } from 'astro:content';
+import { docPath, useTranslations } from '../i18n/utils';
+import { REPO_URL } from '../lib/releases';
+import type { Locale } from '../i18n/ui';
+
+interface Props {
+  locale: Locale;
+  entry: CollectionEntry<'docs'>;
+  headings: { depth: number; slug: string; text: string }[];
+}
+const { locale, entry, headings } = Astro.props;
+const t = useTranslations(locale);
+
+const slug = entry.id.replace(/^[^/]+\//, '').replace(/\.(md|mdx)$/, '');
+const editUrl = `${REPO_URL}/edit/main/site/src/content/docs/${entry.id}`;
+
+const all = await getCollection('docs', (e) => e.id.startsWith(`${locale}/`));
+all.sort((a, b) => a.data.order - b.data.order);
+const idx = all.findIndex((e) => e.id === entry.id);
+const prev = idx > 0 ? all[idx - 1] : null;
+const next = idx >= 0 && idx < all.length - 1 ? all[idx + 1] : null;
+
+function entrySlug(e: CollectionEntry<'docs'>) {
+  return e.id.replace(/^[^/]+\//, '').replace(/\.(md|mdx)$/, '');
+}
+
+const tocHeadings = headings.filter((h) => h.depth === 2 || h.depth === 3);
+---
+
+<BaseLayout
+  locale={locale}
+  title={`${entry.data.title} · Bartender`}
+  description={entry.data.description}
+>
+  <div class="container-page py-12 md:py-16">
+    <div class="grid gap-12 lg:grid-cols-[240px_minmax(0,1fr)_220px]">
+      <DocSidebar locale={locale} currentSlug={slug} />
+
+      <article class="min-w-0 max-w-prose">
+        <header class="mb-8">
+          <p class="caption-uppercase text-muted mb-3">{entry.data.title}</p>
+          <h1 class="display-lg text-ink">{entry.data.title}</h1>
+          <p class="body-md text-body mt-3">{entry.data.description}</p>
+        </header>
+
+        <div class="prose-bartender">
+          <slot />
+        </div>
+
+        <nav class="mt-16 grid gap-4 sm:grid-cols-2" aria-label="Pagination">
+          {
+            prev ? (
+              <a
+                href={docPath(locale, entrySlug(prev))}
+                class="card-feature flex flex-col gap-1"
+              >
+                <span class="caption-uppercase text-muted">← {t('docs.prev')}</span>
+                <span class="title-sm text-ink">{prev.data.title}</span>
+              </a>
+            ) : (
+              <span />
+            )
+          }
+          {
+            next ? (
+              <a
+                href={docPath(locale, entrySlug(next))}
+                class="card-feature flex flex-col gap-1 text-right"
+              >
+                <span class="caption-uppercase text-muted">{t('docs.next')} →</span>
+                <span class="title-sm text-ink">{next.data.title}</span>
+              </a>
+            ) : (
+              <span />
+            )
+          }
+        </nav>
+
+        <p class="mt-10 caption text-muted">
+          <a href={editUrl} target="_blank" rel="noopener noreferrer" class="hover:text-ink underline underline-offset-4">
+            {t('docs.edit')} ↗
+          </a>
+        </p>
+      </article>
+
+      {
+        tocHeadings.length > 0 ? (
+          <aside class="hidden lg:block lg:sticky lg:top-24 lg:max-h-[calc(100vh-6rem)] lg:overflow-y-auto">
+            <p class="caption-uppercase text-muted mb-4">{t('docs.toc')}</p>
+            <ul class="flex flex-col gap-1.5">
+              {tocHeadings.map((h) => (
+                <li class={h.depth === 3 ? 'pl-4' : ''}>
+                  <a
+                    href={`#${h.slug}`}
+                    class="body-sm text-muted hover:text-ink transition-colors"
+                  >
+                    {h.text}
+                  </a>
+                </li>
+              ))}
+            </ul>
+          </aside>
+        ) : (
+          <aside class="hidden lg:block" />
+        )
+      }
+    </div>
+  </div>
+</BaseLayout>

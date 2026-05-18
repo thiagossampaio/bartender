@@ -1,0 +1,81 @@
+---
+title: Autosave & recuperação
+description: Como o Bartender salva seu trabalho continuamente e recupera tudo após travamento do app ou do sistema.
+order: 11
+category: reliability
+---
+
+O Bartender salva seu trabalho **automaticamente**, em background, sem você precisar lembrar. Se o app travar ou o computador desligar, na próxima abertura você retoma exatamente de onde parou.
+
+## Como funciona
+
+### Em uso normal
+
+Toda edição (mover um objeto, mudar uma fonte, adicionar um barcode) é registrada em duas camadas:
+
+1. **Memória da sessão**: o estado atual do canvas — usado para undo/redo.
+2. **Disco local (SQLite + arquivos)**: persistido em **300 ms após a última edição** (debounced) ou a cada 30 segundos, o que ocorrer antes.
+
+Isso significa que mesmo se a janela do app sumir abruptamente, no máximo os últimos 30 segundos de trabalho podem se perder — e geralmente nem isso, porque o debounce salva no fim de cada interação.
+
+### Em crashes do app
+
+Se o processo Tauri crashar (raro, mas possível), na próxima abertura o Bartender:
+
+1. Detecta que a sessão anterior terminou de forma anormal (via flag de sessão limpa).
+2. Carrega o último snapshot persistido.
+3. Mostra um banner: **"Recuperação automática: continuamos de onde você parou."**
+
+Você não precisa fazer nada — o template está lá, com o último estado salvo.
+
+### Em crashes do SO
+
+Se o computador desligar (queda de energia, kernel panic), o comportamento é o mesmo: o Bartender reabre o último estado persistido. Como o write-ahead log do SQLite e os flushes do filesystem são chamados em cada save, a chance de corrupção é mínima.
+
+## Verificar saúde do banco
+
+**Configurações** → **Avançado** → **Verificar integridade do banco**. O Bartender roda `PRAGMA integrity_check` no SQLite. Se algum problema for encontrado, oferece reparação automática.
+
+## Backups manuais
+
+O autosave não substitui backup. Para proteção total:
+
+- **Curto prazo** (proteção contra erro do usuário): use a Lixeira e o undo/redo.
+- **Médio prazo** (proteção contra falha do disco): exporte templates como [.etlbl](/bartender/pt-BR/docs/etlbl/) periodicamente.
+- **Longo prazo** (catálogo completo): copie o diretório de dados regularmente. Veja [Galeria → Armazenamento local](/bartender/pt-BR/docs/gallery/#armazenamento-local).
+
+## Configurações do autosave
+
+**Configurações** → **Editor** → **Autosave**:
+
+- **Intervalo de debounce** (padrão: 300 ms): tempo de inatividade antes de salvar após uma edição.
+- **Intervalo máximo** (padrão: 30 s): força um save mesmo durante uso contínuo.
+- **Salvar antes de fechar** (padrão: ligado): garante save final no fechamento normal.
+
+Os valores padrão funcionam bem para a maioria. Diminua o intervalo se você está em uma máquina lenta com SSD ruim e percebe travamentos durante edição (raro).
+
+## Limites do autosave
+
+O autosave **NÃO**:
+
+- Mantém histórico de versões — apenas o último estado. Para versionamento, use exportação .etlbl com nomes versionados (ex: `etiqueta-v1.etlbl`, `etiqueta-v2.etlbl`).
+- Salva durante operações destrutivas — se você apaga um template, ele vai para a Lixeira (não há "undo de exclusão" pelo autosave).
+- Replica para a nuvem — é estritamente local.
+
+## Logs
+
+Se algo der errado, o Bartender escreve logs em:
+
+- **Windows**: `%APPDATA%/io.bartender.app/logs/`
+- **macOS**: `~/Library/Logs/io.bartender.app/`
+- **Linux**: `~/.local/share/io.bartender.app/logs/`
+
+Em **Configurações** → **Avançado** → **Abrir pasta de logs** você abre o diretório no Finder/Explorer/file manager.
+
+Para reportar bugs, anexe os logs mais recentes ao [GitHub Issues](https://github.com/thiagossampaio/bartender/issues).
+
+## Próximos passos
+
+- [Galeria](/bartender/pt-BR/docs/gallery/) — onde os templates ficam armazenados.
+- [Formato .etlbl](/bartender/pt-BR/docs/etlbl/) — backup explícito.
+- [FAQ](/bartender/pt-BR/docs/faq/) — perguntas comuns sobre privacidade e dados.

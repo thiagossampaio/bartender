@@ -1,0 +1,63 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+import GradientOrb from '../components/GradientOrb.astro';
+import BadgePill from '../components/BadgePill.astro';
+import FeatureCard from '../components/FeatureCard.astro';
+import { useTranslations, pagePath, docPath } from '../i18n/utils';
+
+const locale = 'en-US' as const;
+const t = useTranslations(locale);
+
+const features = [
+  { title: 'Template gallery', body: 'Create, duplicate, rename, soft-delete and restore label templates. A persistent Trash protects you from mistakes.', href: docPath(locale, 'gallery'), cta: 'Gallery docs' },
+  { title: 'WYSIWYG canvas editor', body: 'Drag-and-drop text, rectangles, lines, ellipses, images and barcodes on a millimeter-accurate canvas with a properties panel for fine control.', href: docPath(locale, 'editor'), cta: 'Editor docs' },
+  { title: 'Undo / Redo', body: 'Every edit is tracked. Step back through your work without fear of losing anything.', href: docPath(locale, 'editor'), cta: 'See shortcuts' },
+  { title: '1D & 2D barcodes', body: 'CODE128, EAN-13/8, UPC-A/E, ITF, Codabar, Code39, Code93, Code11 and QR with four error-correction levels. Check digits computed automatically.', href: docPath(locale, 'barcodes'), cta: 'Full reference' },
+  { title: 'CSV / XLSX batch import', body: 'Drop a spreadsheet, map columns to {{placeholders}}, preview each label, then print the full run.', href: docPath(locale, 'batch-printing'), cta: 'Batch workflow' },
+  { title: 'OS driver printing', body: 'Print to any inkjet, laser or thermal printer with a driver installed on Windows or macOS.', href: docPath(locale, 'printing'), cta: 'Printing setup' },
+  { title: 'Native PPLB (Argox)', body: 'Emit PPLB and stream it over USB / serial to Argox OS-214 Plus. No driver translation in the way.', href: docPath(locale, 'pplb-zpl'), cta: 'PPLB / ZPL guide' },
+  { title: 'Native ZPL (Zebra)', body: 'Same direct path for Zebra printers — pristine barcodes, faster throughput.', href: docPath(locale, 'pplb-zpl'), cta: 'PPLB / ZPL guide' },
+  { title: 'Calibration & reprint', body: 'Print a calibration page to tune margins, and reprint any past run straight from history without redesigning.', href: docPath(locale, 'history-calibration'), cta: 'History & calibration' },
+  { title: 'Print history', body: 'Every print job is logged locally — search, reprint, audit.', href: docPath(locale, 'history-calibration'), cta: 'History docs' },
+  { title: 'Vector PDF export', body: 'Export single or multi-page labels as vector PDF — no compression, perfect for archival or sharing.', href: docPath(locale, 'pdf-export'), cta: 'PDF export' },
+  { title: '.etlbl share & backup', body: 'Bundle templates as portable .etlbl archives — ZIP with manifest and integrity hash. Move templates between machines safely.', href: docPath(locale, 'etlbl'), cta: '.etlbl format' },
+  { title: 'Autosave & crash recovery', body: 'Your work is saved continuously. If the app or OS crashes, pick up exactly where you left off.', href: docPath(locale, 'autosave-recovery'), cta: 'How it works' },
+  { title: 'Offline-first by design', body: 'CSP locked to default-src \'self\'. Zero telemetry, no auto-update, no external CDNs. Your data never leaves your machine.', href: docPath(locale, 'faq'), cta: 'FAQ' },
+];
+---
+
+<BaseLayout
+  locale={locale}
+  title="Features · Bartender"
+  description="Every Bartender feature, from the WYSIWYG editor to native PPLB/ZPL printing, batch import, vector PDF export and autosave."
+>
+  <section class="relative overflow-hidden">
+    <GradientOrb variant="sky" size="xl" position="-top-40 -right-40" opacity={0.45} />
+    <GradientOrb variant="mint" size="lg" position="top-1/3 -left-32" opacity={0.35} />
+    <div class="container-page section-pad relative">
+      <div class="flex flex-col items-center text-center gap-6 max-w-3xl mx-auto">
+        <BadgePill>Features</BadgePill>
+        <h1 class="display-mega text-ink">Everything Bartender does.</h1>
+        <p class="body-md text-body max-w-xl">
+          A complete map of the app — from designing your first label to running a
+          1,000-row batch on a Zebra thermal printer over USB. Click any card to
+          jump to the matching documentation page.
+        </p>
+        <div class="flex flex-wrap gap-3">
+          <a href={pagePath(locale, 'download')} class="btn-pill btn-pill-primary">Download</a>
+          <a href={docPath(locale)} class="btn-pill btn-pill-outline">Docs</a>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="container-page section-pad">
+    <div class="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+      {features.map((f) => (
+        <FeatureCard title={f.title} href={f.href} cta={f.cta}>
+          {f.body}
+        </FeatureCard>
+      ))}
+    </div>
+  </section>
+</BaseLayout>

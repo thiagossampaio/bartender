@@ -1,0 +1,122 @@
+---
+title: Editor canvas
+description: Domine o editor visual do Bartender — objetos, painel de propriedades, atalhos, snapping, alinhamento e undo/redo.
+order: 3
+category: designing
+---
+
+O **editor canvas** é onde sua etiqueta toma forma. Construído sobre [Konva](https://konvajs.org/), ele oferece um canvas WYSIWYG com coordenadas em milímetros, painel de propriedades à direita e histórico completo de edições.
+
+## Anatomia da tela
+
+```
+┌─────────────────────────────────────────────────────────┐
+│  ← Galeria    │ Toolbar (T R L E I B) │ Imprimir  PDF   │
+├───────────────┴───────────────────────┴──────────────────┤
+│              │                                │ Painel  │
+│  Camadas     │                                │ propr.  │
+│  (lista)     │           CANVAS               │         │
+│              │                                │         │
+│              │                                │         │
+└──────────────┴────────────────────────────────┴─────────┘
+```
+
+- **Toolbar superior** — ferramentas e ações globais.
+- **Painel de camadas** (esquerda) — lista todos os objetos, com seleção e reordenação por arrastar.
+- **Canvas central** — sua etiqueta na escala física (em mm).
+- **Painel de propriedades** (direita) — edita o objeto selecionado.
+
+## Objetos disponíveis
+
+### Texto
+
+Bloco com fonte, peso, alinhamento, tamanho e cor. Suporta **placeholders** `{{campo}}` para impressão em lote (veja [Impressão em lote](/bartender/pt-BR/docs/batch-printing/)).
+
+Propriedades editáveis: fonte, peso (300 a 700), tamanho, alinhamento (esquerda, centro, direita, justificado), cor, espaçamento entre linhas, rotação.
+
+### Retângulo
+
+Retângulo com:
+- **Borda**: espessura, cor, estilo (sólida, tracejada).
+- **Preenchimento**: cor sólida ou transparente.
+- **Raio de canto** (em mm).
+
+### Linha
+
+Linha reta entre dois pontos. Espessura, cor, estilo (sólida, tracejada, pontilhada).
+
+### Elipse
+
+Círculo ou elipse. Borda + preenchimento, como o retângulo.
+
+### Imagem
+
+PNG, JPG ou SVG do seu disco. SVG mantém qualidade vetorial em qualquer escala — ideal para logos.
+
+### Código de barras
+
+Qualquer um dos formatos suportados (CODE128, EAN, UPC, QR…). Aceita placeholders também. Veja a [referência completa](/bartender/pt-BR/docs/barcodes/).
+
+## Painel de propriedades
+
+Quando você seleciona um objeto, o painel direito mostra:
+
+- **Posição**: x, y em mm — canto superior esquerdo do bounding box.
+- **Tamanho**: largura × altura em mm.
+- **Rotação**: ângulo em graus.
+- **Propriedades específicas** do tipo de objeto (fonte para texto, dados para barcode, etc.).
+
+Você pode editar **valores numéricos** digitando direto, ou usar os steppers (`↑ ↓`).
+
+## Atalhos de teclado
+
+| Atalho | Ação |
+|---|---|
+| `Cmd/Ctrl + Z` | Desfazer |
+| `Cmd/Ctrl + Shift + Z` | Refazer |
+| `Cmd/Ctrl + D` | Duplicar seleção |
+| `Cmd/Ctrl + C` / `V` | Copiar / Colar |
+| `Delete` / `Backspace` | Excluir seleção |
+| `T R L E I B` | Trocar ferramenta (texto, retângulo, linha, elipse, imagem, barcode) |
+| `Shift + clique` | Multi-seleção |
+| `Shift + drag` | Restringe movimento a um eixo |
+| `Alt + drag` | Duplica enquanto arrasta |
+| `Esc` | Cancela operação em andamento |
+| `Cmd/Ctrl + S` | Salvar (autosave já cobre isso, mas força commit) |
+
+## Snapping e alinhamento
+
+O Bartender oferece três auxílios para precisão:
+
+1. **Grid** — uma grade em mm. Toggle pela tecla `G`.
+2. **Snap to grid** — objetos grudam nos pontos da grade. Toggle pela tecla `Shift + G`.
+3. **Alinhamento entre objetos** — quando você arrasta perto de outro objeto, guias verde-mint aparecem indicando alinhamento (topo, centro, base).
+
+## Desfazer / Refazer
+
+Cada edição é registrada em um histórico interno (até 100 passos). `Cmd/Ctrl + Z` volta um passo; `Cmd/Ctrl + Shift + Z` avança.
+
+O histórico é por sessão — fechar o template e reabrir começa um novo histórico.
+
+## Camadas
+
+Cada objeto é uma "camada" — você pode reordenar pelo painel da esquerda. A ordem afeta empilhamento visual (objetos mais embaixo na lista ficam por cima no canvas).
+
+Botões no painel:
+- **↑ ↓** — sobe/desce uma posição.
+- **⤒ ⤓** — leva ao topo / fundo.
+- **👁** — oculta no canvas (para edição, não afeta impressão).
+- **🔒** — trava (impede seleção e edição até destravar).
+
+## Exportar
+
+A toolbar superior expõe dois atalhos:
+
+- **Imprimir** — abre o diálogo de impressão.
+- **PDF** — exporta o template atual como PDF vetorial single-page. Para multi-page, use o fluxo de [impressão em lote](/bartender/pt-BR/docs/batch-printing/).
+
+## Próximos passos
+
+- [Códigos de barras](/bartender/pt-BR/docs/barcodes/) — adicione 1D ou 2D ao seu design.
+- [Impressão em lote](/bartender/pt-BR/docs/batch-printing/) — use placeholders e CSV.
+- [Histórico & calibração](/bartender/pt-BR/docs/history-calibration/) — reimprima sem redesenhar.

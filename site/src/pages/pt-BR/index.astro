@@ -1,0 +1,226 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import GradientOrb from '../../components/GradientOrb.astro';
+import BadgePill from '../../components/BadgePill.astro';
+import FeatureCard from '../../components/FeatureCard.astro';
+import ScreenshotFrame from '../../components/ScreenshotFrame.astro';
+import OsIcon from '../../components/OsIcon.astro';
+import { useTranslations, pagePath, docPath } from '../../i18n/utils';
+import { ASSETS, assetUrl, buildTimeVersion, REPO_URL } from '../../lib/releases';
+
+const locale = 'pt-BR' as const;
+const t = useTranslations(locale);
+const version = buildTimeVersion();
+
+const heroDefaultOs = 'win' as const;
+const heroHref = assetUrl(heroDefaultOs, version);
+
+const barcodes = [
+  'CODE128', 'EAN-13', 'EAN-8', 'UPC-A', 'UPC-E',
+  'ITF', 'Codabar', 'Code39', 'Code93', 'Code11',
+  'QR (L · M · Q · H)',
+];
+
+const trustChips = [
+  '100% offline',
+  'Open source · MIT',
+  'Argox + Zebra',
+  'Windows · macOS · Linux',
+];
+---
+
+<BaseLayout
+  locale={locale}
+  title="Bartender · Design e impressão de etiquetas offline-first"
+  description="Aplicativo desktop gratuito e open source para criar e imprimir etiquetas. Funciona com impressoras térmicas (Argox PPLB, Zebra ZPL) e qualquer driver do sistema. Sem assinaturas, sem telemetria."
+>
+  <!-- HERO -->
+  <section class="relative overflow-hidden">
+    <GradientOrb variant="mint" size="xl" position="-top-40 -left-40" opacity={0.55} />
+    <GradientOrb variant="peach" size="lg" position="-top-20 -right-20" opacity={0.5} />
+    <GradientOrb variant="lavender" size="md" position="top-1/3 right-1/4" opacity={0.35} />
+
+    <div class="container-page section-pad relative">
+      <div class="flex flex-col items-center text-center gap-8 max-w-3xl mx-auto">
+        <BadgePill>{t('hero.eyebrow')}</BadgePill>
+        <h1 class="display-mega text-ink">
+          Crie e imprima etiquetas.<br />
+          <span class="italic">Offline. Sem assinatura.</span>
+        </h1>
+        <p class="body-md text-body max-w-xl">
+          Bartender é um app desktop gratuito para projetar etiquetas e enviá-las para
+          impressoras térmicas (Argox, Zebra) ou qualquer driver de impressão do sistema.
+          Feito para depósitos, cozinhas, laboratórios e qualquer pessoa que imprime
+          etiquetas todo dia — sem abrir mão do controle nem pagar mensalidade.
+        </p>
+        <div class="flex flex-wrap items-center justify-center gap-3">
+          <a
+            href={heroHref}
+            class="btn-pill btn-pill-primary btn-pill-lg"
+            data-hero-download-cta
+            data-bartender-download={heroDefaultOs}
+            data-asset-filename={ASSETS[heroDefaultOs].filename(version)}
+          >
+            <OsIcon os={heroDefaultOs} size={18} class="text-on-primary" />
+            <span data-cta-label>Baixar para Windows</span>
+          </a>
+          <a href={docPath(locale)} class="btn-pill btn-pill-outline btn-pill-lg">
+            {t('cta.read.docs')}
+          </a>
+        </div>
+        <a href={pagePath(locale, 'download')} class="caption-uppercase text-muted hover:text-ink">
+          {t('cta.see.all.downloads')} →
+        </a>
+      </div>
+    </div>
+  </section>
+
+  <!-- TRUST STRIP -->
+  <section class="border-y border-hairline bg-canvas-soft">
+    <div class="container-page py-6 flex flex-wrap items-center justify-center gap-3">
+      {trustChips.map((c) => <BadgePill>{c}</BadgePill>)}
+    </div>
+  </section>
+
+  <!-- WHAT YOU GET -->
+  <section class="container-page section-pad">
+    <header class="flex flex-col items-center text-center gap-3 mb-12 max-w-2xl mx-auto">
+      <BadgePill>O que você ganha</BadgePill>
+      <h2 class="display-lg text-ink">Um fluxo completo de etiquetas no seu desktop</h2>
+      <p class="body-md text-muted">Editor, códigos de barras, impressão e lote — cada etapa coberta sem sair do app ou enviar dados para um servidor.</p>
+    </header>
+    <div class="grid gap-6 md:grid-cols-3">
+      <FeatureCard title="Editor visual" href={docPath(locale, 'editor')} cta="Documentação do editor">
+        Canvas drag-and-drop com Konva. Texto, retângulos, linhas, elipses, imagens e
+        códigos de barras — painel de propriedades com controle ao pixel e undo/redo completo.
+      </FeatureCard>
+      <FeatureCard title="Códigos de barras que funcionam" href={docPath(locale, 'barcodes')} cta="Ver todos os formatos">
+        Mais de 10 padrões: CODE128, EAN-13/8, UPC-A/E, ITF, Codabar, Code39, Code93,
+        Code11 e QR (quatro níveis). Dígito verificador calculado por você, validação em tempo real.
+      </FeatureCard>
+      <FeatureCard title="Imprima em qualquer coisa" href={docPath(locale, 'printing')} cta="Configurar impressão">
+        Drivers do SO para impressoras de escritório, e comandos nativos para Argox (PPLB)
+        e Zebra (ZPL) quando você precisa de velocidade e precisão sobre USB ou serial.
+      </FeatureCard>
+    </div>
+  </section>
+
+  <!-- SHOWCASE -->
+  <section class="bg-canvas-soft">
+    <div class="container-page section-pad">
+      <div class="grid lg:grid-cols-2 gap-12 items-center">
+        <div class="flex flex-col gap-4 max-w-lg">
+          <BadgePill>O editor</BadgePill>
+          <h2 class="display-lg text-ink">Um canvas que se lê como impressão, não como planilha.</h2>
+          <p class="body-md text-body">
+            Toda coordenada em milímetros — o que você vê é o que sai impresso.
+            Snap-to-grid, multi-seleção, guias de alinhamento, autosave e uma Lixeira
+            para qualquer coisa que você apague por engano.
+          </p>
+          <a href={docPath(locale, 'editor')} class="caption-uppercase text-ink hover:underline underline-offset-4">
+            Documentação do editor →
+          </a>
+        </div>
+        <ScreenshotFrame
+          alt="Bartender — editor visual"
+          caption="Canvas do editor com painel de propriedades"
+        />
+      </div>
+    </div>
+  </section>
+
+  <!-- BARCODE FORMATS -->
+  <section class="container-page section-pad">
+    <header class="flex flex-col items-center text-center gap-3 mb-12 max-w-2xl mx-auto">
+      <BadgePill>Todos os padrões cobertos</BadgePill>
+      <h2 class="display-lg text-ink">De EAN para varejo a Code 128 industrial, mais QR.</h2>
+      <p class="body-md text-muted">Gerados pela bwip-js — a mesma biblioteca usada por softwares de etiqueta corporativos.</p>
+    </header>
+    <div class="flex flex-wrap justify-center gap-3 max-w-3xl mx-auto">
+      {barcodes.map((b) => <span class="badge-pill">{b}</span>)}
+    </div>
+    <p class="text-center mt-8">
+      <a href={docPath(locale, 'barcodes')} class="caption-uppercase text-ink hover:underline underline-offset-4">
+        Referência completa de códigos de barras →
+      </a>
+    </p>
+  </section>
+
+  <!-- PRINT STACK SPLIT -->
+  <section class="bg-canvas-soft">
+    <div class="container-page section-pad">
+      <header class="flex flex-col items-center text-center gap-3 mb-12 max-w-2xl mx-auto">
+        <BadgePill>Stack de impressão</BadgePill>
+        <h2 class="display-lg text-ink">Dois caminhos para imprimir, um único fluxo.</h2>
+      </header>
+      <div class="grid lg:grid-cols-2 gap-6">
+        <article class="relative overflow-hidden rounded-2xl border border-hairline bg-surface-card p-8">
+          <GradientOrb variant="lavender" size="md" position="-top-20 -right-20" opacity={0.45} />
+          <div class="relative flex flex-col gap-3">
+            <p class="caption-uppercase text-muted">Drivers do SO</p>
+            <h3 class="display-md text-ink">Qualquer impressora que seu sistema conhece.</h3>
+            <p class="body-md text-body">
+              O Bartender renderiza sua etiqueta e entrega um raster ao spooler do
+              sistema — funciona com qualquer impressora jato de tinta, laser ou
+              térmica com driver instalado no Windows ou macOS.
+            </p>
+          </div>
+        </article>
+        <article class="relative overflow-hidden rounded-2xl border border-hairline bg-surface-card p-8">
+          <GradientOrb variant="sky" size="md" position="-top-20 -left-20" opacity={0.45} />
+          <div class="relative flex flex-col gap-3">
+            <p class="caption-uppercase text-muted">Comandos nativos</p>
+            <h3 class="display-md text-ink">PPLB e ZPL direto no fio.</h3>
+            <p class="body-md text-body">
+              Para Argox OS-214 Plus e impressoras Zebra, o Bartender emite PPLB
+              ou ZPL e envia diretamente via USB ou serial — barcodes mais nítidos,
+              throughput maior, sem tradução de driver.
+            </p>
+          </div>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <!-- BATCH WORKFLOW -->
+  <section class="container-page section-pad">
+    <header class="flex flex-col items-center text-center gap-3 mb-12 max-w-2xl mx-auto">
+      <BadgePill>Impressão em lote</BadgePill>
+      <h2 class="display-lg text-ink">Da planilha a N etiquetas em quatro passos.</h2>
+    </header>
+    <ol class="grid gap-6 md:grid-cols-4">
+      {
+        [
+          { n: '01', t: 'Importar CSV / XLSX', d: 'Solte um arquivo — colunas detectadas.' },
+          { n: '02', t: 'Mapear placeholders', d: '{{nome}}, {{sku}}, {{preço}}…' },
+          { n: '03', t: 'Pré-visualizar', d: 'Veja cada etiqueta antes de enviar.' },
+          { n: '04', t: 'Imprimir N etiquetas', d: 'Sequencial ou filtrado por linha.' },
+        ].map((s) => (
+          <li class="card-feature flex flex-col gap-2">
+            <span class="caption-uppercase text-muted">{s.n}</span>
+            <h3 class="title-md text-ink">{s.t}</h3>
+            <p class="body-sm text-body">{s.d}</p>
+          </li>
+        ))
+      }
+    </ol>
+  </section>
+
+  <!-- CTA BAND -->
+  <section class="relative overflow-hidden bg-canvas">
+    <GradientOrb variant="rose" size="xl" position="-top-32 -right-32" opacity={0.45} />
+    <GradientOrb variant="mint" size="lg" position="-bottom-40 -left-32" opacity={0.4} />
+    <div class="container-page section-pad relative flex flex-col items-center text-center gap-6">
+      <h2 class="display-lg text-ink max-w-xl">Pare de alugar software de etiqueta. Tenha seu fluxo.</h2>
+      <div class="flex flex-wrap items-center justify-center gap-3">
+        <a href={pagePath(locale, 'download')} class="btn-pill btn-pill-primary btn-pill-lg">
+          {t('cta.get.bartender')}
+        </a>
+        <a href={REPO_URL} target="_blank" rel="noopener noreferrer" class="btn-pill btn-pill-outline btn-pill-lg">
+          {t('cta.view.source')}
+        </a>
+      </div>
+      <p class="caption text-muted">Open source · MIT · Sem telemetria</p>
+    </div>
+  </section>
+</BaseLayout>

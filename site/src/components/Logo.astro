@@ -1,0 +1,32 @@
+---
+/**
+ * Logo do Bartender — fonte: src/assets/apple/logo.svg do app.
+ * Inline para evitar requisição extra e permitir herdar currentColor.
+ */
+interface Props {
+  size?: number;
+  class?: string;
+}
+const { size = 28, class: className = '' } = Astro.props;
+---
+
+<svg
+  viewBox="0 0 100 100"
+  xmlns="http://www.w3.org/2000/svg"
+  width={size}
+  height={size}
+  class={className}
+  aria-hidden="true"
+>
+  <g fill="currentColor">
+    <rect x="22" y="30" width="3" height="40" rx="1"></rect>
+    <rect x="29" y="35" width="2" height="30" rx="1"></rect>
+    <rect x="35" y="25" width="4" height="50" rx="1"></rect>
+    <rect x="43" y="32" width="2" height="36" rx="1"></rect>
+    <rect x="49" y="20" width="5" height="60" rx="1.5"></rect>
+    <rect x="58" y="35" width="2" height="30" rx="1"></rect>
+    <rect x="64" y="28" width="3" height="44" rx="1"></rect>
+    <rect x="71" y="32" width="2" height="36" rx="1"></rect>
+    <rect x="77" y="35" width="3" height="30" rx="1"></rect>
+  </g>
+</svg>

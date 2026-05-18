@@ -1,0 +1,71 @@
+---
+import { getCollection } from 'astro:content';
+import { docPath, useTranslations } from '../i18n/utils';
+import type { Locale } from '../i18n/ui';
+
+interface Props {
+  locale: Locale;
+  currentSlug?: string;
+}
+const { locale, currentSlug } = Astro.props;
+const t = useTranslations(locale);
+
+const all = await getCollection('docs', (e) => e.id.startsWith(`${locale}/`));
+all.sort((a, b) => a.data.order - b.data.order);
+
+const labels: Record<string, { 'en-US': string; 'pt-BR': string }> = {
+  'getting-started': { 'en-US': 'Getting started', 'pt-BR': 'Primeiros passos' },
+  designing: { 'en-US': 'Designing labels', 'pt-BR': 'Design de etiquetas' },
+  barcodes: { 'en-US': 'Barcodes', 'pt-BR': 'Códigos de barras' },
+  printing: { 'en-US': 'Printing', 'pt-BR': 'Impressão' },
+  data: { 'en-US': 'Data & batch', 'pt-BR': 'Dados & lote' },
+  files: { 'en-US': 'Files & formats', 'pt-BR': 'Arquivos & formatos' },
+  reliability: { 'en-US': 'Reliability', 'pt-BR': 'Confiabilidade' },
+};
+
+const groups: Record<string, typeof all> = {};
+for (const entry of all) {
+  const cat = entry.data.category;
+  if (!groups[cat]) groups[cat] = [];
+  groups[cat].push(entry);
+}
+
+function slugOnly(id: string): string {
+  return id.replace(/^[^/]+\//, '').replace(/\.(md|mdx)$/, '');
+}
+---
+
+<aside class="lg:sticky lg:top-24 lg:max-h-[calc(100vh-6rem)] lg:overflow-y-auto">
+  <p class="caption-uppercase text-muted mb-4">{t('docs.sidebar.title')}</p>
+  <nav class="flex flex-col gap-6">
+    {
+      Object.entries(groups).map(([cat, entries]) => (
+        <div class="flex flex-col gap-2">
+          <h4 class="caption-uppercase text-ink/70">
+            {labels[cat]?.[locale] ?? cat}
+          </h4>
+          <ul class="flex flex-col gap-1 border-l border-hairline">
+            {entries.map((entry) => {
+              const slug = slugOnly(entry.id);
+              const isActive = slug === currentSlug;
+              return (
+                <li>
+                  <a
+                    href={docPath(locale, slug)}
+                    class={`block py-1.5 pl-4 -ml-px border-l body-sm transition-colors ${
+                      isActive
+                        ? 'border-ink text-ink font-medium'
+                        : 'border-transparent text-body hover:text-ink hover:border-hairline-strong'
+                    }`}
+                  >
+                    {entry.data.title}
+                  </a>
+                </li>
+              );
+            })}
+          </ul>
+        </div>
+      ))
+    }
+  </nav>
+</aside>

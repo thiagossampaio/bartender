@@ -1,0 +1,88 @@
+---
+title: OS driver printing
+description: Print to any printer installed on Windows or macOS. Configure density, margins, preview and default printer.
+order: 5
+category: printing
+---
+
+Bartender supports two paths from app to label: the **operating system print driver** (this guide) and **native PPLB / ZPL commands** (see [PPLB & ZPL](/bartender/docs/pplb-zpl/)).
+
+The OS-driver route works with **any printer** that shows up in your system's installed printers list — inkjet, laser or thermal.
+
+## Print dialog
+
+From the Gallery or the editor, click **Print** to open the dialog:
+
+1. **Printer** — dropdown of every installed printer.
+2. **Density** — render DPI. Default: 300 for thermal, 600 for laser. Match your printer's spec.
+3. **Margins** — in mm. Use to compensate for physical printer offsets (see [Calibration](/bartender/docs/history-calibration/)).
+4. **Quantity** — copies of the same label.
+5. **Mode** — OS driver (this one) or native command (PPLB / ZPL, when applicable).
+6. **Preview** — see exactly what will be printed.
+
+## How it works internally
+
+1. Bartender renders your label to an **off-screen canvas** at the chosen density.
+2. The result is converted to a **raster bitmap** sized to the physical label.
+3. The bitmap goes to the **OS spooler** (GDI on Windows, CUPS on Linux, Quartz on macOS).
+4. The printer driver handles the final conversion to the printer's native protocol.
+
+> **For thermal printers:** this route is slower and produces less sharp barcodes than sending native PPLB/ZPL. If your printer supports those commands and is connected via USB or serial, prefer [native commands](/bartender/docs/pplb-zpl/).
+
+## Default printer
+
+Set the default printer in **Settings** → **Printing** → **Default printer**. It is pre-selected in the print dialog, saving a click.
+
+## Density — what to use?
+
+| Printer | Recommended density |
+|---|---|
+| Thermal 200 dpi (Argox OS-214, Zebra GK420) | 200 |
+| Thermal 300 dpi (Zebra ZD420, Argox CP-2140) | 300 |
+| Office laser | 600 |
+| Inkjet | 300–600 (printer manual) |
+
+The density in Bartender should **match the printer's native density**. Lower density gives blurred edges; higher is wasted (the driver will resample).
+
+## Preview
+
+The preview shows the exact bitmap that will be sent, at the correct physical scale. Use it to:
+
+- Check margins and crops.
+- Confirm barcode sharpness (if the preview looks blurry, the print will too — raise the density).
+- Spot text truncated by tight bounding boxes.
+
+## Print settings
+
+In **Settings** → **Printing**:
+
+- **Default mode** — OS driver or native command.
+- **Global margins** — applied to every print. Useful if your printer has a consistent physical offset.
+- **Preview before printing** — toggle. If off, the app sends straight after confirming.
+- **After printing** — open history, return to Gallery, or stay in the editor.
+
+## Common issues
+
+### "Printer doesn't appear in the list"
+
+Bartender lists the same printers your OS does. If one is missing:
+
+- Verify the printer is connected and on.
+- Open **OS Settings** → **Printers** and confirm it's there.
+- Restart Bartender (it scans at startup).
+
+### "Output is blurry or pixelated"
+
+- Raise the density in the print dialog to the printer's native density.
+- Check that the OS driver is up to date.
+- Try the [native command route](/bartender/docs/pplb-zpl/) if it's a thermal printer.
+
+### "Shifts left / right / up"
+
+Use the [calibration page](/bartender/docs/history-calibration/) to measure the offset and set corrective margins.
+
+## Next steps
+
+- [PPLB & ZPL](/bartender/docs/pplb-zpl/) — native commands for Argox and Zebra.
+- [Calibration & reprint](/bartender/docs/history-calibration/) — fine-tuning and history.
+- [Batch printing](/bartender/docs/batch-printing/) — N labels via CSV.

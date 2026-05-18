@@ -1,0 +1,122 @@
+---
+title: Canvas editor
+description: Master Bartender's visual editor — objects, properties panel, shortcuts, snapping, alignment and undo/redo.
+order: 3
+category: designing
+---
+
+The **canvas editor** is where your label takes shape. Built on [Konva](https://konvajs.org/), it offers a WYSIWYG canvas in millimeters, a properties panel on the right, and full edit history.
+
+## Anatomy
+
+```
+┌─────────────────────────────────────────────────────────┐
+│  ← Gallery   │ Toolbar (T R L E I B) │ Print     PDF    │
+├──────────────┴───────────────────────┴──────────────────┤
+│              │                                │         │
+│  Layers      │                                │ Props   │
+│  (list)      │           CANVAS               │ panel   │
+│              │                                │         │
+│              │                                │         │
+└──────────────┴────────────────────────────────┴─────────┘
+```
+
+- **Top toolbar** — tools and global actions.
+- **Layer panel** (left) — every object listed, with selection and drag-to-reorder.
+- **Central canvas** — your label at physical scale (mm).
+- **Properties panel** (right) — edits the selected object.
+
+## Objects
+
+### Text
+
+Block with font, weight, alignment, size and color. Supports **placeholders** `{{field}}` for batch printing (see [Batch printing](/bartender/docs/batch-printing/)).
+
+Editable: font, weight (300–700), size, alignment (left, center, right, justify), color, line-height, rotation.
+
+### Rectangle
+
+Rectangle with:
+- **Stroke**: width, color, style (solid, dashed).
+- **Fill**: solid color or transparent.
+- **Corner radius** (mm).
+
+### Line
+
+Straight line between two points. Thickness, color, style (solid, dashed, dotted).
+
+### Ellipse
+
+Circle or ellipse. Stroke + fill, like the rectangle.
+
+### Image
+
+PNG, JPG or SVG from disk. SVG keeps vector quality at any scale — ideal for logos.
+
+### Barcode
+
+Any of the supported formats (CODE128, EAN, UPC, QR…). Also accepts placeholders. See the [full reference](/bartender/docs/barcodes/).
+
+## Properties panel
+
+When you select an object, the right panel shows:
+
+- **Position**: x, y in mm — top-left of the bounding box.
+- **Size**: width × height in mm.
+- **Rotation**: angle in degrees.
+- **Type-specific properties** (font for text, data for barcode, etc.).
+
+You can edit **numeric values** directly or step them with `↑ ↓`.
+
+## Keyboard shortcuts
+
+| Shortcut | Action |
+|---|---|
+| `Cmd/Ctrl + Z` | Undo |
+| `Cmd/Ctrl + Shift + Z` | Redo |
+| `Cmd/Ctrl + D` | Duplicate selection |
+| `Cmd/Ctrl + C` / `V` | Copy / Paste |
+| `Delete` / `Backspace` | Delete selection |
+| `T R L E I B` | Switch tool (text, rect, line, ellipse, image, barcode) |
+| `Shift + click` | Multi-select |
+| `Shift + drag` | Constrain movement to one axis |
+| `Alt + drag` | Duplicate while dragging |
+| `Esc` | Cancel current operation |
+| `Cmd/Ctrl + S` | Save (autosave already covers this — forces a commit) |
+
+## Snapping and alignment
+
+Bartender offers three precision aids:
+
+1. **Grid** — a mm grid. Toggle with `G`.
+2. **Snap to grid** — objects snap to grid points. Toggle with `Shift + G`.
+3. **Inter-object alignment** — when you drag near another object, mint-green guides appear marking alignment (top, middle, bottom).
+
+## Undo / Redo
+
+Every edit is tracked in an internal history (up to 100 steps). `Cmd/Ctrl + Z` rewinds; `Cmd/Ctrl + Shift + Z` redoes.
+
+History is per session — closing the template and reopening starts a fresh history.
+
+## Layers
+
+Each object is a "layer" — reorder via the left panel. Order affects visual stacking (lower in the list = higher on the canvas).
+
+Panel buttons:
+- **↑ ↓** — bump up/down one slot.
+- **⤒ ⤓** — bring to front / send to back.
+- **👁** — hide on canvas (editing only — does not affect printing).
+- **🔒** — lock (prevents selection and editing until unlocked).
+
+## Export
+
+The top toolbar exposes two shortcuts:
+
+- **Print** — opens the print dialog.
+- **PDF** — exports the current template as a single-page vector PDF. For multi-page, use the [batch printing](/bartender/docs/batch-printing/) flow.
+
+## Next steps
+
+- [Barcodes](/bartender/docs/barcodes/) — add 1D or 2D codes to your design.
+- [Batch printing](/bartender/docs/batch-printing/) — placeholders and CSV.
+- [History & calibration](/bartender/docs/history-calibration/) — reprint without redesigning.

@@ -1,0 +1,26 @@
+---
+interface Props {
+  title: string;
+  href?: string;
+  cta?: string;
+  class?: string;
+}
+const { title, href, cta, class: className = '' } = Astro.props;
+---
+
+<article class={`card-feature flex flex-col gap-3 ${className}`}>
+  <h3 class="title-md text-ink">{title}</h3>
+  <div class="body-md text-body flex-1">
+    <slot />
+  </div>
+  {
+    href && cta && (
+      <a
+        href={href}
+        class="caption-uppercase text-ink mt-auto inline-flex items-center gap-1 hover:underline underline-offset-4"
+      >
+        {cta} →
+      </a>
+    )
+  }
+</article>

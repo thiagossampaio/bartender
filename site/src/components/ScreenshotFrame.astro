@@ -1,0 +1,38 @@
+---
+/**
+ * Frame estilo macOS para screenshots do app.
+ *
+ * Em ausência de prints reais, mostra um placeholder editorial.
+ */
+interface Props {
+  src?: string;
+  alt: string;
+  caption?: string;
+  aspect?: 'video' | 'app';
+}
+const { src, alt, caption, aspect = 'video' } = Astro.props;
+const aspectClass = aspect === 'video' ? 'aspect-video' : 'aspect-[16/10]';
+---
+
+<figure class="flex flex-col gap-3">
+  <div class="overflow-hidden rounded-2xl border border-hairline bg-surface-card shadow-soft-drop">
+    <div class="flex items-center gap-1.5 border-b border-hairline-soft px-4 py-3 bg-canvas-soft">
+      <span class="h-3 w-3 rounded-full bg-[#FF5F57]"></span>
+      <span class="h-3 w-3 rounded-full bg-[#FEBC2E]"></span>
+      <span class="h-3 w-3 rounded-full bg-[#28C840]"></span>
+      <span class="ml-3 caption text-muted">Bartender</span>
+    </div>
+    {
+      src ? (
+        <img src={src} alt={alt} class={`w-full ${aspectClass} object-cover`} loading="lazy" />
+      ) : (
+        <div
+          class={`flex items-center justify-center ${aspectClass} bg-canvas-soft text-muted caption`}
+        >
+          <span>{alt}</span>
+        </div>
+      )
+    }
+  </div>
+  {caption && <figcaption class="caption text-muted text-center">{caption}</figcaption>}
+</figure>

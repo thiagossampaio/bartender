@@ -1,0 +1,97 @@
+name: pages
+
+# Deploy do site institucional do Bartender em GitHub Pages.
+#
+# Disparos:
+#  - workflow_run: após o pipeline `release` concluir com sucesso, garante que
+#    os links de download apontem para a versão recém-publicada.
+#  - push em `main` que altere arquivos em `site/**`.
+#  - workflow_dispatch (UI) para deploys manuais.
+#
+# Configuração manual no repositório (uma vez):
+#  - Settings → Pages → Source: "GitHub Actions" (NÃO "Branch").
+
+on:
+  workflow_run:
+    workflows: [release]
+    types: [completed]
+    branches: [main]
+  push:
+    branches: [main]
+    paths:
+      - 'site/**'
+      - '.github/workflows/pages.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Concurrency em escopo de Pages — não cancelamos deploys em progresso para
+# evitar publicar um site parcial.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Build e deploy do site
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+
+    # Quando disparado por workflow_run, só roda se o release passou.
+    if: ${{ github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success' }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: site/package-lock.json
+
+      - name: Resolver versão da última release
+        id: version
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          # Tenta a última release publicada. Se não houver nenhuma ainda,
+          # cai para a versão declarada em package.json do app (estado dev).
+          TAG=$(gh release view --json tagName -q .tagName 2>/dev/null || true)
+          if [ -z "$TAG" ]; then
+            TAG="v$(node -p "require('./package.json').version")"
+            echo "Nenhuma release publicada ainda. Usando versão do package.json: $TAG"
+          else
+            echo "Última release publicada: $TAG"
+          fi
+          VERSION="${TAG#v}"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Install site deps
+        working-directory: site
+        run: npm install
+
+      - name: Build site
+        working-directory: site
+        env:
+          PUBLIC_BARTENDER_VERSION: ${{ steps.version.outputs.version }}
+        run: npm run build
+
+      - name: Configure Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: site/dist
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

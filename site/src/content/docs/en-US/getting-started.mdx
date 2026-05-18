@@ -1,0 +1,79 @@
+---
+title: Getting started
+description: Install Bartender, create your first template and print your first label in under ten minutes.
+order: 1
+category: getting-started
+---
+
+import ScreenshotFrame from '../../../components/ScreenshotFrame.astro';
+
+This guide takes you from zero to "first label printed" in under ten minutes. No signup, no cloud — everything runs locally on your machine.
+
+## 1. Download and install
+
+Pick the installer for your OS on the [download page](/bartender/download/):
+
+- **Windows 10 / 11 (64-bit)**: `Bartender_X.Y.Z_x64_pt-BR.msi`
+- **macOS 12+ (Intel + Apple Silicon)**: `Bartender_X.Y.Z_universal.dmg`
+- **Linux**: `bartender_X.Y.Z_amd64.deb` (Debian/Ubuntu) or `bartender_X.Y.Z_amd64.AppImage` (any x86_64 distro)
+
+> **Unsigned on macOS.** On first launch, hold `Control` and click the app in Applications → **Open**. macOS remembers your choice after that.
+> **Unsigned on Windows.** If SmartScreen warns, click "More info" → "Run anyway".
+
+## 2. Meet the Gallery
+
+When you open Bartender for the first time, you land in the **Gallery** — your library of label templates. From here you can:
+
+- Create a new template from scratch (**+ New template**)
+- Import an `.etlbl` archive (Bartender's portable format)
+- Restore deleted templates from the **Trash**
+
+<ScreenshotFrame alt="Bartender template gallery" caption="The Gallery is your starting point every time you open the app." />
+
+## 3. Create your first template
+
+Click **+ New template**. Configure:
+
+1. **Name** — something like "Shelf label 50×30 mm".
+2. **Dimensions** in millimeters — width × height. Physical size of your label stock.
+3. **Printer density** (200 or 300 dpi) — check your printer's manual.
+
+Bartender opens the editor with the canvas already sized to the right dimensions.
+
+## 4. Design the label
+
+Use the toolbar to add objects:
+
+| Tool | Shortcut | What it does |
+|---|---|---|
+| **Text** | `T` | Text block with font, alignment, weight. |
+| **Rectangle** | `R` | Rectangle with stroke and/or fill. |
+| **Line** | `L` | Straight line at any angle. |
+| **Ellipse** | `E` | Circle or ellipse. |
+| **Image** | `I` | PNG / JPG / SVG from disk. |
+| **Barcode** | `B` | 1D or 2D — see the [barcode reference](/bartender/docs/barcodes/). |
+
+Every object can be dragged, resized, rotated and tuned via the **properties panel** on the right. Position and size are always in **millimeters**.
+
+> **Tip:** hold `Shift` while dragging to lock to one axis. Use `Cmd/Ctrl + Z` to undo.
+
+## 5. Save and head back to the Gallery
+
+Bartender autosaves continuously (see [Autosave & recovery](/bartender/docs/autosave-recovery/)). To exit safely, click **Back to Gallery** in the top-left.
+
+## 6. Print
+
+From the Gallery, click the template and choose **Print**. The print dialog opens:
+
+1. **Pick a printer** — any printer installed on your OS appears in the list.
+2. **Density and margins** — tune if your printer has a physical offset.
+3. **Preview** — confirm the result before sending.
+4. **Print**.
+
+For Argox or Zebra printers connected over USB/serial, Bartender offers **native commands** (PPLB or ZPL) — faster and sharper. See [OS-driver printing](/bartender/docs/printing/) or [PPLB & ZPL](/bartender/docs/pplb-zpl/).
+
+## Next steps
+
+- [Canvas editor](/bartender/docs/editor/) — master the canvas and its shortcuts.
+- [Barcodes](/bartender/docs/barcodes/) — every supported type.
+- [Batch printing](/bartender/docs/batch-printing/) — N labels from a spreadsheet.

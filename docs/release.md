@@ -117,6 +117,22 @@ A pipeline já lê os secrets — basta cadastrá-los em `Settings → Secrets a
 
 > Para signing **inline** (cert dentro do CI sem máquina Windows pré-configurada), é preciso lógica adicional. Documentaremos quando o cert for adquirido.
 
+## Site institucional (GitHub Pages)
+
+Logo após o `release.yml` concluir com sucesso, o workflow `pages.yml`
+dispara automaticamente (via `workflow_run`) e rebuilda o site
+`https://thiagossampaio.github.io/bartender/` injetando a versão recém-publicada
+nos links de download.
+
+Você não precisa fazer nada manual. Para forçar um rebuild:
+
+```bash
+gh workflow run pages.yml
+```
+
+Detalhes: [`site/README.md`](../site/README.md) e o workflow em
+[`.github/workflows/pages.yml`](../.github/workflows/pages.yml).
+
 ## Custos / quotas
 
 - **Free plan privado:** 2.000 minutos/mês de Actions. Cada release consome ~30 min sem cache, ~10 min com cache. Dá tranquilo para releases semanais.

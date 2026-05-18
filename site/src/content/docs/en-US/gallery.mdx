@@ -1,0 +1,68 @@
+---
+title: Template gallery
+description: Create, organize, duplicate and recover label templates. The Gallery is Bartender's home screen and the hub of your work.
+order: 2
+category: designing
+---
+
+The **Gallery** is Bartender's home screen and the home of all your label templates. Each card in the grid is a saved template, with thumbnail, name, dimensions and last-edited date.
+
+## Per-template actions
+
+Every template supports these actions:
+
+| Action | How to trigger | Result |
+|---|---|---|
+| **Open** | Click the card | Opens the template in the canvas editor. |
+| **Rename** | Right-click → Rename | Inline rename. |
+| **Duplicate** | Right-click → Duplicate | Creates an identical copy with a "(copy)" suffix. |
+| **Delete** | Right-click → Delete | Moves the template to the **Trash** (not deleted immediately). |
+| **Export `.etlbl`** | Right-click → Export | Generates a portable archive with integrity hash. See [.etlbl](/bartender/docs/etlbl/). |
+| **Print** | Right-click → Print | Opens the print dialog directly, without editing. |
+
+## Trash
+
+Deleted templates go to the **Trash** — accessible from the top-right of the Gallery. From there you can:
+
+- **Restore** a template (back to the Gallery with the original name).
+- **Permanently delete** (gone from the local DB, no recovery).
+- **Empty Trash** (purge everything at once).
+
+The Trash is persistent — templates stay there until you delete them permanently or empty the Trash by hand. No auto-expiration.
+
+## Creating templates
+
+### From scratch
+
+Click **+ New template** at the top of the Gallery. Set name, width × height in millimeters and printer density (200 or 300 dpi).
+
+### By duplication
+
+To reuse a layout, **Duplicate** a tested template and rename the copy. This preserves every element, print configuration and placeholder mapping.
+
+### From `.etlbl`
+
+Use **Import template** at the top of the Gallery to open an `.etlbl` archive sent by a colleague, exported from another machine, or pulled from an internal catalog. Bartender validates the integrity hash before importing.
+
+## Search and filter
+
+The search bar filters templates by **name**. For large libraries, also use:
+
+- **Sort by**: name (A-Z), last edited, creation date, dimensions.
+- **View**: grid (cards with thumbnails) or list (denser).
+
+## Local storage
+
+All templates live in a local SQLite database — exact path depends on the OS:
+
+- **Windows**: `%APPDATA%/io.bartender.app/`
+- **macOS**: `~/Library/Application Support/io.bartender.app/`
+- **Linux**: `~/.local/share/io.bartender.app/`
+
+Nothing is sent to external servers. For backup, export as `.etlbl` or copy that directory.
+
+## Next steps
+
+- [Canvas editor](/bartender/docs/editor/) — design your label.
+- [.etlbl format](/bartender/docs/etlbl/) — backup and sharing.
+- [Autosave & recovery](/bartender/docs/autosave-recovery/) — how Bartender protects your work.
