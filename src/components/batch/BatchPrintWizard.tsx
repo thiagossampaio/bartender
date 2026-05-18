@@ -20,6 +20,7 @@ import type { ColumnMapping } from "@/lib/data/mapping";
 import type { ParsedDataset } from "@/lib/data/parsers";
 import type { PlaceholderInfo } from "@/lib/data/placeholders";
 import { expandBatchPlan } from "@/lib/batch/expand";
+import { composePhysicalPages, normalizeLayout } from "@/lib/batch/compose";
 import { runBatch, type RunBatchResult } from "@/lib/batch/runner";
 import {
   resolveQuantities,
@@ -185,9 +186,12 @@ export function BatchPrintWizard({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [step, dataset, rowIndices, quantities, mapping, objects]);
 
-  // Expansão de páginas — só na step de preview, e capa em PREVIEW_LIMIT.
-  const previewPages = React.useMemo(() => {
-    if (step !== "preview") return [];
+  // Expansão de páginas — só na step de preview, e capa em PREVIEW_LIMIT
+  // **etiquetas lógicas**. Depois agrupamos em páginas físicas (multi-up).
+  const previewBundle = React.useMemo(() => {
+    if (step !== "preview") {
+      return { physicalPages: [], totalPhysical: 0 };
+    }
     const plan: BatchPlan = {
       dataset,
       mapping,
@@ -197,8 +201,35 @@ export function BatchPrintWizard({
       filter: effectiveFilter,
       quantity,
     };
-    return expandBatchPlan(plan, { limit: PREVIEW_LIMIT }).pages;
-  }, [step, dataset, mapping, placeholders, canvas, objects, effectiveFilter, quantity]);
+    const layout = normalizeLayout(canvas.layout);
+    const perPage = layout.columns * layout.rows;
+    // Expandimos `PREVIEW_LIMIT * perPage` etiquetas lógicas (no máximo) para
+    // gerar até `PREVIEW_LIMIT` páginas físicas mesmo em multi-up denso.
+    const expandedSample = expandBatchPlan(plan, {
+      limit: PREVIEW_LIMIT * perPage,
+    }).pages;
+    const physicalPages = composePhysicalPages(expandedSample, layout);
+    // Total real de páginas físicas: divide total lógico por slots-por-página
+    // (com ceil para cobrir a última página parcial).
+    const totalLogicalAll = sumQuantities(quantities);
+    const totalPhysical = Math.ceil(totalLogicalAll / perPage);
+    return {
+      physicalPages: physicalPages.slice(0, PREVIEW_LIMIT),
+      totalPhysical,
+    };
+  }, [
+    step,
+    dataset,
+    mapping,
+    placeholders,
+    canvas,
+    objects,
+    effectiveFilter,
+    quantity,
+    quantities,
+  ]);
+  const previewPages = previewBundle.physicalPages;
+  const totalPhysicalPages = previewBundle.totalPhysical;
 
   const canAdvance = React.useMemo(() => {
     if (step === "filter") {
@@ -372,6 +403,7 @@ export function BatchPrintWizard({
             <BatchPreviewStep
               pages={previewPages}
               totalLabels={totalLabels}
+              totalPhysicalPages={totalPhysicalPages}
               selectedRows={rowIndices.length}
               previewCount={PREVIEW_LIMIT}
             />

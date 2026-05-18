@@ -30,6 +30,7 @@ import { pplbPrint } from "@/lib/pplb";
 import { printersMarkUsed, printersPrintRaster } from "@/lib/printers";
 import { zplPrint } from "@/lib/zpl";
 import { expandBatchPlan, materializePageObjects } from "@/lib/batch/expand";
+import { composePhysicalPages, normalizeLayout } from "@/lib/batch/compose";
 import type { BatchDestination, BatchPlan } from "@/lib/batch/types";
 
 export interface RunBatchOptions {
@@ -57,19 +58,25 @@ export interface RunBatchResult {
 export async function runBatch(opts: RunBatchOptions): Promise<RunBatchResult> {
   const { plan, destination, templateName, templateId, onProgress } = opts;
   const expanded = expandBatchPlan(plan);
-  const total = expanded.pages.length;
+  const totalLogical = expanded.pages.length;
 
-  if (total === 0) {
+  if (totalLogical === 0) {
     throw new Error(
       "Nenhuma etiqueta para imprimir. Verifique a seleção e a quantidade.",
     );
   }
 
-  // Mapa de `bindingPerPage` aceito pelo `exportPdf`/`buildPdfBytes`. Aqui o
-  // contexto é `{string → string}`; o tipo da export aceita
-  // string | number | null | undefined — coerção implícita.
-  const bindingPerPage = expanded.pages.map((p) => p.bindingContext);
-  const pages = expanded.pages.map((p) => ({
+  // Layout físico do rolo (WP-13.5). Quando `1×1`, `composePhysicalPages`
+  // devolve 1 página física por etiqueta lógica — equivalente ao caminho
+  // anterior, com objetos já trasladados (`dx=0`, `dy=0`) e binding
+  // materializado. Para multi-up, cada página física contém `cols*rows`
+  // etiquetas de linhas potencialmente diferentes.
+  const layout = normalizeLayout(plan.canvas.layout);
+  const isMultiUp =
+    layout.columns > 1 || layout.rows > 1 || layout.gapX > 0 || layout.gapY > 0;
+  const physicalPages = composePhysicalPages(expanded.pages, layout);
+  const totalPhysical = physicalPages.length;
+  const physicalPdfPages = physicalPages.map((p) => ({
     canvas: p.canvas,
     objects: p.objects,
   }));
@@ -86,15 +93,17 @@ export async function runBatch(opts: RunBatchOptions): Promise<RunBatchResult> {
   const sourcePath = plan.dataset.filePath ?? null;
 
   if (destination.kind === "pdf") {
+    // Binding já materializado em `compose`; passamos `undefined` para o
+    // pipeline PDF não reaplicar (idempotente, mas evita confusão).
     const result = await exportPdf({
-      pages,
+      pages: physicalPdfPages,
       suggestedFileName: suggestPdfFileName(templateName),
-      bindingPerPage,
+      bindingPerPage: undefined,
     });
     if (!result) {
       return { printed: 0, cancelled: true };
     }
-    onProgress?.(total, total);
+    onProgress?.(totalLogical, totalLogical);
     // PDF não é "impressão" stricto sensu, mas o SPEC-12 critério 1 trata
     // qualquer despacho do wizard como entrada do histórico. Registramos com
     // `mode = "driver"` (não há linguagem nativa envolvida) e
@@ -104,53 +113,84 @@ export async function runBatch(opts: RunBatchOptions): Promise<RunBatchResult> {
         templateId,
         printerName: "PDF",
         mode: "driver",
-        quantity: total,
+        quantity: totalLogical,
         dataSource,
         sourcePath,
       });
     }
-    return { printed: total, pdfPath: result.path };
+    return { printed: totalLogical, pdfPath: result.path };
   }
 
   if (destination.kind === "driver") {
-    const bytes = await buildPdfBytes(pages, bindingPerPage);
+    const bytes = await buildPdfBytes(physicalPdfPages, undefined);
     const jobId = await printersPrintRaster(destination.printerName, bytes, 1);
     await printersMarkUsed(destination.printerName);
-    onProgress?.(total, total);
+    onProgress?.(totalLogical, totalLogical);
     if (templateId) {
       void historyRecord({
         templateId,
         printerName: destination.printerName,
         mode: "driver",
-        quantity: total,
+        quantity: totalLogical,
         dataSource,
         sourcePath,
       });
     }
-    return { printed: total, jobId };
+    return { printed: totalLogical, jobId };
   }
 
-  // Raw nativo (PPLB/ZPL). Despacha por LINHA, não por página, para usar o
-  // `P<n>`/`^PQ<n>` em vez de re-enviar bytes idênticos. Reagrupamos as
-  // páginas por `rowIndex`, mantendo a ordem original.
+  // Raw nativo (PPLB/ZPL).
+  //
+  // - **Layout 1×1**: agrupa por `rowIndex` para usar o `P<n>`/`^PQ<n>` —
+  //   evita reenviar bytes idênticos. Comportamento pré-WP-13.5.
+  // - **Multi-up (cols>1 ou rows>1)**: cada página física é uma composição de
+  //   linhas distintas. Despachamos 1 envio raw por página física (qty=1).
+  //   `P<n>` deixa de ser aplicável porque o conteúdo varia entre páginas.
   let printedSoFar = 0;
   let lastJobId: string | undefined;
 
-  for (let i = 0; i < expanded.rowIndices.length; i += 1) {
-    const rowIdx = expanded.rowIndices[i];
-    const qty = expanded.quantities[i] ?? 0;
-    if (qty <= 0) continue;
-    // A primeira página dessa linha basta — todas as `qty` cópias compartilham
-    // o mesmo `bindingContext`.
-    const page = expanded.pages.find((p) => p.rowIndex === rowIdx);
-    if (!page) continue;
-    const objectsMaterial = materializePageObjects(page);
-    const canvasJson = canvasToJsonString(page.canvas, objectsMaterial);
+  if (!isMultiUp) {
+    for (let i = 0; i < expanded.rowIndices.length; i += 1) {
+      const rowIdx = expanded.rowIndices[i];
+      const qty = expanded.quantities[i] ?? 0;
+      if (qty <= 0) continue;
+      const page = expanded.pages.find((p) => p.rowIndex === rowIdx);
+      if (!page) continue;
+      const objectsMaterial = materializePageObjects(page);
+      const canvasJson = canvasToJsonString(page.canvas, objectsMaterial);
+      if (destination.language === "PPLB") {
+        const res = await pplbPrint(
+          destination.printerName,
+          canvasJson,
+          qty,
+          templateId,
+          { dataSource, sourcePath },
+        );
+        lastJobId = res.jobId;
+      } else {
+        const res = await zplPrint(
+          destination.printerName,
+          canvasJson,
+          qty,
+          templateId,
+          { dataSource, sourcePath },
+        );
+        lastJobId = res.jobId;
+      }
+      printedSoFar += qty;
+      onProgress?.(printedSoFar, totalLogical);
+    }
+    return { printed: printedSoFar, jobId: lastJobId };
+  }
+
+  for (let i = 0; i < totalPhysical; i += 1) {
+    const phys = physicalPages[i];
+    const canvasJson = canvasToJsonString(phys.canvas, phys.objects);
     if (destination.language === "PPLB") {
       const res = await pplbPrint(
         destination.printerName,
         canvasJson,
-        qty,
+        1,
         templateId,
         { dataSource, sourcePath },
       );
@@ -159,14 +199,14 @@ export async function runBatch(opts: RunBatchOptions): Promise<RunBatchResult> {
       const res = await zplPrint(
         destination.printerName,
         canvasJson,
-        qty,
+        1,
         templateId,
         { dataSource, sourcePath },
       );
       lastJobId = res.jobId;
     }
-    printedSoFar += qty;
-    onProgress?.(printedSoFar, total);
+    printedSoFar += phys.slots.length;
+    onProgress?.(printedSoFar, totalLogical);
   }
 
   return { printed: printedSoFar, jobId: lastJobId };

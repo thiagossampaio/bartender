@@ -78,6 +78,7 @@ export function canvasToJson(
       height: canvas.height,
       dpi: canvas.dpi,
       background: canvas.background ?? DEFAULT_BACKGROUND,
+      layout: canvas.layout,
     }),
     objects: objects.map((o) => omitUndefined({ ...o }) as CanvasObject),
   };
@@ -116,6 +117,20 @@ function pickType(v: unknown): ObjectType | null {
   return ALLOWED_TYPES.includes(v as ObjectType) ? (v as ObjectType) : null;
 }
 
+/** Parser tolerante do `canvas.layout` (WP-13.5). Aceita parcial — preenche
+ *  com 1 / 0 quando o campo é inválido. Retorna `null` se nenhum campo for
+ *  reconhecido (evita "layout vazio" inflando o JSON de templates antigos). */
+function parseLayout(v: unknown): import("@/lib/canvas/types").LayoutConfig | null {
+  if (!isRecord(v)) return null;
+  const cols = Math.max(1, Math.round(pickNumber(v.columns, 1) ?? 1));
+  const rows = Math.max(1, Math.round(pickNumber(v.rows, 1) ?? 1));
+  const gapX = Math.max(0, pickNumber(v.gapX, 0) ?? 0);
+  const gapY = Math.max(0, pickNumber(v.gapY, 0) ?? 0);
+  // Sem nada útil → omitir do JSON em memória.
+  if (cols === 1 && rows === 1 && gapX === 0 && gapY === 0) return null;
+  return { columns: cols, rows, gapX, gapY };
+}
+
 /**
  * Deserializa o JSON persistido (ou um fallback) para o formato em memória.
  * @param raw string JSON do banco; pode ser vazio para template recém-criado.
@@ -139,6 +154,7 @@ export function jsonToCanvas(
   if (!isRecord(parsed)) return empty;
 
   const rawCanvas = isRecord(parsed.canvas) ? parsed.canvas : {};
+  const layout = parseLayout(rawCanvas.layout);
   const canvas: CanvasDef = {
     width: pickNumber(rawCanvas.width, fallback.width) ?? fallback.width,
     height: pickNumber(rawCanvas.height, fallback.height) ?? fallback.height,
@@ -146,6 +162,7 @@ export function jsonToCanvas(
     background:
       pickString(rawCanvas.background, fallback.background ?? DEFAULT_BACKGROUND) ??
       DEFAULT_BACKGROUND,
+    ...(layout ? { layout } : {}),
   };
 
   const rawObjects = Array.isArray(parsed.objects) ? parsed.objects : [];

@@ -8,42 +8,44 @@ import {
   renderBarcodeSvg,
   svgToDataUrl,
 } from "@/lib/canvas/barcode-svg";
-import { applyBinding } from "@/lib/canvas/barcode";
 import { fontFamilyWithFallback } from "@/lib/canvas/fonts";
 import type { CanvasObject } from "@/lib/canvas/types";
 import { CSS_PX_PER_MM, devicePixelRatioOr1 } from "@/lib/preview/screen-dpi";
-import type { BatchPage } from "@/lib/batch/types";
+import type { PhysicalPage } from "@/lib/batch/compose";
 
 /**
  * Step "Preview do lote" do BatchPrintWizard (WP-13 / SPEC-07 §"Comportamento esperado" item 6).
  *
- * Mostra um **carrossel das primeiras N etiquetas** + total ("523 etiquetas
- * serão impressas"). N default = 10. Implementação Konva mirror do
- * `PreviewModal` mas com `bindingContext` aplicado em cada página.
+ * Mostra um **carrossel das primeiras N páginas físicas** + total. Com layout
+ * 1×1, cada página física é 1 etiqueta. Com multi-up (WP-13.5), cada página
+ * é a composição do rolo inteiro com `cols × rows` etiquetas trasladadas.
  *
  * Decisões:
  *  - **Carrossel não-virtual**: só renderizamos a página visível (1 Stage por
  *    vez) — performance previsível mesmo se houver 10 mil etiquetas.
- *  - **Origem das páginas**: o caller passa a lista já expandida (cap de N);
- *    o `total` veio do plano completo para mostrar o badge agregado.
- *  - **Substituição inline**: aplicamos `applyBinding` no momento do render,
- *    aproveitando o mesmo pipeline do PDF e do PreviewModal — não pré-clonamos
- *    objetos para economizar memória.
+ *  - **Páginas pré-compostas**: o caller compõe via `composePhysicalPages`
+ *    antes de passar; aqui só desenhamos. Binding já está materializado nos
+ *    objetos — não rodamos `applyBinding` neste módulo.
  */
 export interface BatchPreviewStepProps {
-  /** Páginas amostradas (até `previewCount`). */
-  pages: readonly BatchPage[];
-  /** Total real de etiquetas que serão impressas (informativo). */
+  /** Páginas FÍSICAS amostradas (até `previewCount`). Cada uma já vem com
+   *  `cols × rows` etiquetas trasladadas e binding materializado. */
+  pages: readonly PhysicalPage[];
+  /** Total real de etiquetas LÓGICAS que serão impressas (informativo). */
   totalLabels: number;
+  /** Total de páginas físicas a imprimir (informativo; pode diferir de
+   *  `totalLabels` em layouts multi-up). */
+  totalPhysicalPages: number;
   /** Total de linhas selecionadas (informativo). */
   selectedRows: number;
-  /** Quantidade mostrada na amostra. */
+  /** Quantidade de páginas físicas mostrada na amostra. */
   previewCount: number;
 }
 
 export function BatchPreviewStep({
   pages,
   totalLabels,
+  totalPhysicalPages,
   selectedRows,
   previewCount,
 }: BatchPreviewStepProps) {
@@ -65,17 +67,34 @@ export function BatchPreviewStep({
 
   const safeIndex = Math.min(index, pages.length - 1);
   const current = pages[safeIndex];
+  const isMultiUp = current.slots.length > 1;
+  const slotsLabel = current.slots
+    .map((s) => `linha ${s.rowIndex}`)
+    .join(", ");
 
   return (
     <div className="space-y-4">
       <header className="flex flex-wrap items-baseline justify-between gap-2">
         <h3 className="text-sm font-semibold">Pré-visualização do lote</h3>
         <p className="text-xs text-muted-foreground">
-          Mostrando {pages.length} de {totalLabels} etiqueta
-          {totalLabels === 1 ? "" : "s"} ({selectedRows} linha
-          {selectedRows === 1 ? "" : "s"} selecionada
-          {selectedRows === 1 ? "" : "s"}).{" "}
-          {totalLabels > previewCount && (
+          {isMultiUp ? (
+            <>
+              Mostrando {pages.length} de {totalPhysicalPages} página
+              {totalPhysicalPages === 1 ? "" : "s"} física
+              {totalPhysicalPages === 1 ? "" : "s"} · {totalLabels} etiqueta
+              {totalLabels === 1 ? "" : "s"} no total ({selectedRows} linha
+              {selectedRows === 1 ? "" : "s"} selecionada
+              {selectedRows === 1 ? "" : "s"}).
+            </>
+          ) : (
+            <>
+              Mostrando {pages.length} de {totalLabels} etiqueta
+              {totalLabels === 1 ? "" : "s"} ({selectedRows} linha
+              {selectedRows === 1 ? "" : "s"} selecionada
+              {selectedRows === 1 ? "" : "s"}).
+            </>
+          )}{" "}
+          {(isMultiUp ? totalPhysicalPages : totalLabels) > previewCount && (
             <span>Amostra das primeiras {previewCount}.</span>
           )}
         </p>
@@ -89,19 +108,29 @@ export function BatchPreviewStep({
         <Button
           variant="ghost"
           size="icon"
-          aria-label="Etiqueta anterior"
+          aria-label="Página anterior"
           disabled={safeIndex <= 0}
           onClick={() => setIndex((i) => Math.max(0, i - 1))}
         >
           <ChevronLeft className="h-4 w-4" aria-hidden="true" />
         </Button>
-        <span className="min-w-[10rem] text-center text-xs text-muted-foreground" aria-live="polite">
-          Etiqueta {safeIndex + 1} de {pages.length} · linha {current.rowIndex}
+        <span className="min-w-[14rem] text-center text-xs text-muted-foreground" aria-live="polite">
+          {isMultiUp ? (
+            <>
+              Página {safeIndex + 1} de {pages.length} · {current.slots.length}{" "}
+              etiqueta{current.slots.length === 1 ? "" : "s"} ({slotsLabel})
+            </>
+          ) : (
+            <>
+              Etiqueta {safeIndex + 1} de {pages.length} · linha{" "}
+              {current.slots[0]?.rowIndex ?? "—"}
+            </>
+          )}
         </span>
         <Button
           variant="ghost"
           size="icon"
-          aria-label="Próxima etiqueta"
+          aria-label="Próxima página"
           disabled={safeIndex >= pages.length - 1}
           onClick={() => setIndex((i) => Math.min(pages.length - 1, i + 1))}
         >
@@ -113,10 +142,12 @@ export function BatchPreviewStep({
 }
 
 /**
- * Stage Konva equivalente ao `PreviewModal` mas com `bindingContext` por
- * página — desenha **uma** etiqueta em proporção CSS mm-correta.
+ * Stage Konva equivalente ao `PreviewModal`, mas para uma **página física**
+ * do lote: o canvas já vem dimensionado para `cols × rows` etiquetas e os
+ * objetos vêm com `x`/`y` trasladados + binding aplicado. Renderiza tudo
+ * em proporção CSS mm-correta.
  */
-function PreviewStage({ page }: { page: BatchPage }) {
+function PreviewStage({ page }: { page: PhysicalPage }) {
   const containerRef = React.useRef<HTMLDivElement | null>(null);
 
   React.useEffect(() => {
@@ -159,7 +190,7 @@ function PreviewStage({ page }: { page: BatchPage }) {
       clipFunc: (ctx) => ctx.rect(0, 0, widthCssPx, heightCssPx),
     });
     for (const obj of page.objects) {
-      const node = buildNode(obj, page.canvas.dpi, page.bindingContext, factor);
+      const node = buildNode(obj, page.canvas.dpi, factor);
       if (node) layer.add(node as Konva.Group | Konva.Shape);
     }
     stage.add(layer);
@@ -181,7 +212,6 @@ function PreviewStage({ page }: { page: BatchPage }) {
 function buildNode(
   o: CanvasObject,
   canvasDpi: number,
-  bindingContext: Record<string, string>,
   factor: number,
 ): Konva.Node | null {
   const x = (o.x ?? 0) * factor;
@@ -231,14 +261,13 @@ function buildNode(
       });
     }
     case "text": {
-      const content = applyBinding(o.content ?? "", bindingContext);
       return new Konva.Text({
         x,
         y,
         rotation,
         width: width > 0 ? width : undefined,
         height: height > 0 ? height : undefined,
-        text: content,
+        text: o.content ?? "",
         fontFamily: fontFamilyWithFallback(o.fontFamily),
         fontSize: (o.fontSize ?? 12) * 1.333 * (factor / CSS_PX_PER_MM),
         fontStyle:
@@ -277,9 +306,10 @@ function buildNode(
     }
     case "barcode":
     case "qrcode": {
+      // Binding já materializado em `compose`; passamos contexto vazio.
       const rendered = renderBarcodeSvg(o, {
         dpi: canvasDpi,
-        bindingContext,
+        bindingContext: {},
       });
       if (!rendered.svg || width <= 0 || height <= 0) return null;
       const fitted = fitSvgToBox(

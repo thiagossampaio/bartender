@@ -67,9 +67,10 @@ export const DEFAULT_MODULE_WIDTH_MM = 0.33;
 const ONLY_DIGITS = /^\d+$/;
 const CODE39_CHARSET = /^[0-9A-Z\-. $/+%*]+$/;
 const CODABAR_CHARSET = /^[A-D][0-9\-$:/.+]+[A-D]$/i;
-/** CODE 11: dígitos 0-9 e hífen `-` (11 caracteres no alfabeto). O dígito
- *  verificador é calculado pelo bwip-js quando `includecheck=true` (default). */
-const CODE11_CHARSET = /^[0-9\-]+$/;
+/** CODE 11: dígitos 0-9 e hífen `-` (11 caracteres no alfabeto). O hífen
+ *  fica no fim da classe para dispensar escape. O dígito verificador é
+ *  calculado pelo bwip-js quando `includecheck=true` (default). */
+const CODE11_CHARSET = /^[0-9-]+$/;
 
 /** Regex que reconhece placeholders `{{ campo }}` no valor. */
 const PLACEHOLDER_RE = /\{\{\s*([a-zA-Z0-9_.-]+)\s*\}\}/g;

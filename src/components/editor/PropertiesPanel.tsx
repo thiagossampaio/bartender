@@ -12,12 +12,14 @@ import type {
   CanvasObject,
   EllipseObject,
   ImageObject,
+  LayoutConfig,
   LineObject,
   QrcodeObject,
   QrErrorCorrection,
   RectangleObject,
   TextObject,
 } from "@/lib/canvas/types";
+import { DEFAULT_LAYOUT } from "@/lib/canvas/types";
 import { useEditorStore } from "@/lib/stores/editor-store";
 import {
   DEFAULT_MODULE_WIDTH_MM,
@@ -60,7 +62,11 @@ export function PropertiesPanel() {
       aria-label="Propriedades"
     >
       {selected.length === 0 && (
-        <CanvasProperties canvas={canvas} onBackgroundChange={setBackgroundColor} />
+        <CanvasProperties
+          canvas={canvas}
+          onBackgroundChange={setBackgroundColor}
+          onLayoutChange={useEditorStore.getState().setLayout}
+        />
       )}
       {selected.length === 1 && (
         <SingleObjectProperties
@@ -81,9 +87,17 @@ export function PropertiesPanel() {
 function CanvasProperties({
   canvas,
   onBackgroundChange,
+  onLayoutChange,
 }: {
-  canvas: { width: number; height: number; dpi: number; background?: string };
+  canvas: {
+    width: number;
+    height: number;
+    dpi: number;
+    background?: string;
+    layout?: LayoutConfig;
+  };
   onBackgroundChange: (color: string) => void;
+  onLayoutChange: (layout: LayoutConfig | undefined) => void;
 }) {
   return (
     <section>
@@ -115,7 +129,131 @@ function CanvasProperties({
           />
         </div>
       </div>
+      <LayoutProperties
+        layout={canvas.layout ?? DEFAULT_LAYOUT}
+        onChange={onLayoutChange}
+      />
     </section>
+  );
+}
+
+/**
+ * Configuração de layout físico do rolo (multi-coluna). Aplicada APENAS na
+ * impressão em lote — o canvas continua mostrando 1 etiqueta. Os valores são
+ * persistidos no `canvas.layout` do template.
+ */
+function LayoutProperties({
+  layout,
+  onChange,
+}: {
+  layout: LayoutConfig;
+  onChange: (layout: LayoutConfig | undefined) => void;
+}) {
+  const total = Math.max(1, layout.columns) * Math.max(1, layout.rows);
+  const isDefault =
+    layout.columns === 1 &&
+    layout.rows === 1 &&
+    layout.gapX === 0 &&
+    layout.gapY === 0;
+  return (
+    <div className="mt-4 border-t pt-3">
+      <h3 className="mb-1 text-xs font-medium uppercase tracking-wider text-muted-foreground">
+        Layout do rolo
+      </h3>
+      <p className="mb-2 text-[11px] text-muted-foreground">
+        Etiquetas dispostas em matriz no rolo físico. Aplicado na impressão em
+        lote (cada página física comporta {total} etiqueta{total === 1 ? "" : "s"}).
+      </p>
+      <div className="grid grid-cols-2 gap-2">
+        <LayoutNumberField
+          label="Colunas"
+          value={layout.columns}
+          min={1}
+          max={12}
+          step={1}
+          onCommit={(v) =>
+            onChange({ ...layout, columns: Math.max(1, Math.round(v)) })
+          }
+        />
+        <LayoutNumberField
+          label="Linhas"
+          value={layout.rows}
+          min={1}
+          max={12}
+          step={1}
+          onCommit={(v) => onChange({ ...layout, rows: Math.max(1, Math.round(v)) })}
+        />
+        <LayoutNumberField
+          label="Gap horizontal (mm)"
+          value={layout.gapX}
+          min={0}
+          step={0.5}
+          onCommit={(v) => onChange({ ...layout, gapX: Math.max(0, v) })}
+        />
+        <LayoutNumberField
+          label="Gap vertical (mm)"
+          value={layout.gapY}
+          min={0}
+          step={0.5}
+          onCommit={(v) => onChange({ ...layout, gapY: Math.max(0, v) })}
+        />
+      </div>
+      {!isDefault && (
+        <button
+          type="button"
+          className="mt-2 text-[11px] text-muted-foreground underline hover:text-foreground"
+          onClick={() => onChange(undefined)}
+        >
+          Restaurar padrão (1×1, sem gap)
+        </button>
+      )}
+    </div>
+  );
+}
+
+/** Numérico "commit on blur / Enter" para os campos de layout. Local porque
+ *  o `NumberField` existente recebe label fora do componente; aqui agrupamos
+ *  rotulado para a grid 2×2 ficar consistente. */
+function LayoutNumberField({
+  label,
+  value,
+  min,
+  max,
+  step,
+  onCommit,
+}: {
+  label: string;
+  value: number;
+  min?: number;
+  max?: number;
+  step?: number;
+  onCommit: (v: number) => void;
+}) {
+  const [draft, setDraft] = React.useState(String(value));
+  React.useEffect(() => {
+    setDraft(String(value));
+  }, [value]);
+  return (
+    <div className="flex flex-col gap-1">
+      <Label className="text-[11px]">{label}</Label>
+      <Input
+        type="number"
+        value={draft}
+        min={min}
+        max={max}
+        step={step}
+        onChange={(e) => setDraft(e.target.value)}
+        onBlur={() => {
+          const parsed = Number.parseFloat(draft);
+          if (Number.isFinite(parsed)) onCommit(parsed);
+          else setDraft(String(value));
+        }}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") (e.target as HTMLInputElement).blur();
+          if (e.key === "Escape") setDraft(String(value));
+        }}
+      />
+    </div>
   );
 }
 

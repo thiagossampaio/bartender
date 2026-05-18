@@ -173,6 +173,39 @@ export type CanvasObject =
   | BarcodeObject
   | QrcodeObject;
 
+/**
+ * Layout físico do rolo (multi-coluna). Reflete a configuração do material:
+ * rolos com 2+ colunas de etiquetas lado a lado precisam que cada "página
+ * física" comporte `columns × rows` etiquetas com os gaps físicos do rolo.
+ *
+ * Onde isso é aplicado:
+ *  - O **editor** continua mostrando UMA etiqueta (`width × height`).
+ *  - O **lote** compõe `columns × rows` etiquetas em uma única página física,
+ *    aplicando offsets X/Y nos objetos. Backend (PDF Rust / PPLB / ZPL)
+ *    recebe a página física já trasladada — não precisa conhecer o layout.
+ *  - O **single-print** ignora o layout (1 etiqueta na origem).
+ *
+ * Default `{ columns: 1, rows: 1, gapX: 0, gapY: 0 }` mantém comportamento
+ * pré-WP-13.5 (templates antigos sem `layout`).
+ */
+export interface LayoutConfig {
+  /** Etiquetas por linha física do rolo (default 1). */
+  columns: number;
+  /** Linhas físicas por página (default 1; raro > 1 em rolo contínuo). */
+  rows: number;
+  /** Espaço horizontal entre colunas, em mm (default 0). */
+  gapX: number;
+  /** Espaço vertical entre linhas, em mm (default 0). */
+  gapY: number;
+}
+
+export const DEFAULT_LAYOUT: LayoutConfig = {
+  columns: 1,
+  rows: 1,
+  gapX: 0,
+  gapY: 0,
+};
+
 export interface CanvasDef {
   /** Largura da etiqueta em mm. */
   width: number;
@@ -180,6 +213,8 @@ export interface CanvasDef {
   height: number;
   dpi: number;
   background?: string;
+  /** Layout físico do rolo (multi-coluna). Ausente = 1×1 sem gaps. */
+  layout?: LayoutConfig;
 }
 
 export interface CanvasJson {

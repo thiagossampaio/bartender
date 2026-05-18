@@ -110,6 +110,7 @@ interface EditorState {
 
   // --- Canvas ---
   setBackgroundColor: (color: string) => void;
+  setLayout: (layout: import("@/lib/canvas/types").LayoutConfig | undefined) => void;
 
   // --- Objetos ---
   addObject: (object: CanvasObject) => void;
@@ -354,6 +355,26 @@ export const useEditorStore = create<EditorState>((set, get) => ({
       past: pushHistory(s),
       future: [],
       canvas: { ...s.canvas, background: color },
+      dirty: true,
+    }));
+  },
+
+  setLayout: (layout) => {
+    // `undefined` ou layout 1×1 sem gaps → remove o campo (mantém JSON limpo
+    // para templates simples).
+    const isDefault =
+      !layout ||
+      (layout.columns === 1 &&
+        layout.rows === 1 &&
+        layout.gapX === 0 &&
+        layout.gapY === 0);
+    set((s) => ({
+      past: pushHistory(s),
+      future: [],
+      canvas: {
+        ...s.canvas,
+        layout: isDefault ? undefined : layout,
+      },
       dirty: true,
     }));
   },
