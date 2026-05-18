@@ -223,34 +223,101 @@ jobs:
       - name: Instalar deps npm
         run: npm ci
 
+      # ─────────────────────────────────────────────────────────────────────
+      # Guard de signing.
+      #
+      # `tauri-action` quebra com "security: SecKeychainItemImport: One or
+      # more parameters passed to a function were not valid" quando recebe
+      # APPLE_CERTIFICATE definido mas com valor inválido/vazio. Isso
+      # acontece se você cadastrou os secrets sem o .p12 real.
+      #
+      # Aqui detectamos se cada conjunto de credenciais está realmente
+      # presente. Só nesse caso exportamos as envs APPLE_* / Windows
+      # thumbprint para o build seguinte via $GITHUB_ENV.
+      #
+      # Sem credenciais: build prossegue não-assinado. O usuário final
+      # precisa de Control+clique no macOS e "Executar assim mesmo" no
+      # Windows SmartScreen — comportamento documentado em docs/release.md.
+      # ─────────────────────────────────────────────────────────────────────
+      - name: Detectar credenciais de signing
+        id: signing
+        shell: bash
+        env:
+          MACOS_CERT: ${{ secrets.APPLE_CERTIFICATE }}
+          MACOS_CERT_PW: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          MACOS_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          MACOS_APPLE_ID: ${{ secrets.APPLE_ID }}
+          MACOS_APPLE_PW: ${{ secrets.APPLE_PASSWORD }}
+          MACOS_TEAM: ${{ secrets.APPLE_TEAM_ID }}
+          WIN_THUMBPRINT: ${{ secrets.TAURI_SIGNING_CERTIFICATE_THUMBPRINT }}
+          UPDATER_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          UPDATER_KEY_PW: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          MAC_SIGN=0
+          WIN_SIGN=0
+
+          # macOS: exige .p12 (base64) + senha + signing identity completa.
+          # Os outros (APPLE_ID, APPLE_PASSWORD, APPLE_TEAM_ID) só são usados
+          # para notarização — se faltarem, o build sai apenas assinado mas
+          # não notarizado.
+          if [[ -n "$MACOS_CERT" && -n "$MACOS_CERT_PW" && -n "$MACOS_IDENTITY" ]]; then
+            MAC_SIGN=1
+            echo "::notice::macOS signing: credenciais encontradas, ativando codesign."
+            {
+              echo "APPLE_CERTIFICATE=$MACOS_CERT"
+              echo "APPLE_CERTIFICATE_PASSWORD=$MACOS_CERT_PW"
+              echo "APPLE_SIGNING_IDENTITY=$MACOS_IDENTITY"
+            } >> "$GITHUB_ENV"
+            # Notarização é opt-in adicional: só se os 3 secrets de Apple ID estiverem presentes.
+            if [[ -n "$MACOS_APPLE_ID" && -n "$MACOS_APPLE_PW" && -n "$MACOS_TEAM" ]]; then
+              echo "::notice::macOS notarization: credenciais encontradas, ativando notarize."
+              {
+                echo "APPLE_ID=$MACOS_APPLE_ID"
+                echo "APPLE_PASSWORD=$MACOS_APPLE_PW"
+                echo "APPLE_TEAM_ID=$MACOS_TEAM"
+              } >> "$GITHUB_ENV"
+            else
+              echo "::warning::macOS: assinando MAS não notarizando (APPLE_ID/PASSWORD/TEAM_ID ausentes ou incompletos)."
+            fi
+          else
+            echo "::warning::macOS signing: credenciais ausentes — DMG sairá não-assinado (usuários precisarão de Ctrl+clique)."
+          fi
+
+          # Windows: basta a thumbprint do certificado já instalado no runner.
+          # (Cert preinstalado é fora do escopo deste workflow — futura fase.)
+          if [[ -n "$WIN_THUMBPRINT" ]]; then
+            WIN_SIGN=1
+            echo "::notice::Windows signing: thumbprint encontrada, ativando code signing."
+            echo "TAURI_SIGNING_CERTIFICATE_THUMBPRINT=$WIN_THUMBPRINT" >> "$GITHUB_ENV"
+          else
+            echo "::warning::Windows signing: thumbprint ausente — MSI sairá não-assinado (SmartScreen avisará)."
+          fi
+
+          # Updater Tauri: desativado por design (offline-first).
+          # Só passamos se ambos estiverem definidos — evita mesmo problema
+          # de "key inválida" com valor parcial.
+          if [[ -n "$UPDATER_KEY" && -n "$UPDATER_KEY_PW" ]]; then
+            {
+              echo "TAURI_SIGNING_PRIVATE_KEY=$UPDATER_KEY"
+              echo "TAURI_SIGNING_PRIVATE_KEY_PASSWORD=$UPDATER_KEY_PW"
+            } >> "$GITHUB_ENV"
+          fi
+
+          echo "mac_sign=$MAC_SIGN" >> "$GITHUB_OUTPUT"
+          echo "win_sign=$WIN_SIGN" >> "$GITHUB_OUTPUT"
+
       # `tauri-action@v0` é a action oficial. Ela:
       #   1. Roda `tauri build` com os args da matrix.
       #   2. Pega cada arquivo final em `src-tauri/target/.../bundle/`.
       #   3. Faz upload na release apontada por `releaseId`.
       #
-      # Quando os secrets de signing forem cadastrados, eles são consumidos
-      # automaticamente — não precisa mudar o workflow.
+      # As envs APPLE_* / TAURI_SIGNING_* foram seletivamente populadas pelo
+      # passo anterior — passamos apenas `GITHUB_TOKEN` aqui de forma fixa.
       - name: Build Tauri + upload de assets
         uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-          # Assinatura macOS (Apple Developer ID) — opcionais. Sem isso, o
-          # .dmg sai não-assinado e o usuário precisa abrir com Ctrl+clique.
-          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
-          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
-          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
-          APPLE_ID: ${{ secrets.APPLE_ID }}
-          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
-          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
-
-          # Assinatura Windows (EV/Standard code-signing) — opcionais.
-          TAURI_SIGNING_CERTIFICATE_THUMBPRINT: ${{ secrets.TAURI_SIGNING_CERTIFICATE_THUMBPRINT }}
-
-          # Auto-updater do Tauri (chaves Ed25519). Mantemos o updater
-          # desligado por design (PRD §3.1), então estes ficam vazios.
-          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
-          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         with:
           releaseId: ${{ needs.create-draft.outputs.release_id }}
           args: ${{ matrix.tauri_args }}

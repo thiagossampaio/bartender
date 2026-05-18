@@ -134,7 +134,16 @@ git tag -d v0.1.0
 
 ## Assinatura digital (futura)
 
-A pipeline já lê os secrets — basta cadastrá-los em `Settings → Secrets and variables → Actions`. Sem secrets, o build sai sem assinatura (Windows mostra SmartScreen warning; macOS exige Ctrl+clique para abrir).
+A pipeline detecta automaticamente se os secrets de signing estão configurados (passo "Detectar credenciais de signing" em `release.yml`). O comportamento:
+
+| Estado dos secrets | Comportamento |
+|---|---|
+| **Vazios ou ausentes** (default) | Build prossegue sem assinatura. Usuários abrem com Ctrl+clique (macOS) ou "Executar assim mesmo" (Windows SmartScreen). |
+| **Conjunto macOS completo** (`APPLE_CERTIFICATE` + `APPLE_CERTIFICATE_PASSWORD` + `APPLE_SIGNING_IDENTITY`) | DMG assinado com Developer ID. |
+| **Conjunto macOS completo + Apple ID** (acima + `APPLE_ID` + `APPLE_PASSWORD` + `APPLE_TEAM_ID`) | DMG assinado e notarizado. |
+| **`TAURI_SIGNING_CERTIFICATE_THUMBPRINT`** preenchida | MSI assinado (cert precisa estar no Windows runner). |
+
+> **Importante:** **NÃO cadastre os secrets com valor placeholder ou vazio.** O guard do workflow só ativa o signing se TODOS os secrets do conjunto correspondente tiverem valor real. Se você cadastrou `APPLE_CERTIFICATE` mas não tem o `.p12` ainda, **apague o secret** — não deixe ele cadastrado vazio.
 
 ### macOS (Apple Developer Program — ~US$99/ano)
 

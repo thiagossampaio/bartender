@@ -91,9 +91,21 @@ cd "$ROOT"
 for cmd in node git; do
   command -v "$cmd" >/dev/null || fail "Ferramenta '$cmd' não encontrada no PATH."
 done
+
+# Cargo costuma ficar em ~/.cargo/bin/ mas seu shell rc (~/.zshrc, ~/.bashrc)
+# pode não exportar quando `make` invoca um subshell não-interativo. Tentamos
+# carregar ~/.cargo/env transparente antes de exigir o binário.
+if ! command -v cargo >/dev/null && [[ -f "$HOME/.cargo/env" ]]; then
+  # shellcheck disable=SC1091
+  source "$HOME/.cargo/env"
+fi
+if ! command -v cargo >/dev/null && [[ -x "$HOME/.cargo/bin/cargo" ]]; then
+  export PATH="$HOME/.cargo/bin:$PATH"
+fi
+
 # cargo é exigido apenas para o passo de checks; tolerado sem em --skip-checks.
 if [[ $SKIP_CHECKS -eq 0 ]]; then
-  command -v cargo >/dev/null || fail "Ferramenta 'cargo' não encontrada. Use --skip-checks se intencional."
+  command -v cargo >/dev/null || fail "Ferramenta 'cargo' não encontrada (procurei ~/.cargo/env e ~/.cargo/bin). Use --skip-checks se intencional ou ajuste seu PATH."
 fi
 
 # ─── estado do repo ───────────────────────────────────────────────────────────
