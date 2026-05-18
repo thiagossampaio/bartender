@@ -1,5 +1,5 @@
 ---
-import OsIcon from './OsIcon.astro';
+import OsIconStack from './OsIconStack.astro';
 import GradientOrb from './GradientOrb.astro';
 import { ASSETS, assetUrl, type OS, buildTimeVersion } from '../lib/releases';
 import { useTranslations } from '../i18n/utils';
@@ -19,32 +19,32 @@ const osLabels: Record<OS, { short: string; full: string }> = {
   'linux-appimage': { short: t('os.linux'), full: t('os.linux.appimage.full') },
 };
 
-// Server-side: default para Windows (cobre maior fatia de usuários desktop).
-// Client-side, `live-version.ts` reordena.
+// SSR fallback: Windows. O script `detect-os.ts` reescreve quando carrega.
 const defaultOs: OS = 'win';
 ---
 
-<section class="relative overflow-hidden rounded-2xl border border-hairline bg-canvas-soft p-8 md:p-12">
+<section class="relative overflow-hidden rounded-2xl border border-hairline bg-canvas-soft p-6 sm:p-8 md:p-12">
   <GradientOrb variant="peach" size="lg" position="-top-32 -right-32" opacity={0.55} />
   <GradientOrb variant="sky" size="md" position="-bottom-24 -left-24" opacity={0.4} />
 
-  <div class="relative flex flex-col gap-6">
+  <div class="relative flex flex-col gap-5 md:gap-6">
     <p class="caption-uppercase text-muted" data-detected-label>
       <span data-detect-fallback>{t('download.detecting')}</span>
     </p>
-    <h2 class="display-xl text-ink" data-detected-headline>
+    <h2 class="display-lg md:display-xl text-ink break-words" data-detected-headline>
       {t('cta.download.for', { os: osLabels[defaultOs].full })}
     </h2>
-    <div class="flex flex-wrap items-center gap-3">
+    <div class="flex flex-col sm:flex-row sm:flex-wrap sm:items-center gap-3">
       <a
         href={assetUrl(defaultOs, version)}
-        class="btn-pill btn-pill-primary btn-pill-lg"
+        class="btn-pill btn-pill-primary btn-pill-lg w-full sm:w-auto justify-center"
         data-detected-cta
+        data-current-os={defaultOs}
         data-bartender-download={defaultOs}
         data-asset-filename={ASSETS[defaultOs].filename(version)}
       >
-        <OsIcon os={defaultOs} size={18} class="text-on-primary" />
-        {t('cta.download.for', { os: osLabels[defaultOs].short })}
+        <OsIconStack size={18} class="text-on-primary" />
+        <span data-cta-label>{t('cta.download.for', { os: osLabels[defaultOs].short })}</span>
       </a>
       <span class="caption text-muted">
         {t('download.version', { version: `v${version}` })}

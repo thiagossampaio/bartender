@@ -71,15 +71,31 @@ jobs:
         with:
           workspaces: src-tauri -> target
 
-      - name: Deps do SO
+      # Libs nativas requeridas para o link de `cargo test --lib`:
+      #  - webkit2gtk-4.1, gtk-3, appindicator, rsvg, openssl: Tauri 2.x runtime.
+      #  - cups: usado pelo crate `printers` em ambiente Linux ao enviar jobs.
+      #  - fontconfig + freetype + expat + bzip2 + brotli: cadeia transitiva
+      #    do `font-kit 0.14.3` via `freetype-sys` e `yeslogic-fontconfig-sys`,
+      #    que linkam dinamicamente. Sem isso o test binary falha com
+      #    `linking with cc failed`.
+      #  - pkg-config: necessário para que os build scripts dessas crates
+      #    descubram as libs do host.
+      - name: Deps do SO (Tauri + font-kit + printers)
         run: |
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends \
+            pkg-config \
             libwebkit2gtk-4.1-dev \
             libgtk-3-dev \
             libayatana-appindicator3-dev \
             librsvg2-dev \
-            libssl-dev
+            libssl-dev \
+            libfontconfig1-dev \
+            libfreetype6-dev \
+            libexpat1-dev \
+            libbz2-dev \
+            libbrotli-dev \
+            libcups2-dev
 
       - name: Cargo check
         working-directory: src-tauri

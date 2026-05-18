@@ -30,28 +30,32 @@ const {
 ---
 
 <article
-  class={`card-feature flex flex-col gap-4 ${primary ? 'border-ink/20 shadow-soft-drop' : ''}`}
+  class={`card-feature flex flex-col gap-4 min-w-0 overflow-hidden ${primary ? 'border-ink/20 shadow-soft-drop' : ''}`}
   data-os={os}
 >
-  <div class="flex items-center gap-3">
-    <span class="inline-flex h-10 w-10 items-center justify-center rounded-full bg-surface-strong text-ink">
+  <div class="flex items-center gap-3 min-w-0">
+    <span class="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-surface-strong text-ink">
       <OsIcon os={os} size={20} />
     </span>
-    <h3 class="title-md text-ink">{label}</h3>
+    <h3 class="title-md text-ink min-w-0 break-words">{label}</h3>
   </div>
 
   <p class="body-sm text-body flex-1">{notes}</p>
 
-  <div class="flex items-center gap-2 text-muted caption">
-    <span>{size}</span>
-    <span aria-hidden="true">·</span>
-    <code class="rounded bg-surface-strong px-2 py-0.5 text-[12px] text-ink">{filename}</code>
+  <div class="flex flex-col gap-2 min-w-0">
+    <span class="caption text-muted">{size}</span>
+    <code
+      class="block w-full max-w-full rounded bg-surface-strong px-2 py-1 text-[11px] sm:text-[12px] text-ink font-mono break-all overflow-hidden"
+      title={filename}
+    >
+      {filename}
+    </code>
   </div>
 
-  <div class="flex flex-wrap items-center gap-3">
+  <div class="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
     <a
       href={href}
-      class="btn-pill btn-pill-primary"
+      class="btn-pill btn-pill-primary w-full sm:w-auto justify-center"
       data-bartender-download={os}
       data-asset-filename={filename}
     >
@@ -59,7 +63,7 @@ const {
     </a>
     <a
       href={verifyHref}
-      class="caption-uppercase text-muted hover:text-ink underline-offset-4 hover:underline"
+      class="caption-uppercase text-muted hover:text-ink underline-offset-4 hover:underline sm:ml-0"
       target="_blank"
       rel="noopener noreferrer"
     >

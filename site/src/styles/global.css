@@ -157,17 +157,42 @@
   }
   @media (max-width: 768px) {
     .section-pad {
-      padding-top: 64px;
-      padding-bottom: 64px;
+      padding-top: 56px;
+      padding-bottom: 56px;
     }
+    /* Display reduções para mobile — mantém peso 300 e tracking editorial,
+       só altera size e line-height para caber em 360-400px sem quebras feias. */
     .display-mega {
-      font-size: 40px;
+      font-size: 36px;
+      letter-spacing: -0.02em;
+      line-height: 1.08;
     }
     .display-xl {
-      font-size: 36px;
+      font-size: 32px;
+      letter-spacing: -0.015em;
+      line-height: 1.12;
     }
     .display-lg {
+      font-size: 26px;
+      letter-spacing: -0.01em;
+      line-height: 1.18;
+    }
+    .display-md {
+      font-size: 22px;
+    }
+    .display-sm {
+      font-size: 20px;
+    }
+  }
+  @media (max-width: 480px) {
+    .display-mega {
+      font-size: 32px;
+    }
+    .display-xl {
       font-size: 28px;
+    }
+    .display-lg {
+      font-size: 22px;
     }
   }
 
@@ -177,8 +202,14 @@
     max-width: 1200px;
     margin-left: auto;
     margin-right: auto;
-    padding-left: 24px;
-    padding-right: 24px;
+    padding-left: 20px;
+    padding-right: 20px;
+  }
+  @media (min-width: 768px) {
+    .container-page {
+      padding-left: 24px;
+      padding-right: 24px;
+    }
   }
 
   /* Primitivas DESIGN.md */
@@ -194,7 +225,10 @@
     font-weight: 500;
     line-height: 1;
     transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
-    white-space: nowrap;
+    /* Permite que o texto do CTA quebre em telas estreitas — `nowrap` original
+       causava overflow horizontal com "Download for macOS (Intel + Apple Silicon)". */
+    text-align: center;
+    max-width: 100%;
   }
   .btn-pill-primary {
     background-color: #292524;
@@ -260,7 +294,7 @@
     font-family: 'Cormorant Garamond', 'Times New Roman', serif;
     color: #0c0a09;
     font-weight: 300;
-    font-size: 48px;
+    font-size: clamp(28px, 5vw, 48px);
     line-height: 1.1;
     letter-spacing: -0.02em;
     margin-bottom: 16px;
@@ -269,19 +303,34 @@
     font-family: 'Cormorant Garamond', 'Times New Roman', serif;
     color: #0c0a09;
     font-weight: 300;
-    font-size: 32px;
+    font-size: clamp(22px, 4vw, 32px);
     line-height: 1.2;
-    margin-top: 56px;
+    margin-top: 48px;
     margin-bottom: 16px;
   }
   .prose-bartender h3 {
     font-family: 'Inter Variable', Inter, system-ui, sans-serif;
     color: #0c0a09;
     font-weight: 500;
-    font-size: 20px;
+    font-size: clamp(18px, 3vw, 20px);
     line-height: 1.35;
-    margin-top: 40px;
+    margin-top: 32px;
     margin-bottom: 12px;
+  }
+  .prose-bartender pre {
+    overflow-x: auto;
+    max-width: 100%;
+  }
+  .prose-bartender table {
+    display: block;
+    overflow-x: auto;
+    white-space: nowrap;
+  }
+  @media (min-width: 768px) {
+    .prose-bartender table {
+      display: table;
+      white-space: normal;
+    }
   }
   .prose-bartender p {
     margin-bottom: 16px;

@@ -2,19 +2,24 @@
  * Detecção de SO client-side.
  *
  * Estratégia:
- *  1. Tenta `navigator.userAgentData` (Chromium 90+) — caminho moderno.
+ *  1. Tenta `navigator.userAgentData` (Chromium 90+).
  *  2. Fallback para parse de `navigator.userAgent`.
  *  3. Permite override via `?os=win|mac|linux-deb|linux-appimage`.
  *
- * Atualiza o `<DownloadHero>` com a URL correta + label do SO + ícone.
- * Sem JS habilitado, o SSR mantém o default (Windows) sem quebrar.
+ * Atualiza os CTAs principais (hero da home + DownloadHero) trocando:
+ *  - `href` para o asset correto
+ *  - `data-current-os` (que controla qual ícone aparece, via CSS no
+ *    componente OsIconStack)
+ *  - `<span data-cta-label>` com o nome do SO
+ *  - elementos `[data-detected-label]` e `[data-detected-headline]`
+ *
+ * Sem JS, o SSR mantém o default (Windows) e o site continua funcional.
  */
 
 type OS = 'win' | 'mac' | 'linux-deb' | 'linux-appimage' | 'unknown';
 
 interface UADataLike {
   platform?: string;
-  getHighEntropyValues?: (hints: string[]) => Promise<{ platform?: string }>;
 }
 
 function fromUaData(): OS {
@@ -32,16 +37,12 @@ function fromUserAgent(): OS {
   if (ua.includes('windows')) return 'win';
   if (ua.includes('mac os x') || ua.includes('macintosh')) return 'mac';
   if (ua.includes('android') || ua.includes('iphone') || ua.includes('ipad')) return 'unknown';
-  if (ua.includes('linux')) {
-    // Heurística simples: distros Debian/Ubuntu são comuns, mas AppImage
-    // funciona em qualquer x86_64 — preferimos AppImage como zero-install.
-    return 'linux-appimage';
-  }
+  // AppImage cobre qualquer x86_64 sem instalar — escolha-padrão para Linux.
+  if (ua.includes('linux')) return 'linux-appimage';
   return 'unknown';
 }
 
 function detectOs(): OS {
-  // Override por query string
   try {
     const params = new URLSearchParams(window.location.search);
     const forced = params.get('os') as OS | null;
@@ -57,23 +58,11 @@ function detectOs(): OS {
   return fromUserAgent();
 }
 
-const OS_LABELS: Record<Exclude<OS, 'unknown'>, { short: { 'en-US': string; 'pt-BR': string }; full: { 'en-US': string; 'pt-BR': string } }> = {
-  win: {
-    short: { 'en-US': 'Windows', 'pt-BR': 'Windows' },
-    full: { 'en-US': 'Windows 10 / 11', 'pt-BR': 'Windows 10 / 11' },
-  },
-  mac: {
-    short: { 'en-US': 'macOS', 'pt-BR': 'macOS' },
-    full: { 'en-US': 'macOS (Intel + Apple Silicon)', 'pt-BR': 'macOS (Intel + Apple Silicon)' },
-  },
-  'linux-deb': {
-    short: { 'en-US': 'Linux .deb', 'pt-BR': 'Linux .deb' },
-    full: { 'en-US': 'Linux · Debian / Ubuntu', 'pt-BR': 'Linux · Debian / Ubuntu' },
-  },
-  'linux-appimage': {
-    short: { 'en-US': 'Linux AppImage', 'pt-BR': 'Linux AppImage' },
-    full: { 'en-US': 'Linux · AppImage', 'pt-BR': 'Linux · AppImage' },
-  },
+const OS_LABELS: Record<Exclude<OS, 'unknown'>, { short: string; full: string }> = {
+  win: { short: 'Windows', full: 'Windows 10 / 11' },
+  mac: { short: 'macOS', full: 'macOS (Intel + Apple Silicon)' },
+  'linux-deb': { short: 'Linux .deb', full: 'Linux · Debian / Ubuntu' },
+  'linux-appimage': { short: 'Linux AppImage', full: 'Linux · AppImage' },
 };
 
 const ASSET_FILENAME: Record<Exclude<OS, 'unknown'>, (v: string) => string> = {
@@ -89,62 +78,66 @@ function getLocale(): 'en-US' | 'pt-BR' {
 }
 
 function detectedLabel(locale: 'en-US' | 'pt-BR', os: Exclude<OS, 'unknown'>) {
-  const template = locale === 'pt-BR' ? 'Detectamos {os} no seu computador.' : 'We detected {os} on your device.';
-  return template.replace('{os}', OS_LABELS[os].full[locale]);
+  const t = locale === 'pt-BR'
+    ? 'Detectamos {os} no seu computador.'
+    : 'We detected {os} on your device.';
+  return t.replace('{os}', OS_LABELS[os].full);
 }
 
-function downloadFor(locale: 'en-US' | 'pt-BR', os: Exclude<OS, 'unknown'>) {
-  const template = locale === 'pt-BR' ? 'Baixar para {os}' : 'Download for {os}';
-  return template.replace('{os}', OS_LABELS[os].full[locale]);
+function downloadForFull(locale: 'en-US' | 'pt-BR', os: Exclude<OS, 'unknown'>) {
+  const t = locale === 'pt-BR' ? 'Baixar para {os}' : 'Download for {os}';
+  return t.replace('{os}', OS_LABELS[os].full);
 }
 
 function downloadForShort(locale: 'en-US' | 'pt-BR', os: Exclude<OS, 'unknown'>) {
-  const template = locale === 'pt-BR' ? 'Baixar para {os}' : 'Download for {os}';
-  return template.replace('{os}', OS_LABELS[os].short[locale]);
+  const t = locale === 'pt-BR' ? 'Baixar para {os}' : 'Download for {os}';
+  return t.replace('{os}', OS_LABELS[os].short);
+}
+
+function currentVersion(): string {
+  return (
+    (window as unknown as { __BARTENDER_VERSION__?: string }).__BARTENDER_VERSION__
+    ?? document.querySelector<HTMLElement>('[data-version-badge]')?.textContent?.replace(/^v/, '').trim()
+    ?? '0.1.0'
+  );
+}
+
+function applyToCta(
+  ctaEl: HTMLAnchorElement | null,
+  os: Exclude<OS, 'unknown'>,
+  locale: 'en-US' | 'pt-BR',
+  shortLabel: boolean,
+) {
+  if (!ctaEl) return;
+  const version = currentVersion();
+  const filename = ASSET_FILENAME[os](version);
+  ctaEl.href = `https://github.com/thiagossampaio/bartender/releases/download/v${version}/${filename}`;
+  ctaEl.dataset.currentOs = os;
+  ctaEl.dataset.bartenderDownload = os;
+  ctaEl.dataset.assetFilename = filename;
+  const label = ctaEl.querySelector<HTMLElement>('[data-cta-label]');
+  if (label) {
+    label.textContent = shortLabel
+      ? downloadForShort(locale, os)
+      : downloadForFull(locale, os);
+  }
 }
 
 function applyDetectedOs(os: OS) {
   if (os === 'unknown') return;
   const locale = getLocale();
 
+  // Labels descritivos (acima e ao redor do CTA)
   const labelEl = document.querySelector<HTMLElement>('[data-detected-label]');
   const headlineEl = document.querySelector<HTMLElement>('[data-detected-headline]');
-  const ctaEl = document.querySelector<HTMLAnchorElement>('[data-detected-cta]');
-  const heroCta = document.querySelector<HTMLAnchorElement>('[data-hero-download-cta]');
-
   if (labelEl) labelEl.textContent = detectedLabel(locale, os);
-  if (headlineEl) headlineEl.textContent = downloadFor(locale, os);
+  if (headlineEl) headlineEl.textContent = downloadForFull(locale, os);
 
-  const version = (window as unknown as { __BARTENDER_VERSION__?: string }).__BARTENDER_VERSION__
-    ?? document.querySelector<HTMLElement>('[data-version-badge]')?.textContent?.replace(/^v/, '')
-    ?? '0.1.0';
-  const filename = ASSET_FILENAME[os](version);
-  const repo = 'https://github.com/thiagossampaio/bartender';
-  const href = `${repo}/releases/download/v${version}/${filename}`;
+  // CTA primário do hero da página de Download
+  applyToCta(document.querySelector<HTMLAnchorElement>('[data-detected-cta]'), os, locale, true);
 
-  if (ctaEl) {
-    ctaEl.href = href;
-    ctaEl.dataset.bartenderDownload = os;
-    ctaEl.dataset.assetFilename = filename;
-    // Replace inner text preserving icon if present
-    const textNode = Array.from(ctaEl.childNodes).find(
-      (n) => n.nodeType === Node.TEXT_NODE && n.textContent && n.textContent.trim().length > 0,
-    );
-    const txt = ' ' + downloadForShort(locale, os);
-    if (textNode) {
-      textNode.textContent = txt;
-    } else {
-      ctaEl.appendChild(document.createTextNode(txt));
-    }
-  }
-
-  if (heroCta) {
-    heroCta.href = href;
-    heroCta.dataset.bartenderDownload = os;
-    heroCta.dataset.assetFilename = filename;
-    const heroText = heroCta.querySelector<HTMLElement>('[data-cta-label]');
-    if (heroText) heroText.textContent = downloadForShort(locale, os);
-  }
+  // CTA primário do hero da Home
+  applyToCta(document.querySelector<HTMLAnchorElement>('[data-hero-download-cta]'), os, locale, true);
 }
 
 if (typeof window !== 'undefined') {

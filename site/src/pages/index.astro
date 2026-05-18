@@ -4,7 +4,7 @@ import GradientOrb from '../components/GradientOrb.astro';
 import BadgePill from '../components/BadgePill.astro';
 import FeatureCard from '../components/FeatureCard.astro';
 import ScreenshotFrame from '../components/ScreenshotFrame.astro';
-import OsIcon from '../components/OsIcon.astro';
+import OsIconStack from '../components/OsIconStack.astro';
 import { useTranslations, pagePath, docPath, withBase } from '../i18n/utils';
 import { ASSETS, assetUrl, buildTimeVersion, REPO_URL } from '../lib/releases';
 
@@ -52,18 +52,19 @@ const trustChips = [
           (Argox, Zebra) or any OS print driver. Built for warehouses, kitchens, labs and
           anyone who prints labels every day — without giving up control or paying monthly.
         </p>
-        <div class="flex flex-wrap items-center justify-center gap-3">
+        <div class="flex flex-col sm:flex-row sm:flex-wrap items-stretch sm:items-center justify-center gap-3 w-full sm:w-auto max-w-md sm:max-w-none">
           <a
             href={heroHref}
-            class="btn-pill btn-pill-primary btn-pill-lg"
+            class="btn-pill btn-pill-primary btn-pill-lg w-full sm:w-auto justify-center"
             data-hero-download-cta
+            data-current-os={heroDefaultOs}
             data-bartender-download={heroDefaultOs}
             data-asset-filename={ASSETS[heroDefaultOs].filename(version)}
           >
-            <OsIcon os={heroDefaultOs} size={18} class="text-on-primary" />
+            <OsIconStack size={18} class="text-on-primary" />
             <span data-cta-label>Download for Windows</span>
           </a>
-          <a href={docPath(locale)} class="btn-pill btn-pill-outline btn-pill-lg">
+          <a href={docPath(locale)} class="btn-pill btn-pill-outline btn-pill-lg w-full sm:w-auto justify-center">
             {t('cta.read.docs')}
           </a>
         </div>
@@ -187,7 +188,7 @@ const trustChips = [
       <BadgePill>Batch printing</BadgePill>
       <h2 class="display-lg text-ink">From spreadsheet to N labels in four steps.</h2>
     </header>
-    <ol class="grid gap-6 md:grid-cols-4">
+    <ol class="grid gap-4 sm:gap-6 sm:grid-cols-2 lg:grid-cols-4">
       {
         [
           { n: '01', t: 'Import CSV / XLSX', d: 'Drop a file — auto-detected columns.' },
@@ -211,11 +212,11 @@ const trustChips = [
     <GradientOrb variant="mint" size="lg" position="-bottom-40 -left-32" opacity={0.4} />
     <div class="container-page section-pad relative flex flex-col items-center text-center gap-6">
       <h2 class="display-lg text-ink max-w-xl">Stop renting label software. Own your workflow.</h2>
-      <div class="flex flex-wrap items-center justify-center gap-3">
-        <a href={pagePath(locale, 'download')} class="btn-pill btn-pill-primary btn-pill-lg">
+      <div class="flex flex-col sm:flex-row sm:flex-wrap items-stretch sm:items-center justify-center gap-3 w-full sm:w-auto max-w-md sm:max-w-none">
+        <a href={pagePath(locale, 'download')} class="btn-pill btn-pill-primary btn-pill-lg w-full sm:w-auto justify-center">
           {t('cta.get.bartender')}
         </a>
-        <a href={REPO_URL} target="_blank" rel="noopener noreferrer" class="btn-pill btn-pill-outline btn-pill-lg">
+        <a href={REPO_URL} target="_blank" rel="noopener noreferrer" class="btn-pill btn-pill-outline btn-pill-lg w-full sm:w-auto justify-center">
           {t('cta.view.source')}
         </a>
       </div>

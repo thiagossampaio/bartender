@@ -20,10 +20,10 @@ const links = [
 ---
 
 <header class="sticky top-0 z-40 border-b border-hairline bg-canvas/85 backdrop-blur-md">
-  <div class="container-page flex h-16 items-center gap-6">
+  <div class="container-page flex h-16 items-center gap-3 md:gap-6">
     <a
       href={pagePath(locale, 'home')}
-      class="flex items-center gap-2 text-ink"
+      class="flex items-center gap-2 text-ink shrink-0"
       aria-label="Bartender"
     >
       <Logo size={28} class="text-ink" />
@@ -51,9 +51,9 @@ const links = [
       </a>
     </nav>
 
-    <div class="flex items-center gap-3 md:ml-0 ml-auto">
+    <div class="flex items-center gap-2 md:gap-3 ml-auto md:ml-0 shrink-0">
       <span
-        class="hidden md:inline-flex caption-uppercase text-muted"
+        class="hidden lg:inline-flex caption-uppercase text-muted"
         data-version-badge
       >
         v{version}
@@ -61,16 +61,17 @@ const links = [
       <LangSwitcher currentLocale={locale} />
       <a
         href={Astro.url.pathname.includes('download') ? '#all-downloads' : pagePath(locale, 'download')}
-        class="btn-pill btn-pill-primary"
+        class="btn-pill btn-pill-primary px-4"
       >
-        {t('cta.download')}
+        <span class="hidden sm:inline">{t('cta.download')}</span>
+        <span class="sm:hidden" aria-label={t('cta.download')}>↓</span>
       </a>
     </div>
   </div>
 
-  <!-- Mobile nav -->
+  <!-- Mobile nav: linhas de navegação visíveis abaixo do header em telas pequenas -->
   <nav aria-label="Mobile" class="md:hidden border-t border-hairline">
-    <div class="container-page flex gap-4 overflow-x-auto py-3 text-[14px] font-medium">
+    <div class="container-page flex gap-5 overflow-x-auto py-2.5 text-[14px] font-medium">
       {
         links.map((l) => (
           <a href={l.href} class="text-body hover:text-ink whitespace-nowrap">

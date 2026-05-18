@@ -35,9 +35,22 @@ const tocHeadings = headings.filter((h) => h.depth === 2 || h.depth === 3);
   title={`${entry.data.title} · Bartender`}
   description={entry.data.description}
 >
-  <div class="container-page py-12 md:py-16">
-    <div class="grid gap-12 lg:grid-cols-[240px_minmax(0,1fr)_220px]">
-      <DocSidebar locale={locale} currentSlug={slug} />
+  <div class="container-page py-8 md:py-12 lg:py-16">
+    <!-- Sidebar mobile: acordeão simples sempre visível, sem fixed.
+         Layout 3-col só em ≥1024px. Em tablet o conteúdo ganha largura inteira. -->
+    <div class="grid gap-8 lg:gap-12 lg:grid-cols-[220px_minmax(0,1fr)_200px] xl:grid-cols-[240px_minmax(0,1fr)_220px]">
+      <details class="lg:hidden border border-hairline rounded-xl bg-surface-card overflow-hidden">
+        <summary class="flex items-center justify-between cursor-pointer list-none px-4 py-3">
+          <span class="caption-uppercase text-muted">{t('docs.sidebar.title')}</span>
+          <span class="caption-uppercase text-muted">▾</span>
+        </summary>
+        <div class="border-t border-hairline px-4 py-4">
+          <DocSidebar locale={locale} currentSlug={slug} />
+        </div>
+      </details>
+      <div class="hidden lg:block">
+        <DocSidebar locale={locale} currentSlug={slug} />
+      </div>
 
       <article class="min-w-0 max-w-prose">
         <header class="mb-8">

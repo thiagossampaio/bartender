@@ -8,7 +8,7 @@ interface Props {
 const { currentLocale } = Astro.props;
 ---
 
-<div class="relative inline-flex items-center gap-1 rounded-pill border border-hairline bg-surface-card px-1 py-1">
+<div class="relative inline-flex items-center gap-1 rounded-pill border border-hairline bg-surface-card p-0.5">
   {
     locales.map((loc) => {
       const isActive = loc === currentLocale;
@@ -17,7 +17,7 @@ const { currentLocale } = Astro.props;
       return (
         <a
           href={href}
-          class={`rounded-pill px-3 py-1 caption-uppercase transition-colors ${
+          class={`rounded-pill px-2.5 sm:px-3 py-1 caption-uppercase transition-colors ${
             isActive ? 'bg-ink text-on-primary' : 'text-muted hover:text-ink'
           }`}
           aria-label={localeNames[loc]}
