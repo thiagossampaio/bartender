@@ -33,7 +33,7 @@ pub fn run() {
             // Garante o diretório de dados do app + permissões restritas
             // (0700 em Unix). Falha aqui é fatal: sem path do banco o app
             // não tem como persistir nada.
-            db::initialize(app.handle()).map_err(|e| -> Box<dyn std::error::Error + Send + Sync> {
+            db::initialize(app.handle()).map_err(|e| -> Box<dyn std::error::Error> {
                 Box::new(std::io::Error::new(std::io::ErrorKind::Other, e.to_string()))
             })?;
             // Logging com rotação + panic hook (WP-16 / SPEC-13). Tratamos

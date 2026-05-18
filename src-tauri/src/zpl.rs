@@ -950,7 +950,7 @@ mod tests {
 
     #[test]
     fn rectangle_filled_uses_gb() {
-        let obj = r#"{"type":"rectangle","id":"r1","x":1.25,"y":1.25,"width":5,"height":2.5,"fill":"#000"}"#;
+        let obj = r##"{"type":"rectangle","id":"r1","x":1.25,"y":1.25,"width":5,"height":2.5,"fill":"#000"}"##;
         let json = build_canvas(50.0, 30.0, 203.0, obj);
         let prog = generate_zpl(&json, 1).unwrap();
         // x=10, y=10, w=40, h=20, t=min(40,20)=20 → ^GB40,20,20,B,0
@@ -963,7 +963,7 @@ mod tests {
 
     #[test]
     fn rectangle_stroke_only_uses_gb_with_thin_thickness() {
-        let obj = r#"{"type":"rectangle","id":"r1","x":1.25,"y":1.25,"width":5,"height":2.5,"stroke":"#000","strokeWidth":0.5}"#;
+        let obj = r##"{"type":"rectangle","id":"r1","x":1.25,"y":1.25,"width":5,"height":2.5,"stroke":"#000","strokeWidth":0.5}"##;
         let json = build_canvas(50.0, 30.0, 203.0, obj);
         let prog = generate_zpl(&json, 1).unwrap();
         // x=10,y=10,w=40,h=20,t=4 (0.5mm * 8).
@@ -989,7 +989,7 @@ mod tests {
 
     #[test]
     fn ellipse_circle_uses_gc() {
-        let obj = r#"{"type":"ellipse","id":"e1","x":1.25,"y":1.25,"width":5,"height":5,"stroke":"#000","strokeWidth":0.3}"#;
+        let obj = r##"{"type":"ellipse","id":"e1","x":1.25,"y":1.25,"width":5,"height":5,"stroke":"#000","strokeWidth":0.3}"##;
         let json = build_canvas(50.0, 30.0, 203.0, obj);
         let prog = generate_zpl(&json, 1).unwrap();
         // w=h ⇒ ^GC<diameter>,<t>,B.
@@ -1002,7 +1002,7 @@ mod tests {
 
     #[test]
     fn ellipse_non_circle_uses_ge() {
-        let obj = r#"{"type":"ellipse","id":"e1","x":1.25,"y":1.25,"width":10,"height":5,"stroke":"#000","strokeWidth":0.3}"#;
+        let obj = r##"{"type":"ellipse","id":"e1","x":1.25,"y":1.25,"width":10,"height":5,"stroke":"#000","strokeWidth":0.3}"##;
         let json = build_canvas(50.0, 30.0, 203.0, obj);
         let prog = generate_zpl(&json, 1).unwrap();
         // w≠h ⇒ ^GE.

@@ -769,7 +769,7 @@ mod tests {
 
     #[test]
     fn rectangle_filled_uses_lo() {
-        let obj = r#"{"type":"rectangle","id":"r1","x":1.25,"y":1.25,"width":5,"height":2.5,"fill":"#000"}"#;
+        let obj = r##"{"type":"rectangle","id":"r1","x":1.25,"y":1.25,"width":5,"height":2.5,"fill":"#000"}"##;
         let json = build_canvas(50.0, 30.0, 203.0, obj);
         let prog = generate_pplb(&json, 1).unwrap();
         // x=10, y=10, w=40, h=20.
@@ -782,7 +782,7 @@ mod tests {
 
     #[test]
     fn rectangle_stroke_only_uses_x() {
-        let obj = r#"{"type":"rectangle","id":"r1","x":1.25,"y":1.25,"width":5,"height":2.5,"stroke":"#000","strokeWidth":0.5}"#;
+        let obj = r##"{"type":"rectangle","id":"r1","x":1.25,"y":1.25,"width":5,"height":2.5,"stroke":"#000","strokeWidth":0.5}"##;
         let json = build_canvas(50.0, 30.0, 203.0, obj);
         let prog = generate_pplb(&json, 1).unwrap();
         // x=10,y=10, thickness=4 (0.5mm * 8), xend=50, yend=30.

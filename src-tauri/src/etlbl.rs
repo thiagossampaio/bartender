@@ -834,11 +834,11 @@ mod tests {
 
     fn fake_canvas_json(empty: bool) -> String {
         if empty {
-            r#"{"version":1,"units":"mm","canvas":{"width":50,"height":30,"dpi":203,"background":"#FFFFFF"},"objects":[]}"#.into()
+            r##"{"version":1,"units":"mm","canvas":{"width":50,"height":30,"dpi":203,"background":"#FFFFFF"},"objects":[]}"##.into()
         } else {
-            r#"{"version":1,"units":"mm","canvas":{"width":50,"height":30,"dpi":203,"background":"#FFFFFF"},"objects":[
+            r##"{"version":1,"units":"mm","canvas":{"width":50,"height":30,"dpi":203,"background":"#FFFFFF"},"objects":[
                 {"type":"text","id":"t1","x":1,"y":2,"content":"hello"}
-            ]}"#.into()
+            ]}"##.into()
         }
     }
 

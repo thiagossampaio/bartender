@@ -33,9 +33,23 @@ use std::collections::BTreeMap;
 // A crate `printers` 2.x reexporta `Printer` + `PrinterState` na raiz, mas
 // alguns patches expõem só via `common::base::printer`. Importamos pela raiz
 // para resistir a refactors internos da crate.
+use printers::common::base::job::PrinterJobOptions;
 use printers::common::base::printer::{Printer, PrinterState};
+use printers::common::converters::Converter;
 use serde::Serialize;
 use thiserror::Error;
+
+/// Helper para construir `PrinterJobOptions` com nome e sem conversor — a
+/// crate `printers` 2.3 exige a struct completa em `Printer::print`, e o
+/// `Converter::None` mantém o comportamento "envio raw" tanto no Windows
+/// (RawPrintJob) quanto no macOS (`lp -o raw`).
+fn job_options(name: &str) -> PrinterJobOptions<'_> {
+    PrinterJobOptions {
+        name: Some(name),
+        raw_properties: &[],
+        converter: Converter::None,
+    }
+}
 
 /// Normaliza o `PrinterState` da crate para nosso `PrinterStatus` por ref —
 /// evita exigir `Clone`/`Copy` da enum nativa (que muda entre patches).
@@ -44,6 +58,7 @@ fn status_from_state(s: &PrinterState) -> PrinterStatus {
         PrinterState::READY => PrinterStatus::Ready,
         PrinterState::PAUSED => PrinterStatus::Paused,
         PrinterState::PRINTING => PrinterStatus::Printing,
+        PrinterState::OFFLINE => PrinterStatus::Offline,
         PrinterState::UNKNOWN => PrinterStatus::Unknown,
     }
 }
@@ -272,7 +287,7 @@ pub fn printers_print_raster(
     for i in 0..copies {
         let job_name = format!("{}-{}", base, i + 1);
         printer
-            .print(pdf_bytes.as_slice(), Some(job_name.as_str()))
+            .print(pdf_bytes.as_slice(), job_options(&job_name))
             .map_err(|e| PrintersError::Driver(format!("{:?}", e)))?;
         last_job = job_name;
     }
@@ -312,7 +327,7 @@ pub fn printers_print_raw(
 
     let job_name = format!("{}-raw", job_name_now());
     printer
-        .print(raw_bytes.as_slice(), Some(job_name.as_str()))
+        .print(raw_bytes.as_slice(), job_options(&job_name))
         .map_err(|e| PrintersError::Driver(format!("{:?}", e)))?;
     Ok(job_name)
 }
@@ -356,7 +371,7 @@ pub fn printer_calibrate(printer_name: String) -> Result<String, PrintersError> 
     };
     let job_name = format!("{}-calibrate", job_name_now());
     printer
-        .print(bytes, Some(job_name.as_str()))
+        .print(bytes, job_options(&job_name))
         .map_err(|e| PrintersError::Driver(format!("{:?}", e)))?;
     Ok(job_name)
 }
@@ -399,7 +414,7 @@ pub fn printer_test_page(printer_name: String) -> Result<String, PrintersError> 
     };
     let job_name = format!("{}-test", job_name_now());
     printer
-        .print(payload.as_bytes(), Some(job_name.as_str()))
+        .print(payload.as_bytes(), job_options(&job_name))
         .map_err(|e| PrintersError::Driver(format!("{:?}", e)))?;
     Ok(job_name)
 }

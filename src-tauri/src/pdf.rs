@@ -35,10 +35,19 @@ use std::path::PathBuf;
 
 use base64::Engine as _;
 use base64::engine::general_purpose::STANDARD as BASE64_STANDARD;
+use printpdf::path::{PaintMode, WindingOrder};
 use printpdf::{
-    BuiltinFont, Image, ImageTransform, IndirectFontRef, Line, Mm, PdfDocument,
-    PdfDocumentReference, PdfLayerReference, Point, Rgb,
+    BuiltinFont, Image, ImageTransform, IndirectFontRef, Mm, PdfDocument, PdfDocumentReference,
+    PdfLayerReference, Point, Polygon, Rgb,
 };
+
+/// Centraliza o cast `f64 → f32` exigido por `printpdf` 0.7 para `Mm`/`Pt`/
+/// escalas. Toda a geometria do módulo trabalha em `f64` (mais natural para
+/// coordenadas em mm com decimais) e converte só na fronteira da crate.
+#[inline]
+fn mm(v: f64) -> Mm {
+    Mm(v as f32)
+}
 use serde::Deserialize;
 use thiserror::Error;
 
@@ -239,8 +248,8 @@ fn build_document(canvas_jsons: &[String]) -> Result<PdfDocumentReference, PdfEr
     let first = &pages[0];
     let (doc, page_index, layer_index) = PdfDocument::new(
         "Etiquetador",
-        Mm(first.canvas.width),
-        Mm(first.canvas.height),
+        mm(first.canvas.width),
+        mm(first.canvas.height),
         "Layer 1",
     );
 
@@ -270,8 +279,8 @@ fn build_document(canvas_jsons: &[String]) -> Result<PdfDocumentReference, PdfEr
     // Páginas seguintes.
     for page in pages.iter().skip(1) {
         let (pg, ly) = doc.add_page(
-            Mm(page.canvas.width),
-            Mm(page.canvas.height),
+            mm(page.canvas.width),
+            mm(page.canvas.height),
             "Layer 1",
         );
         let layer = doc.get_page(pg).get_layer(ly);
@@ -357,14 +366,16 @@ fn render_page(
         if !is_white(bg) {
             let color = parse_color(bg).unwrap_or(rgb_white());
             layer.set_fill_color(printpdf::Color::Rgb(color));
-            layer.add_shape(rect_path(
+            if let Some(poly) = rect_path(
                 0.0,
                 0.0,
                 page.canvas.width,
                 page.canvas.height,
                 true,
                 false,
-            ));
+            ) {
+                layer.add_polygon(poly);
+            }
         }
     }
 
@@ -435,7 +446,7 @@ fn draw_text(
                 - estimate_text_width_mm(line, font_size_pt),
             _ => x_mm,
         };
-        layer.use_text(line, font_size_pt, Mm(x), Mm(line_y), font);
+        layer.use_text(line, font_size_pt as f32, mm(x), mm(line_y), font);
     }
     Ok(())
 }
@@ -484,9 +495,11 @@ fn draw_rect(layer: &PdfLayerReference, obj: &RectObj, page_h: f64) {
             .and_then(parse_color)
             .unwrap_or(rgb_black());
         layer.set_outline_color(printpdf::Color::Rgb(color));
-        layer.set_outline_thickness(mm_to_pt(obj.stroke_width.unwrap_or(0.3)));
+        layer.set_outline_thickness(mm_to_pt(obj.stroke_width.unwrap_or(0.3)) as f32);
     }
-    layer.add_shape(rect_path(x, y, w, h, has_fill, has_stroke));
+    if let Some(poly) = rect_path(x, y, w, h, has_fill, has_stroke) {
+        layer.add_polygon(poly);
+    }
 }
 
 fn draw_line(layer: &PdfLayerReference, obj: &LineObj, page_h: f64) {
@@ -506,7 +519,9 @@ fn draw_line(layer: &PdfLayerReference, obj: &LineObj, page_h: f64) {
         .and_then(parse_color)
         .unwrap_or(rgb_black());
     layer.set_fill_color(printpdf::Color::Rgb(color));
-    layer.add_shape(rect_path(x, y, w, h, true, false));
+    if let Some(poly) = rect_path(x, y, w, h, true, false) {
+        layer.add_polygon(poly);
+    }
 }
 
 fn draw_ellipse(layer: &PdfLayerReference, obj: &EllipseObj, page_h: f64) {
@@ -547,10 +562,12 @@ fn draw_ellipse(layer: &PdfLayerReference, obj: &EllipseObj, page_h: f64) {
             .and_then(parse_color)
             .unwrap_or(rgb_black());
         layer.set_outline_color(printpdf::Color::Rgb(color));
-        layer.set_outline_thickness(mm_to_pt(obj.stroke_width.unwrap_or(0.3)));
+        layer.set_outline_thickness(mm_to_pt(obj.stroke_width.unwrap_or(0.3)) as f32);
     }
 
-    layer.add_shape(ellipse_path(cx, cy, rx, ry, has_fill, has_stroke));
+    if let Some(poly) = ellipse_path(cx, cy, rx, ry, has_fill, has_stroke) {
+        layer.add_polygon(poly);
+    }
 }
 
 fn draw_image(
@@ -616,11 +633,11 @@ fn draw_image(
     image_xobject.add_to_layer(
         layer.clone(),
         ImageTransform {
-            translate_x: Some(Mm(translate_x_mm)),
-            translate_y: Some(Mm(translate_y_mm)),
-            scale_x: Some(scale_x),
-            scale_y: Some(scale_y),
-            dpi: Some(dpi),
+            translate_x: Some(mm(translate_x_mm)),
+            translate_y: Some(mm(translate_y_mm)),
+            scale_x: Some(scale_x as f32),
+            scale_y: Some(scale_y as f32),
+            dpi: Some(dpi as f32),
             ..ImageTransform::default()
         },
     );
@@ -658,11 +675,24 @@ fn draw_barcode(layer: &PdfLayerReference, obj: &BarcodeObj, page_h: f64) {
             continue;
         }
         let y_pdf = page_h - y_top_mm - rh_mm;
-        layer.add_shape(rect_path(x_mm, y_pdf, rw_mm, rh_mm, true, false));
+        if let Some(poly) = rect_path(x_mm, y_pdf, rw_mm, rh_mm, true, false) {
+            layer.add_polygon(poly);
+        }
     }
 }
 
 // --- Helpers de geometria ---
+
+/// Traduz `(has_fill, has_stroke)` para o `PaintMode` do `printpdf::Polygon`.
+/// Sem fill nem stroke, devolvemos `None` — nada deve ser desenhado.
+fn paint_mode(has_fill: bool, has_stroke: bool) -> Option<PaintMode> {
+    match (has_fill, has_stroke) {
+        (true, true) => Some(PaintMode::FillStroke),
+        (true, false) => Some(PaintMode::Fill),
+        (false, true) => Some(PaintMode::Stroke),
+        (false, false) => None,
+    }
+}
 
 fn rect_path(
     x: f64,
@@ -671,58 +701,62 @@ fn rect_path(
     h: f64,
     has_fill: bool,
     has_stroke: bool,
-) -> Line {
-    let pts = vec![
-        (Point::new(Mm(x), Mm(y)), false),
-        (Point::new(Mm(x + w), Mm(y)), false),
-        (Point::new(Mm(x + w), Mm(y + h)), false),
-        (Point::new(Mm(x), Mm(y + h)), false),
+) -> Option<Polygon> {
+    let mode = paint_mode(has_fill, has_stroke)?;
+    let ring = vec![
+        (Point::new(mm(x), mm(y)), false),
+        (Point::new(mm(x + w), mm(y)), false),
+        (Point::new(mm(x + w), mm(y + h)), false),
+        (Point::new(mm(x), mm(y + h)), false),
     ];
-    Line {
-        points: pts,
-        is_closed: true,
-        has_fill,
-        has_stroke,
-        is_clipping_path: false,
-    }
+    Some(Polygon {
+        rings: vec![ring],
+        mode,
+        winding_order: WindingOrder::NonZero,
+    })
 }
 
 /// Aproxima uma elipse por 4 curvas Bezier cúbicas usando a constante mágica
-/// `k = 0.5522847498`. O `printpdf::Line` aceita "true" no segundo elemento
-/// do `Point` para marcar um vértice como ponto de controle de Bezier (a
-/// crate desenha um cubicTo a cada par consecutivo de pontos com a flag).
-fn ellipse_path(cx: f64, cy: f64, rx: f64, ry: f64, has_fill: bool, has_stroke: bool) -> Line {
+/// `k = 0.5522847498`. O ring do `Polygon` aceita `true` no segundo elemento
+/// de cada `(Point, bool)` para indicar pontos de controle de Bezier — a
+/// crate gera `cubicTo` entre pares consecutivos.
+fn ellipse_path(
+    cx: f64,
+    cy: f64,
+    rx: f64,
+    ry: f64,
+    has_fill: bool,
+    has_stroke: bool,
+) -> Option<Polygon> {
+    let mode = paint_mode(has_fill, has_stroke)?;
     let k = 0.5522847498_f64;
     let ox = rx * k;
     let oy = ry * k;
-    // 4 segmentos: começa no leste, anti-horário em coords PDF (y cresce p/ cima).
-    let pts = vec![
+    let ring = vec![
         // East
-        (Point::new(Mm(cx + rx), Mm(cy)), false),
-        // ctrl1, ctrl2, end (north)
-        (Point::new(Mm(cx + rx), Mm(cy + oy)), true),
-        (Point::new(Mm(cx + ox), Mm(cy + ry)), true),
-        (Point::new(Mm(cx), Mm(cy + ry)), false),
+        (Point::new(mm(cx + rx), mm(cy)), false),
+        // -> North
+        (Point::new(mm(cx + rx), mm(cy + oy)), true),
+        (Point::new(mm(cx + ox), mm(cy + ry)), true),
+        (Point::new(mm(cx), mm(cy + ry)), false),
         // -> West
-        (Point::new(Mm(cx - ox), Mm(cy + ry)), true),
-        (Point::new(Mm(cx - rx), Mm(cy + oy)), true),
-        (Point::new(Mm(cx - rx), Mm(cy)), false),
+        (Point::new(mm(cx - ox), mm(cy + ry)), true),
+        (Point::new(mm(cx - rx), mm(cy + oy)), true),
+        (Point::new(mm(cx - rx), mm(cy)), false),
         // -> South
-        (Point::new(Mm(cx - rx), Mm(cy - oy)), true),
-        (Point::new(Mm(cx - ox), Mm(cy - ry)), true),
-        (Point::new(Mm(cx), Mm(cy - ry)), false),
+        (Point::new(mm(cx - rx), mm(cy - oy)), true),
+        (Point::new(mm(cx - ox), mm(cy - ry)), true),
+        (Point::new(mm(cx), mm(cy - ry)), false),
         // -> East (close)
-        (Point::new(Mm(cx + ox), Mm(cy - ry)), true),
-        (Point::new(Mm(cx + rx), Mm(cy - oy)), true),
-        (Point::new(Mm(cx + rx), Mm(cy)), false),
+        (Point::new(mm(cx + ox), mm(cy - ry)), true),
+        (Point::new(mm(cx + rx), mm(cy - oy)), true),
+        (Point::new(mm(cx + rx), mm(cy)), false),
     ];
-    Line {
-        points: pts,
-        is_closed: true,
-        has_fill,
-        has_stroke,
-        is_clipping_path: false,
-    }
+    Some(Polygon {
+        rings: vec![ring],
+        mode,
+        winding_order: WindingOrder::NonZero,
+    })
 }
 
 // --- Helpers de cor ---
@@ -1033,10 +1067,10 @@ mod tests {
 
     #[test]
     fn parse_bwipjs_svg_extracts_rects() {
-        let svg = r#"<svg viewBox="0 0 100 50" xmlns="http://www.w3.org/2000/svg">
+        let svg = r##"<svg viewBox="0 0 100 50" xmlns="http://www.w3.org/2000/svg">
             <rect x="0" y="0" width="2" height="50" fill="#000"/>
             <rect x="4" y="0" width="2" height="50" fill="#000"/>
-        </svg>"#;
+        </svg>"##;
         let parsed = parse_bwipjs_svg(svg).unwrap();
         assert_eq!(parsed.view_w, 100.0);
         assert_eq!(parsed.view_h, 50.0);
