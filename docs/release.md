@@ -2,27 +2,65 @@
 
 Pipeline 100% no GitHub Actions. Você nunca precisa rodar `tauri build` localmente para Windows/Linux — só taggear.
 
-## TL;DR
+## TL;DR — fluxo automatizado (recomendado)
+
+Use o script `scripts/release.sh` (ou os targets do `Makefile`). Ele:
+
+1. Valida que você está em `main`, com working tree limpo e em sync com `origin`.
+2. Faz bump em `package.json`, `src-tauri/Cargo.toml` e `src-tauri/tauri.conf.json`.
+3. Regenera `src-tauri/Cargo.lock`.
+4. Roda os mesmos checks do `ci.yml` (typecheck + lint + build + audit + cargo check).
+5. Cria commit `chore(release): vX.Y.Z` + tag anotada com changelog.
+6. Faz push de `main` + tag — a tag dispara o workflow `release` no GitHub.
+
+```bash
+# Versão explícita
+make release VERSION=0.1.1
+
+# Ou bump semântico
+make release-patch              # 0.1.0 → 0.1.1
+make release-minor              # 0.1.0 → 0.2.0
+make release-major              # 0.1.0 → 1.0.0
+
+# Antes de rodar de verdade, sempre vale conferir
+make release-dry-run VERSION=0.1.1
+make release-dry-run BUMP=patch
+```
+
+Flags do script direto (`scripts/release.sh`):
+
+| Flag | Efeito |
+|---|---|
+| `--version X.Y.Z` | Versão alvo explícita. |
+| `--bump patch\|minor\|major` | Bump semver a partir do `package.json` atual. |
+| `--dry-run` | Mostra o que faria, sem alterar nada. |
+| `--skip-checks` | Pula typecheck/lint/build/cargo check. Use por sua conta. |
+| `--no-push` | Cria commit+tag mas não dá push (review antes). |
+
+Variáveis de ambiente:
+
+- `SKIP_REMOTE_CHECK=1` — pula `git fetch` e diff vs `origin/main` (útil sem rede).
+
+Acompanhe a pipeline:
+- Actions: `https://github.com/thiagossampaio/bartender/actions`
+- Release: `https://github.com/thiagossampaio/bartender/releases/latest`
+- Site: `https://thiagossampaio.github.io/bartender/` (atualiza automaticamente quando a release publica).
+
+## Fluxo manual (referência / fallback)
+
+Se preferir manual, o procedimento original ainda funciona:
 
 ```bash
 # 1. Bump de versão (3 arquivos, todos com a MESMA versão).
-#    Use search-and-replace ou um script seu.
 #    - package.json:        "version": "0.1.0"
 #    - src-tauri/Cargo.toml: version = "0.1.0"
 #    - src-tauri/tauri.conf.json: "version": "0.1.0"
 
 # 2. Commit + tag + push.
-git add package.json src-tauri/Cargo.toml src-tauri/tauri.conf.json
-git commit -m "chore: bump para 0.1.0"
-git tag v0.1.0
+git add package.json src-tauri/Cargo.toml src-tauri/tauri.conf.json src-tauri/Cargo.lock
+git commit -m "chore(release): v0.1.0"
+git tag -a v0.1.0 -m "Release v0.1.0"
 git push origin main --tags
-
-# 3. Acompanha a pipeline em:
-#    https://github.com/thiagossampaio/bartender/actions
-
-# 4. Quando os 4 jobs verdes, a release sai de "draft" automaticamente e
-#    fica em:
-#    https://github.com/thiagossampaio/bartender/releases/latest
 ```
 
 ## Fluxo da pipeline

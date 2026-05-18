@@ -3,7 +3,8 @@
 # Os comandos `build-win` e `build-mac` produzem instaladores assinados.
 # Cross-compile não é suportado: cada SO deve ser buildado na sua plataforma nativa.
 
-.PHONY: install dev build build-frontend build-mac build-win typecheck lint clean audit-bundle
+.PHONY: install dev build build-frontend build-mac build-win typecheck lint clean audit-bundle \
+        release release-dry-run release-patch release-minor release-major
 
 install:
 	npm install
@@ -74,3 +75,42 @@ audit-bundle:
 
 clean:
 	rm -rf node_modules dist src-tauri/target src-tauri/gen
+
+# ─── Release ────────────────────────────────────────────────────────────────
+#
+# Pipeline automatizada de release. O script `scripts/release.sh`:
+#   1. Valida estado do repo (main, clean, sync com origin).
+#   2. Faz bump nas 3 fontes de verdade (package.json, Cargo.toml, tauri.conf.json).
+#   3. Regenera Cargo.lock.
+#   4. Roda os mesmos checks do ci.yml (typecheck + lint + build + audit + cargo check).
+#   5. Cria commit `chore(release): vX.Y.Z` + tag anotada.
+#   6. Faz push de main + tag — a tag dispara o workflow `release` no GitHub.
+#
+# Uso:
+#   make release VERSION=0.1.1           # versão explícita
+#   make release-patch                   # 0.1.0 → 0.1.1
+#   make release-minor                   # 0.1.0 → 0.2.0
+#   make release-major                   # 0.1.0 → 1.0.0
+#   make release-dry-run VERSION=0.1.1   # mostra o que faria sem aplicar
+
+release:
+	@[ -n "$(VERSION)" ] || { echo "Uso: make release VERSION=X.Y.Z"; exit 1; }
+	@scripts/release.sh --version $(VERSION)
+
+release-dry-run:
+	@if [ -n "$(VERSION)" ]; then \
+		scripts/release.sh --version $(VERSION) --dry-run; \
+	elif [ -n "$(BUMP)" ]; then \
+		scripts/release.sh --bump $(BUMP) --dry-run; \
+	else \
+		echo "Uso: make release-dry-run VERSION=X.Y.Z  ou  make release-dry-run BUMP=patch|minor|major"; exit 1; \
+	fi
+
+release-patch:
+	@scripts/release.sh --bump patch
+
+release-minor:
+	@scripts/release.sh --bump minor
+
+release-major:
+	@scripts/release.sh --bump major
