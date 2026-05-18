@@ -1,6 +1,6 @@
 [package]
 name = "bartender"
-version = "0.1.2"
+version = "0.1.3"
 description = "Bartender — aplicativo desktop offline-first para criação e impressão de etiquetas."
 authors = ["Bartender Team"]
 edition = "2021"
