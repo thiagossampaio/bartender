@@ -1,0 +1,1 @@
+- [Pipeline de binding no wizard de lote](batch_binding_pipeline.md) — onde `applyBinding` roda em cada caminho (preview, PPLB, ZPL, PDF) e o bug histórico do PDF que servia placeholder literal.

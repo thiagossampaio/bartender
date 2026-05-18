@@ -26,6 +26,7 @@
 import { invoke } from "@tauri-apps/api/core";
 import { save } from "@tauri-apps/plugin-dialog";
 
+import { applyBinding } from "@/lib/canvas/barcode";
 import { renderBarcodeSvg } from "@/lib/canvas/barcode-svg";
 import { canvasToJson } from "@/lib/canvas/serializer";
 import type {
@@ -34,6 +35,7 @@ import type {
   CanvasJson,
   CanvasObject,
   QrcodeObject,
+  TextObject,
 } from "@/lib/canvas/types";
 
 export interface PdfPage {
@@ -98,17 +100,26 @@ function buildPagePayload(
   page: PdfPage,
   bindingContext?: Record<string, string | number | null | undefined>,
 ): string {
+  const ctx = bindingContext ?? {};
   const enrichedObjects: CanvasObject[] = page.objects.map((obj) => {
+    if (obj.type === "text") {
+      const t = obj as TextObject;
+      return { ...t, content: applyBinding(t.content ?? "", ctx) };
+    }
     if (obj.type === "barcode" || obj.type === "qrcode") {
-      const rendered = renderBarcodeSvg(obj as BarcodeObject | QrcodeObject, {
+      const b = obj as BarcodeObject | QrcodeObject;
+      // `renderBarcodeSvg` aplica binding internamente para gerar o SVG; aqui
+      // também substituímos o `value` para manter o canvas_json consistente
+      // (e qualquer logging/diagnóstico futuro veria a string final).
+      const rendered = renderBarcodeSvg(b, {
         dpi: page.canvas.dpi,
         bindingContext,
       });
-      // O Rust ignora campos desconhecidos (`#[serde(default)]`), então
-      // podemos anexar `renderedSvg` sem mexer no schema oficial.
-      return { ...obj, renderedSvg: rendered.svg } as CanvasObject & {
-        renderedSvg: string;
-      };
+      return {
+        ...b,
+        value: applyBinding(b.value ?? "", ctx),
+        renderedSvg: rendered.svg,
+      } as CanvasObject & { renderedSvg: string };
     }
     return obj;
   });
