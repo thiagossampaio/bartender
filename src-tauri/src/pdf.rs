@@ -939,18 +939,27 @@ struct ParsedSvg {
     rects: Vec<SvgRect>,
 }
 
-/// Parser minimalista do SVG emitido pelo `bwip-js`. A lib gera **apenas**
-/// `<rect>`s e (para alguns símbolos) `<path>` com bezier — para o MVP do PDF
-/// vetorial focamos nos rects, suficiente para CODE128/CODE39/EAN/UPC/ITF/
-/// Codabar/QR/Data Matrix/PDF417 (cobertura ≥ 95% das simbologias).
+/// Parser minimalista do SVG emitido pelo `bwip-js`.
+///
+/// O bwip-js (versões 4.x) emite dois formatos:
+///  - **`<rect>`** em barcodes 2D (QR / Data Matrix / Aztec) — cada quadrado
+///    do módulo é um `<rect x y width height>`.
+///  - **`<path>` com `stroke-width`** em barcodes 1D (CODE128/39/EAN/UPC/ITF/
+///    Codabar/CODE11/etc.) — cada barra é um comando `M x y_top L x y_bottom`
+///    desenhado com largura via `stroke-width`. Para o nosso pipeline,
+///    convertemos cada linha vertical num retângulo: `x = cx - sw/2`,
+///    `width = sw`, `y = min(y0, y1)`, `height = |y1 - y0|`.
+///
+/// Para texto HRT (interpretation line), o bwip-js emite `<path>` com curvas
+/// Bezier — esses são ignorados (não têm `stroke` nem comando `M..L` puro;
+/// nosso parser de `d` rejeita comandos diferentes de `M`/`L`).
 fn parse_bwipjs_svg(svg: &str) -> Option<ParsedSvg> {
     let (view_w, view_h) = parse_viewbox(svg).or_else(|| parse_width_height(svg))?;
     let mut rects = Vec::new();
 
-    // Itera caracteres de forma simplificada. Cada `<rect` abre um nó até `/>`
-    // ou `>`. Atributos no formato `name="value"`.
-    let mut cursor = 0usize;
+    // 1) Extrai retângulos diretos.
     let bytes = svg.as_bytes();
+    let mut cursor = 0usize;
     while let Some(pos) = find_subslice(bytes, b"<rect", cursor) {
         cursor = pos + 5;
         let end = match find_byte(bytes, b'>', cursor) {
@@ -969,11 +978,208 @@ fn parse_bwipjs_svg(svg: &str) -> Option<ParsedSvg> {
         }
     }
 
+    // 2) Extrai barras de `<path stroke-width="N" d="M x y L x y M ...">`.
+    cursor = 0;
+    while let Some(pos) = find_subslice(bytes, b"<path", cursor) {
+        cursor = pos + 5;
+        let end = match find_byte(bytes, b'>', cursor) {
+            Some(e) => e,
+            None => break,
+        };
+        let chunk = &svg[cursor..end];
+        cursor = end + 1;
+
+        // `path` sem `stroke-width` (ex.: glifos do HRT) — pulamos.
+        let Some(sw) = parse_attr(chunk, "stroke-width") else {
+            continue;
+        };
+        if sw <= 0.0 {
+            continue;
+        }
+        let Some(d) = extract_attr_str(chunk, "d") else {
+            continue;
+        };
+        // Pulamos `<path>` que misturam comandos não-suportados (HRT bezier).
+        // Critério: se contiver qualquer letra fora de [MLmlZz\s\-0-9.], é glifo.
+        if !is_simple_vertical_path(&d) {
+            continue;
+        }
+        for bar in parse_vertical_bars(&d, sw) {
+            rects.push(bar);
+        }
+    }
+
     Some(ParsedSvg {
         view_w,
         view_h,
         rects,
     })
+}
+
+/// Verifica se o `d` contém só comandos `M`/`L` (mais espaços/sinais/dígitos).
+/// Para HRT glyphs o bwip-js emite `Q` (quadratic bezier) e similares — esses
+/// não são barras e devem ser ignorados.
+fn is_simple_vertical_path(d: &str) -> bool {
+    for c in d.chars() {
+        match c {
+            'M' | 'L' | 'm' | 'l' | 'Z' | 'z' | 'H' | 'h' | 'V' | 'v' | ' ' | ',' | '-' | '.'
+            | '\t' | '\n' => {}
+            c if c.is_ascii_digit() => {}
+            _ => return false,
+        }
+    }
+    true
+}
+
+/// Parseia uma `d` no formato `M x y L x y M x y L x y ...` (barras verticais)
+/// e devolve um `SvgRect` por par. Tolerante a espaços/vírgulas e a uppercase/
+/// lowercase de M/L.
+fn parse_vertical_bars(d: &str, stroke_width: f64) -> Vec<SvgRect> {
+    let mut out = Vec::new();
+    let mut tokens = SvgPathTokens::new(d);
+    let mut current_x: f64 = 0.0;
+    let mut current_y: f64 = 0.0;
+    let mut bar_top: Option<(f64, f64)> = None;
+
+    while let Some(tok) = tokens.next_command() {
+        match tok {
+            'M' | 'm' => {
+                let (x, y) = match tokens.next_pair() {
+                    Some(p) => p,
+                    None => break,
+                };
+                current_x = if tok == 'm' { current_x + x } else { x };
+                current_y = if tok == 'm' { current_y + y } else { y };
+                bar_top = Some((current_x, current_y));
+            }
+            'L' | 'l' => {
+                let (x, y) = match tokens.next_pair() {
+                    Some(p) => p,
+                    None => break,
+                };
+                let nx = if tok == 'l' { current_x + x } else { x };
+                let ny = if tok == 'l' { current_y + y } else { y };
+                if let Some((sx, sy)) = bar_top {
+                    // Barra vertical: aceita pequena variação numérica em x.
+                    if (sx - nx).abs() < 0.001 {
+                        let y0 = sy.min(ny);
+                        let y1 = sy.max(ny);
+                        let h = y1 - y0;
+                        if h > 0.0 {
+                            out.push(SvgRect {
+                                x: sx - stroke_width / 2.0,
+                                y: y0,
+                                w: stroke_width,
+                                h,
+                            });
+                        }
+                    }
+                }
+                current_x = nx;
+                current_y = ny;
+            }
+            _ => {
+                // Ignora outros comandos por defesa — `is_simple_vertical_path`
+                // já filtra paths complexos antes de chegar aqui.
+            }
+        }
+    }
+    out
+}
+
+/// Tokenizer mínimo para `d` SVG: comandos como `M`/`L` e pares numéricos.
+struct SvgPathTokens<'a> {
+    bytes: &'a [u8],
+    pos: usize,
+}
+
+impl<'a> SvgPathTokens<'a> {
+    fn new(d: &'a str) -> Self {
+        Self {
+            bytes: d.as_bytes(),
+            pos: 0,
+        }
+    }
+
+    fn skip_sep(&mut self) {
+        while self.pos < self.bytes.len() {
+            let b = self.bytes[self.pos];
+            if b == b' ' || b == b'\t' || b == b'\n' || b == b'\r' || b == b',' {
+                self.pos += 1;
+            } else {
+                break;
+            }
+        }
+    }
+
+    fn next_command(&mut self) -> Option<char> {
+        self.skip_sep();
+        while self.pos < self.bytes.len() {
+            let b = self.bytes[self.pos];
+            if b.is_ascii_alphabetic() {
+                self.pos += 1;
+                return Some(b as char);
+            }
+            // Token numérico antes de um comando significa "implied previous
+            // command" — não suportamos isso (bwip-js sempre emite comandos
+            // explícitos). Aborta.
+            return None;
+        }
+        None
+    }
+
+    fn next_number(&mut self) -> Option<f64> {
+        self.skip_sep();
+        let start = self.pos;
+        if self.pos < self.bytes.len() && (self.bytes[self.pos] == b'-' || self.bytes[self.pos] == b'+') {
+            self.pos += 1;
+        }
+        let mut has_digit = false;
+        let mut has_dot = false;
+        while self.pos < self.bytes.len() {
+            let b = self.bytes[self.pos];
+            if b.is_ascii_digit() {
+                has_digit = true;
+                self.pos += 1;
+            } else if b == b'.' && !has_dot {
+                has_dot = true;
+                self.pos += 1;
+            } else {
+                break;
+            }
+        }
+        if !has_digit {
+            self.pos = start;
+            return None;
+        }
+        std::str::from_utf8(&self.bytes[start..self.pos])
+            .ok()
+            .and_then(|s| s.parse().ok())
+    }
+
+    fn next_pair(&mut self) -> Option<(f64, f64)> {
+        let x = self.next_number()?;
+        let y = self.next_number()?;
+        Some((x, y))
+    }
+}
+
+/// Extrai o valor de um atributo `name="..."` como string (sem parsear como
+/// número — usado para `d="..."`). Similar ao `parse_attr` mas devolve a
+/// string crua.
+fn extract_attr_str(chunk: &str, name: &str) -> Option<String> {
+    let bytes = chunk.as_bytes();
+    let mut needle = String::with_capacity(name.len() + 2);
+    needle.push_str(name);
+    needle.push('=');
+    let pos = find_subslice(bytes, needle.as_bytes(), 0)?;
+    let after = pos + needle.len();
+    let quote = bytes.get(after)?;
+    if *quote != b'"' && *quote != b'\'' {
+        return None;
+    }
+    let end = bytes[after + 1..].iter().position(|b| b == quote)?;
+    Some(chunk[after + 1..after + 1 + end].to_string())
 }
 
 fn find_subslice(haystack: &[u8], needle: &[u8], from: usize) -> Option<usize> {
@@ -1094,6 +1300,37 @@ mod tests {
         assert_eq!(parsed.rects.len(), 2);
         assert_eq!(parsed.rects[0].w, 2.0);
         assert_eq!(parsed.rects[1].x, 4.0);
+    }
+
+    #[test]
+    fn parse_bwipjs_svg_extracts_path_bars() {
+        // Formato produzido pelo bwip-js 4.x para barcodes 1D — duas barras
+        // verticais com strokes de 3 e 9. Texto HRT (path Bezier) ignorado.
+        let svg = r##"<svg viewBox="0 0 226 109" xmlns="http://www.w3.org/2000/svg">
+            <path stroke="#000000" stroke-width="3" d="M1.50 86L1.50 0M25.50 86L25.50 0" />
+            <path stroke="#000000" stroke-width="9" d="M10.50 86L10.50 0" />
+            <path d="M59.90 93.09Q59.55 92.73 59.55 92.26" />
+        </svg>"##;
+        let parsed = parse_bwipjs_svg(svg).unwrap();
+        // 2 barras finas + 1 grossa = 3 retângulos. O HRT é ignorado pelo
+        // `is_simple_vertical_path` (contém `Q`).
+        assert_eq!(parsed.rects.len(), 3);
+        assert!((parsed.rects[0].w - 3.0).abs() < 0.001);
+        // x = 1.5 - sw/2 = 1.5 - 1.5 = 0.0
+        assert!((parsed.rects[0].x - 0.0).abs() < 0.001);
+        // h = |86 - 0| = 86
+        assert!((parsed.rects[0].h - 86.0).abs() < 0.001);
+        assert!((parsed.rects[2].w - 9.0).abs() < 0.001);
+    }
+
+    #[test]
+    fn parse_vertical_bars_handles_concatenated_commands() {
+        // bwip-js emite `d="M1.5 86L1.5 0M25.5 86L25.5 0..."` sem espaços
+        // entre os comandos. Verificamos que o tokenizer separa corretamente.
+        let bars = parse_vertical_bars("M1.5 86L1.5 0M25.5 86L25.5 0", 3.0);
+        assert_eq!(bars.len(), 2);
+        assert!((bars[0].x - 0.0).abs() < 0.001); // 1.5 - 3/2
+        assert!((bars[1].x - 24.0).abs() < 0.001); // 25.5 - 3/2
     }
 
     #[test]
