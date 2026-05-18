@@ -2,7 +2,7 @@
 //!
 //! Responsabilidades:
 //! - Persistir um snapshot do `canvas_json` em edição a cada 30 s (timer no
-//!   frontend), em `<cache>/Etiquetador/autosave/autosave_<id>.json`.
+//!   frontend), em `<cache>/Bartender/autosave/autosave_<id>.json`.
 //! - Devolver o conteúdo e o `mtime` (em milissegundos desde a época) para o
 //!   frontend comparar contra `templates.updated_at` na abertura do editor
 //!   (RF de recovery, SPEC-13 §"Comportamento esperado" item 2).

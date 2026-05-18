@@ -1,4 +1,4 @@
-# QA de Hardware — Etiquetador (WP-17)
+# QA de Hardware — Bartender (WP-17)
 
 > Checklist operacional para o QA final em hardware real, antes do release.
 > Cobre os critérios de aceitação do PRD §12 e os pontos de impressão das
@@ -107,7 +107,7 @@ Validar em **ambos** os sistemas — Win com `Ctrl`, macOS com `⌘`:
 
 - [ ] **Wi-Fi/Ethernet desligados** durante toda uma sessão: app funciona normalmente.
 - [ ] Autosave a cada 30 s: forçar `kill -9` do app durante edição → ao reabrir, modal "Recuperar trabalho não salvo?".
-- [ ] Logs gerados em `~/Library/Logs/Etiquetador/` (macOS) ou `%LOCALAPPDATA%\Etiquetador\logs\` (Win) com rotação.
+- [ ] Logs gerados em `~/Library/Logs/Bartender/` (macOS) ou `%LOCALAPPDATA%\Bartender\logs\` (Win) com rotação.
 - [ ] Lixeira mantém itens indefinidamente — nenhuma purga automática.
 - [ ] Hard delete pede confirmação dupla.
 - [ ] Atualização do app sobre instalação anterior preserva o banco (`migrations` idempotentes).

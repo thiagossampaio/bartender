@@ -15,7 +15,7 @@ initI18n();
 // ou erro síncrono fora do React (event handlers, callbacks de Tauri) será
 // canalizado para o `ErrorBoundary` e para o log do backend.
 installGlobalErrorHandlers();
-log.info("etiquetador frontend inicializado");
+log.info("bartender frontend inicializado");
 
 ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
   <React.StrictMode>

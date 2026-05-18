@@ -1,6 +1,6 @@
 {
   "app": {
-    "name": "Etiquetador",
+    "name": "Bartender",
     "tagline": "Desenhe e imprima etiquetas, offline."
   },
   "common": {
@@ -151,7 +151,7 @@
     "next": "Próximo",
     "previous": "Voltar",
     "step": "Passo {{current}} de {{total}}",
-    "step1Title": "Bem-vindo ao Etiquetador",
+    "step1Title": "Bem-vindo ao Bartender",
     "step1Body": "Este é um tour rápido (4 passos) para você começar. Tudo funciona offline — nenhum dado sai do seu computador.",
     "step2Title": "Galeria de templates",
     "step2Body": "Crie, duplique e organize seus modelos de etiqueta. Use \"Novo template\" para começar do zero ou \"Importar\" para abrir um .etlbl.",

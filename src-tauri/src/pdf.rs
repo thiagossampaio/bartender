@@ -249,7 +249,7 @@ fn build_document(canvas_jsons: &[String]) -> Result<PdfDocumentReference, PdfEr
     // suportados — WP-13 pode passar 500 cópias de um único template).
     let first = &pages[0];
     let (doc, page_index, layer_index) = PdfDocument::new(
-        "Etiquetador",
+        "Bartender",
         mm(first.canvas.width),
         mm(first.canvas.height),
         "Layer 1",

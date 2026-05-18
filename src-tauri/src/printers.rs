@@ -432,8 +432,8 @@ fn build_pplb_test_page(model: &str, driver: Option<&str>) -> String {
     s.push_str("q320\r\n"); // largura em dots (40 mm * 8)
     s.push_str("Q240,24\r\n"); // altura + gap
     s.push_str("D8\r\n"); // densidade
-    // Cabeçalho: "ETIQUETADOR — Página de Teste"
-    s.push_str("A20,20,0,4,1,1,N,\"ETIQUETADOR\"\r\n");
+    // Cabeçalho: "BARTENDER — Página de Teste"
+    s.push_str("A20,20,0,4,1,1,N,\"BARTENDER\"\r\n");
     s.push_str("A20,60,0,3,1,1,N,\"Pagina de Teste\"\r\n");
     s.push_str(&format!(
         "A20,100,0,2,1,1,N,\"Modelo: {}\"\r\n",
@@ -459,7 +459,7 @@ fn build_zpl_test_page(model: &str, driver: Option<&str>) -> String {
     s.push_str("^LL240\n"); // label length
     s.push_str("^LH0,0\n"); // home
     s.push_str("^CI28\n"); // UTF-8 friendly fallback
-    s.push_str("^FO20,20^A0N,32,32^FDETIQUETADOR^FS\n");
+    s.push_str("^FO20,20^A0N,32,32^FDBARTENDER^FS\n");
     s.push_str("^FO20,60^A0N,24,24^FDPagina de Teste^FS\n");
     s.push_str(&format!(
         "^FO20,100^A0N,20,20^FDModelo: {}^FS\n",
@@ -496,7 +496,7 @@ fn truncate(s: &str, max: usize) -> String {
     s.chars().take(max).collect::<String>() + "..."
 }
 
-/// Stem do nome de job — `Etiquetador-<epoch-segundos>`. Sem dependência
+/// Stem do nome de job — `Bartender-<epoch-segundos>`. Sem dependência
 /// extra. Só precisa ser único o suficiente para o spooler distinguir
 /// chamadas; o histórico real (`print_history`) usa o `id` do INSERT.
 fn job_name_now() -> String {
@@ -505,7 +505,7 @@ fn job_name_now() -> String {
         .duration_since(UNIX_EPOCH)
         .map(|d| d.as_secs())
         .unwrap_or(0);
-    format!("Etiquetador-{}", secs)
+    format!("Bartender-{}", secs)
 }
 
 #[cfg(test)]
@@ -621,7 +621,7 @@ mod tests {
         // modelo (cabeçalho), a linguagem e o DPI. Esses três campos são
         // critério de aceite explícito do SPEC-12.
         let page = build_pplb_test_page("Argox OS-214 Plus", Some("Generic / Text Only"));
-        assert!(page.contains("ETIQUETADOR"));
+        assert!(page.contains("BARTENDER"));
         assert!(page.contains("Modelo: Argox OS-214 Plus"));
         assert!(page.contains("Linguagem: PPLB"));
         assert!(page.contains("DPI: 203"));
@@ -634,7 +634,7 @@ mod tests {
     #[test]
     fn zpl_test_page_contains_model_and_language() {
         let page = build_zpl_test_page("Zebra ZD220", Some("ZDesigner ZD220"));
-        assert!(page.contains("ETIQUETADOR"));
+        assert!(page.contains("BARTENDER"));
         assert!(page.contains("Modelo: Zebra ZD220"));
         assert!(page.contains("Linguagem: ZPL"));
         assert!(page.contains("DPI: 203"));
@@ -673,7 +673,7 @@ mod tests {
         // mais de 1 segundo o nome deve mudar — suficiente para o spooler
         // distinguir trabalhos.
         let a = job_name_now();
-        assert!(a.starts_with("Etiquetador-"));
-        assert!(a.len() > "Etiquetador-".len());
+        assert!(a.starts_with("Bartender-"));
+        assert!(a.len() > "Bartender-".len());
     }
 }

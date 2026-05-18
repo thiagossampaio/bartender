@@ -14,7 +14,7 @@
     <key>com.apple.security.files.user-selected.read-write</key>
     <true/>
 
-    <!-- O Etiquetador imprime via CUPS no macOS. -->
+    <!-- O Bartender imprime via CUPS no macOS. -->
     <key>com.apple.security.print</key>
     <true/>
 

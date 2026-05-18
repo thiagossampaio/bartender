@@ -85,7 +85,7 @@ export async function exportTemplate(templateId: number): Promise<string | null>
   const outputPath = await saveDialog({
     title: "Exportar template",
     defaultPath: suggestedName,
-    filters: [{ name: "Etiquetador Label", extensions: ["etlbl"] }],
+    filters: [{ name: "Bartender Label", extensions: ["etlbl"] }],
   });
   if (!outputPath) return null;
 
@@ -114,7 +114,7 @@ export async function pickAndInspectEtlbl(): Promise<EtlblInspect | null> {
   const filePath = await openDialog({
     title: "Importar template",
     multiple: false,
-    filters: [{ name: "Etiquetador Label", extensions: ["etlbl"] }],
+    filters: [{ name: "Bartender Label", extensions: ["etlbl"] }],
   });
   if (!filePath || typeof filePath !== "string") return null;
 

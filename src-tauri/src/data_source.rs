@@ -119,7 +119,7 @@ mod tests {
     fn path_exists_returns_false_for_missing_path() {
         // Path improvável de existir em qualquer máquina — confirma que o
         // comando não panica e devolve `false` para "fonte original sumiu".
-        let bogus = "/nonexistent-etiquetador-history-test-path-42";
+        let bogus = "/nonexistent-bartender-history-test-path-42";
         assert!(!path_exists(bogus.into()));
     }
 

@@ -1,4 +1,4 @@
-# Etiquetador — atalhos locais de build.
+# Bartender — atalhos locais de build.
 #
 # Os comandos `build-win` e `build-mac` produzem instaladores assinados.
 # Cross-compile não é suportado: cada SO deve ser buildado na sua plataforma nativa.

@@ -63,11 +63,11 @@ A versão é injetada pela CI; substitua `<v>` pela versão real (ex: `0.1.0`).
 
 | Plataforma | Asset | Localização no runner |
 |---|---|---|
-| Windows 10/11 x64 | `Etiquetador_<v>_x64_pt-BR.msi` | `src-tauri/target/x86_64-pc-windows-msvc/release/bundle/msi/` |
-| macOS universal | `Etiquetador_<v>_universal.dmg` | `src-tauri/target/universal-apple-darwin/release/bundle/dmg/` |
-| macOS universal (raw .app) | `Etiquetador.app` (zipado) | `src-tauri/target/universal-apple-darwin/release/bundle/macos/` |
-| Linux Debian/Ubuntu | `etiquetador_<v>_amd64.deb` | `src-tauri/target/release/bundle/deb/` |
-| Linux AppImage | `etiquetador_<v>_amd64.AppImage` | `src-tauri/target/release/bundle/appimage/` |
+| Windows 10/11 x64 | `Bartender_<v>_x64_pt-BR.msi` | `src-tauri/target/x86_64-pc-windows-msvc/release/bundle/msi/` |
+| macOS universal | `Bartender_<v>_universal.dmg` | `src-tauri/target/universal-apple-darwin/release/bundle/dmg/` |
+| macOS universal (raw .app) | `Bartender.app` (zipado) | `src-tauri/target/universal-apple-darwin/release/bundle/macos/` |
+| Linux Debian/Ubuntu | `bartender_<v>_amd64.deb` | `src-tauri/target/release/bundle/deb/` |
+| Linux AppImage | `bartender_<v>_amd64.AppImage` | `src-tauri/target/release/bundle/appimage/` |
 
 A `tauri-action@v0` faz upload automaticamente — você só baixa pela aba **Releases** no GitHub.
 

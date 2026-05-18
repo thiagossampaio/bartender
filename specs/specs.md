@@ -1,4 +1,4 @@
-# Especificações Estruturadas — Etiquetador
+# Especificações Estruturadas — Bartender
 
 > Documento derivado de [`docs/prd.md`](../docs/prd.md) v1.0 (15 de maio de 2026).
 > Todas as SPECs abaixo são autocontidas: o leitor não precisa abrir o PRD para implementar.
@@ -90,7 +90,7 @@
 > Toda persistência do app passa por este schema. Single-user, sem cloud sync; o arquivo `.db` reside em diretório padrão por SO. Pré-requisito para [SPEC-03](#spec-03--gestão-de-templates-galeria-crud-soft-delete), [SPEC-09](#spec-09--impressão-via-driver-do-so-e-detecção-de-impressoras), [SPEC-12](#spec-12--histórico-de-impressões-calibração-e-página-de-teste) e [SPEC-13](#spec-13--confiabilidade-autosave-recovery-logs-lixeira).
 
 **Comportamento esperado**
-> 1. Na primeira execução, o app cria o arquivo `etiquetador.db` no diretório padrão do SO e roda todas as migrations.
+> 1. Na primeira execução, o app cria o arquivo `bartender.db` no diretório padrão do SO e roda todas as migrations.
 > 2. Em execuções subsequentes, roda apenas migrations novas (idempotência).
 > 3. Atualizações do app preservam dados (migrations não destrutivas).
 > 4. Se schema corrompido, exibe diálogo claro indicando o caminho do arquivo.
@@ -98,8 +98,8 @@
 **Regras de negócio**
 > - DEVE usar **SQLite via plugin Tauri (`tauri-plugin-sql`)**.
 > - DEVE armazenar o banco em:
->   - **Windows:** `%APPDATA%\Etiquetador\etiquetador.db`
->   - **macOS:** `~/Library/Application Support/Etiquetador/etiquetador.db`
+>   - **Windows:** `%APPDATA%\Bartender\bartender.db`
+>   - **macOS:** `~/Library/Application Support/Bartender/bartender.db`
 > - DEVE usar migrations versionadas (recomendado **`sqlx::migrate!`**; alternativa `refinery` registrada como [risco R11](./work-plan.md#riscos-e-pontos-desconhecidos)).
 > - DEVE preservar dados entre upgrades (migrations idempotentes).
 > - DEVE aplicar permissões de arquivo restritas ao usuário do SO.
@@ -754,7 +754,7 @@
 > 3. Template aparece na galeria.
 
 **Regras de negócio (RF-T-07, RF-T-08, §4.4 e §6.5)**
-> - Extensão DEVE ser `.etlbl` (etiquetador label).
+> - Extensão DEVE ser `.etlbl` (bartender label).
 > - Formato interno DEVE ser ZIP contendo:
 >   - `template.json` — metadata + `canvas_json`
 >   - `assets/` — imagens embarcadas referenciadas no canvas
@@ -854,8 +854,8 @@
 > 1. **Autosave:** a cada 30 s, se há mudanças não salvas no editor, persiste em snapshot temporário (`autosave_<template_id>.json` em diretório de cache do app).
 > 2. **Recovery:** ao abrir um template, se autosave for mais recente que `updated_at` do template, modal "**Recuperar trabalho não salvo?** [Sim] [Descartar]".
 > 3. **Logs:** todos os erros não tratados são logados em arquivo rotativo:
->    - **macOS:** `~/Library/Logs/Etiquetador/`
->    - **Windows:** `%LOCALAPPDATA%\Etiquetador\logs\`
+>    - **macOS:** `~/Library/Logs/Bartender/`
+>    - **Windows:** `%LOCALAPPDATA%\Bartender\logs\`
 > 4. **Diálogo de erro:** nenhum crash silencioso. Erro mostra modal com mensagem amigável + botão "Copiar detalhes técnicos".
 > 5. **Lixeira:** itens permanecem indefinidamente até purga manual via "Excluir definitivamente".
 > 6. **Validação de import:** `.etlbl` validado por hash + schema (em [SPEC-11](#spec-11--importexport-de-templates-etlbl)). Aqui, garantir captura de exceções e mensagem clara.

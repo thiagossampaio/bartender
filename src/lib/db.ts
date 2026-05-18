@@ -1,7 +1,7 @@
 /**
  * Façade tipada do banco SQLite local (WP-02 / SPEC-02).
  *
- * O backend (Rust) registra a conexão `sqlite:etiquetador.db` no plugin
+ * O backend (Rust) registra a conexão `sqlite:bartender.db` no plugin
  * `tauri-plugin-sql` e aplica as migrations v1 (schema PRD §4.2) e v2
  * (`deleted_at` em `templates`) na inicialização. Este módulo expõe os
  * helpers `dbQuery` (SELECT) e `dbExecute` (INSERT/UPDATE/DELETE/DDL)
@@ -19,7 +19,7 @@ import { invoke } from "@tauri-apps/api/core";
  * Identificador da conexão. Deve ser o mesmo string usado pelo backend
  * em `tauri_plugin_sql::Builder::add_migrations(DB_URL, ...)`.
  */
-export const DB_URL = "sqlite:etiquetador.db";
+export const DB_URL = "sqlite:bartender.db";
 
 let cachedDb: Database | null = null;
 

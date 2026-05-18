@@ -196,7 +196,7 @@ const INSERTS: InsertSpec[] = [
       rotation: 0,
       // Texto neutro como valor inicial — evita URLs http(s) hard-coded
       // (auditoria offline-first do bundle).
-      value: "ETIQUETADOR",
+      value: "BARTENDER",
       errorCorrection: "M",
     }),
   },

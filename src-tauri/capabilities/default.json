@@ -1,7 +1,7 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
-  "description": "Capabilities default da janela principal do Etiquetador (WP-01).",
+  "description": "Capabilities default da janela principal do Bartender (WP-01).",
   "windows": ["main"],
   "permissions": [
     "core:default",

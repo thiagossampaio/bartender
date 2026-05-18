@@ -2,13 +2,13 @@
 //!
 //! Responsabilidades:
 //! - Resolver o caminho do banco por SO
-//!   (`%APPDATA%\Etiquetador\etiquetador.db` no Windows,
-//!    `~/Library/Application Support/Etiquetador/etiquetador.db` no macOS).
+//!   (`%APPDATA%\Bartender\bartender.db` no Windows,
+//!    `~/Library/Application Support/Bartender/bartender.db` no macOS).
 //! - Garantir o diretório criado com permissões restritas ao usuário.
 //! - Expor as migrations do `tauri-plugin-sql` (chamado em `lib.rs`).
 //!
 //! O frontend conversa com o banco via `@tauri-apps/plugin-sql`
-//! (`Database.load("sqlite:etiquetador.db")`), que já oferece `execute` e
+//! (`Database.load("sqlite:bartender.db")`), que já oferece `execute` e
 //! `select`. Os helpers `db_query` / `db_execute` previstos em SPEC-02 ficam
 //! no lado JS (`src/lib/db.ts`) como façade tipada, evitando duplicar a
 //! ponte no Rust enquanto não há lógica de negócio para auditar.
@@ -22,11 +22,11 @@ use thiserror::Error;
 /// Nome do arquivo do banco. Mantido aqui para reuso entre o builder do
 /// plugin (que usa `sqlite:<filename>`) e a resolução de path absoluto
 /// usada por permissões/diagnóstico.
-pub const DB_FILENAME: &str = "etiquetador.db";
+pub const DB_FILENAME: &str = "bartender.db";
 
 /// Identificador usado no plugin para abrir a conexão.
 /// O frontend importa o mesmo valor via `Database.load(DB_URL)`.
-pub const DB_URL: &str = "sqlite:etiquetador.db";
+pub const DB_URL: &str = "sqlite:bartender.db";
 
 /// Migrations versionadas em ordem crescente. `tauri-plugin-sql` aplica só
 /// as ainda não registradas em `_sqlx_migrations` (idempotência garantida

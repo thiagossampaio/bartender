@@ -1,4 +1,4 @@
-# Work Plan — Etiquetador
+# Work Plan — Bartender
 
 > **Status geral:** ✅ Concluído (WP-01 … WP-17).
 >
@@ -86,7 +86,7 @@
 > 1. Adicionar `tauri-plugin-sql` com feature `sqlite` no `Cargo.toml`.
 > 2. Criar `migrations/001_initial.sql` reproduzindo o schema do PRD §4.2 (tabelas `templates`, `print_history`, `printers`, `settings` + índice `idx_templates_name`).
 > 3. Criar `migrations/002_soft_delete.sql` com `ALTER TABLE templates ADD COLUMN deleted_at TEXT NULL`.
-> 4. Implementar resolução de path por SO (`%APPDATA%\Etiquetador\` no Win, `~/Library/Application Support/Etiquetador/` no macOS).
+> 4. Implementar resolução de path por SO (`%APPDATA%\Bartender\` no Win, `~/Library/Application Support/Bartender/` no macOS).
 > 5. Setar permissões de arquivo restritas ao usuário do SO no `init`.
 > 6. Comandos Tauri `db_query`/`db_execute` expostos via `#[tauri::command]`.
 > 7. Setting `schema_version` para tracking interno.
@@ -589,7 +589,7 @@
 > 2. Comando Tauri `autosave_load(template_id)` chamado ao abrir o editor.
 > 3. Modal "Recuperar trabalho não salvo?".
 > 4. Configurar `tracing` ou `log` + `simplelog` no backend; rotação 7 dias / 10 MB.
-> 5. Paths de logs: `~/Library/Logs/Etiquetador/` (macOS), `%LOCALAPPDATA%\Etiquetador\logs\` (Win).
+> 5. Paths de logs: `~/Library/Logs/Bartender/` (macOS), `%LOCALAPPDATA%\Bartender\logs\` (Win).
 > 6. Panic handler global no Rust; bridge para frontend exibir modal.
 > 7. ErrorBoundary React + handler `unhandledRejection`.
 > 8. Garantir que hard delete de templates exige confirmação dupla.

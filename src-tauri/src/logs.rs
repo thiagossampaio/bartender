@@ -14,13 +14,13 @@
 //!
 //! ## Paths por SO (SPEC-13 §"Comportamento esperado" item 3)
 //!
-//! - **macOS:**   `~/Library/Logs/Etiquetador/`
-//! - **Windows:** `%LOCALAPPDATA%\Etiquetador\logs\`
-//! - **Linux:**   `$XDG_STATE_HOME/Etiquetador/logs/` (`~/.local/state/...`)
+//! - **macOS:**   `~/Library/Logs/Bartender/`
+//! - **Windows:** `%LOCALAPPDATA%\Bartender\logs\`
+//! - **Linux:**   `$XDG_STATE_HOME/Bartender/logs/` (`~/.local/state/...`)
 //!
 //! Em macOS o `app.path().app_log_dir()` já devolve `~/Library/Logs/<identifier>`.
 //! Usamos isso para evitar inconsistência com o Tauri runtime; o nome de pasta
-//! "Etiquetador" no caminho do Windows fica garantido pelo `identifier` do
+//! "Bartender" no caminho do Windows fica garantido pelo `identifier` do
 //! `tauri.conf.json` (que casa com o `productName` no fim do caminho).
 //!
 //! ## Decisões registradas em MEMORY.md
@@ -55,9 +55,9 @@ const MAX_AGE_DAYS: u64 = 7;
 const MAX_TOTAL_BYTES: u64 = 10 * 1024 * 1024;
 
 /// Prefixo dos arquivos rotacionados. `tracing-appender` adiciona a data ao
-/// fim (`etiquetador.log.2026-05-15`), o que mantém o GC trivial — basta
+/// fim (`bartender.log.2026-05-15`), o que mantém o GC trivial — basta
 /// filtrar arquivos começando com este prefixo.
-const LOG_FILE_PREFIX: &str = "etiquetador.log";
+const LOG_FILE_PREFIX: &str = "bartender.log";
 
 /// Guard do `non_blocking` writer. Tem que viver pelo tempo todo do processo;
 /// se for dropado, o thread de flush é desligado. Armazenado em estático para
@@ -119,7 +119,7 @@ pub fn initialize<R: Runtime>(app: &AppHandle<R>) -> Result<(), LogsError> {
     let _ = run_retention_gc(&dir);
 
     // Appender: 1 arquivo por dia, prefixo estável. O sufixo de data é
-    // adicionado pelo próprio appender e fica `etiquetador.log.YYYY-MM-DD`.
+    // adicionado pelo próprio appender e fica `bartender.log.YYYY-MM-DD`.
     let appender = rolling::daily(&dir, LOG_FILE_PREFIX);
     let (writer, guard) = tracing_appender::non_blocking(appender);
     // Guarda viva: se outra inicialização correr aqui (testes), o set_err
@@ -141,7 +141,7 @@ pub fn initialize<R: Runtime>(app: &AppHandle<R>) -> Result<(), LogsError> {
 
     install_panic_hook();
 
-    tracing::info!(target: "etiquetador", "logger inicializado (dir={})", dir.display());
+    tracing::info!(target: "bartender", "logger inicializado (dir={})", dir.display());
     Ok(())
 }
 
@@ -162,7 +162,7 @@ fn install_panic_hook() {
             .map(|l| format!("{}:{}:{}", l.file(), l.line(), l.column()))
             .unwrap_or_else(|| "<sem localização>".into());
         tracing::error!(
-            target: "etiquetador::panic",
+            target: "bartender::panic",
             "PANIC em {location}: {payload}"
         );
         previous(info);
@@ -280,11 +280,11 @@ mod tests {
 
     #[test]
     fn retention_ignores_foreign_files() {
-        // Garantia: arquivos fora do prefixo `etiquetador.log` nunca são
+        // Garantia: arquivos fora do prefixo `bartender.log` nunca são
         // tocados pelo GC — não queremos apagar nada que o usuário tenha
         // deixado na pasta de logs por engano.
         let tmp = std::env::temp_dir().join(format!(
-            "etiq-logs-test-foreign-{}",
+            "bartender-logs-test-foreign-{}",
             std::process::id()
         ));
         let _ = fs::remove_dir_all(&tmp);
@@ -292,7 +292,7 @@ mod tests {
 
         let foreign = tmp.join("README.txt");
         File::create(&foreign).unwrap().write_all(b"keep me").unwrap();
-        let own = tmp.join("etiquetador.log.2026-05-15");
+        let own = tmp.join("bartender.log.2026-05-15");
         File::create(&own).unwrap().write_all(b"ours").unwrap();
 
         run_retention_gc(&tmp).unwrap();
@@ -304,7 +304,7 @@ mod tests {
     #[test]
     fn retention_caps_total_size() {
         let tmp = std::env::temp_dir().join(format!(
-            "etiq-logs-test-size-{}",
+            "bartender-logs-test-size-{}",
             std::process::id()
         ));
         let _ = fs::remove_dir_all(&tmp);
@@ -313,7 +313,7 @@ mod tests {
         // 3 arquivos de 5 MiB cada — total 15 MiB > 10 MiB teto.
         let big = vec![0u8; 5 * 1024 * 1024];
         for day in 10..13 {
-            let p = tmp.join(format!("etiquetador.log.2026-05-{day:02}"));
+            let p = tmp.join(format!("bartender.log.2026-05-{day:02}"));
             File::create(&p).unwrap().write_all(&big).unwrap();
         }
 

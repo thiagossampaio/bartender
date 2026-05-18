@@ -1,4 +1,4 @@
-# Bundle de fontes — Etiquetador (WP-06 / SPEC-05)
+# Bundle de fontes — Bartender (WP-06 / SPEC-05)
 
 Este diretório guarda os arquivos `.ttf` (ou `.woff2`) das **15 fontes empacotadas** no app
 (RF-F-02 do PRD §5.3 + SPEC-05 §"Regras de negócio"). As declarações `@font-face` são geradas

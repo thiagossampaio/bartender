@@ -1,4 +1,4 @@
-# PRD — Etiquetador
+# PRD — Bartender
 
 **Software desktop standalone para criação e impressão de etiquetas em impressoras Argox OS-214 Plus e impressoras Zebra (ZPL)**
 
@@ -130,8 +130,8 @@ Alternativa viável: **Electron + electron-forge** se a equipe tiver mais famili
 
 - **SQLite** local via plugin Tauri (`tauri-plugin-sql`).
 - Localização do banco:
-  - Windows: `%APPDATA%\Etiquetador\etiquetador.db`
-  - macOS: `~/Library/Application Support/Etiquetador/etiquetador.db`
+  - Windows: `%APPDATA%\Bartender\bartender.db`
+  - macOS: `~/Library/Application Support/Bartender/bartender.db`
 - Migrations versionadas com `sqlx::migrate!` ou `refinery`.
 
 ### 3.6 Distribuição
@@ -150,7 +150,7 @@ Alternativa viável: **Electron + electron-forge** se a equipe tiver mais famili
 
 ```
 ┌──────────────────────────────────────────────────────────────────┐
-│                          Etiquetador (Tauri App)                 │
+│                            Bartender (Tauri App)                 │
 │                                                                  │
 │  ┌────────────────────────┐         ┌─────────────────────────┐  │
 │  │   Frontend (React)     │  IPC    │     Core (Rust)         │  │
@@ -295,7 +295,7 @@ Objetos suportados: `text`, `barcode`, `qrcode`, `image`, `rectangle`, `line`, `
 
 Arquivo único, autocontido, para import/export.
 
-- Extensão: `.etlbl` (etiquetador label)
+- Extensão: `.etlbl` (bartender label)
 - Formato interno: ZIP com:
   - `template.json` — metadata + `canvas_json`
   - `assets/` — imagens embarcadas (logo, etc.) referenciadas no canvas
@@ -440,7 +440,7 @@ Inspirado no "data-driven printing" do BarTender.
 - Autosave a cada 30 segundos enquanto há mudanças não salvas.
 - Recovery: ao abrir, se houver autosave mais recente que o último save manual, oferecer recuperar.
 - Validação de integridade do `.etlbl` no import (hash + verificação de schema).
-- Nenhum crash silencioso: erros não tratados devem mostrar diálogo e logar em `~/Library/Logs/Etiquetador/` (macOS) ou `%LOCALAPPDATA%\Etiquetador\logs\` (Windows).
+- Nenhum crash silencioso: erros não tratados devem mostrar diálogo e logar em `~/Library/Logs/Bartender/` (macOS) ou `%LOCALAPPDATA%\Bartender\logs\` (Windows).
 
 ### 6.3 Usabilidade
 
@@ -555,7 +555,7 @@ Adicionar no menu uma ação **"Calibrar impressora"** que envia o comando propr
 
 Mapeamento das capabilities do BarTender que **estão no escopo do MVP**:
 
-| BarTender | Etiquetador (MVP) | Notas |
+| BarTender (Seagull) | Bartender (este projeto, MVP) | Notas |
 |---|---|---|
 | Designer visual | ✅ Sim (Konva.js) | Subset focado em etiquetas simples |
 | 11.000+ drivers de impressora | ❌ Não | Foco em Argox + Zebra; outras via driver do SO |
@@ -572,7 +572,7 @@ Mapeamento das capabilities do BarTender que **estão no escopo do MVP**:
 | File Drop / REST API / hot folder | ❌ Não | Fora de escopo |
 | Failover de impressora | ❌ Não | Fora de escopo |
 
-O Etiquetador entrega as **capabilities essenciais** que resolvem o problema da loja (criar layouts ricos, imprimir em lote a partir de planilha, preview, PDF), sem a complexidade enterprise do BarTender.
+O Bartender (este projeto) entrega as **capabilities essenciais** que resolvem o problema da loja (criar layouts ricos, imprimir em lote a partir de planilha, preview, PDF), sem a complexidade enterprise do BarTender (Seagull Scientific).
 
 ---
 
@@ -706,7 +706,7 @@ O produto é considerado pronto para uso quando:
 | **GS1** | Padrão global de identificação de produtos. EAN-13 e GS1-128 são parte do padrão. |
 | **Raw printing** | Envio do código nativo (PPLB/ZPL) direto ao spooler, sem passar pelo driver de renderização. |
 | **WYSIWYG** | What You See Is What You Get — editor onde a tela reflete o resultado impresso. |
-| **`.etlbl`** | Formato proprietário do Etiquetador para export/import de templates. |
+| **`.etlbl`** | Formato proprietário do Bartender para export/import de templates. |
 
 ---
 

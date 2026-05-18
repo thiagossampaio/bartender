@@ -1,8 +1,8 @@
 {
-  "name": "etiquetador",
+  "name": "bartender",
   "version": "0.1.0",
   "private": true,
-  "description": "Etiquetador — aplicativo desktop offline-first para criação e impressão de etiquetas (Bartender).",
+  "description": "Bartender — aplicativo desktop offline-first para criação e impressão de etiquetas.",
   "type": "module",
   "scripts": {
     "dev": "vite",

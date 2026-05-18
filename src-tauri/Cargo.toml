@@ -1,15 +1,15 @@
 [package]
-name = "etiquetador"
+name = "bartender"
 version = "0.1.0"
-description = "Etiquetador — aplicativo desktop offline-first para criação e impressão de etiquetas."
-authors = ["Etiquetador Team"]
+description = "Bartender — aplicativo desktop offline-first para criação e impressão de etiquetas."
+authors = ["Bartender Team"]
 edition = "2021"
 rust-version = "1.77"
 
 # The `_lib` suffix may seem redundant but it is necessary to make the lib name unique
 # and not conflict with the binary name. See: https://github.com/rust-lang/cargo/issues/8519
 [lib]
-name = "etiquetador_lib"
+name = "bartender_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
 
 [build-dependencies]

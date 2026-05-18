@@ -924,7 +924,7 @@ mod tests {
 
     #[test]
     fn qrcode_object_emits_bq_command() {
-        let obj = r#"{"type":"qrcode","id":"q1","x":10,"y":5,"width":15,"height":15,"value":"https://etiquetador","errorCorrection":"H"}"#;
+        let obj = r#"{"type":"qrcode","id":"q1","x":10,"y":5,"width":15,"height":15,"value":"https://bartender","errorCorrection":"H"}"#;
         let json = build_canvas(50.0, 30.0, 203.0, obj);
         let prog = generate_zpl(&json, 1).unwrap();
         // 10 mm * 8 = 80; 5 mm * 8 = 40.
@@ -939,7 +939,7 @@ mod tests {
             prog.code
         );
         assert!(
-            prog.code.contains(",H,7^FDHA,https://etiquetador^FS"),
+            prog.code.contains(",H,7^FDHA,https://bartender^FS"),
             "esperado payload HA,<data> com eclevel H, recebido:\n{}",
             prog.code
         );

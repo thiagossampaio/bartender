@@ -1,6 +1,6 @@
 name: release
 
-# Pipeline de release multiplataforma do Etiquetador.
+# Pipeline de release multiplataforma do Bartender.
 #
 # Disparo:
 #   - Push de tag `vX.Y.Z` (semver). Caminho normal.
@@ -116,11 +116,11 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ needs.prepare.outputs.tag }}
-          name: Etiquetador ${{ needs.prepare.outputs.tag }}
+          name: Bartender ${{ needs.prepare.outputs.tag }}
           draft: true
           generate_release_notes: true
           body: |
-            ## Etiquetador ${{ needs.prepare.outputs.tag }}
+            ## Bartender ${{ needs.prepare.outputs.tag }}
 
             Aplicativo desktop offline-first para criação e impressão de etiquetas com suporte a Argox (PPLB), Zebra (ZPL) e impressão via driver do SO.
 
@@ -128,17 +128,17 @@ jobs:
 
             | Plataforma | Arquivo | Notas |
             |---|---|---|
-            | **Windows 10/11 (64-bit)** | `Etiquetador_${{ needs.prepare.outputs.version }}_x64_pt-BR.msi` | Requer WebView2 (já vem com Windows 10 1809+ e Windows 11) |
-            | **macOS Intel + Apple Silicon** | `Etiquetador_${{ needs.prepare.outputs.version }}_universal.dmg` | macOS 12 Monterey ou superior |
-            | **Linux (Debian/Ubuntu)** | `etiquetador_${{ needs.prepare.outputs.version }}_amd64.deb` | Ubuntu 22.04+, Debian 12+ |
-            | **Linux (AppImage portátil)** | `etiquetador_${{ needs.prepare.outputs.version }}_amd64.AppImage` | Qualquer distro x86_64 com glibc 2.35+ |
+            | **Windows 10/11 (64-bit)** | `Bartender_${{ needs.prepare.outputs.version }}_x64_pt-BR.msi` | Requer WebView2 (já vem com Windows 10 1809+ e Windows 11) |
+            | **macOS Intel + Apple Silicon** | `Bartender_${{ needs.prepare.outputs.version }}_universal.dmg` | macOS 12 Monterey ou superior |
+            | **Linux (Debian/Ubuntu)** | `bartender_${{ needs.prepare.outputs.version }}_amd64.deb` | Ubuntu 22.04+, Debian 12+ |
+            | **Linux (AppImage portátil)** | `bartender_${{ needs.prepare.outputs.version }}_amd64.AppImage` | Qualquer distro x86_64 com glibc 2.35+ |
 
             ### Instalação
 
-            - **Windows:** abra o `.msi`, "Avançar" até o fim. O app fica em `Iniciar > Etiquetador`.
+            - **Windows:** abra o `.msi`, "Avançar" até o fim. O app fica em `Iniciar > Bartender`.
             - **macOS:** abra o `.dmg`, arraste o app para a pasta Aplicativos. Na primeira abertura, segure ⌃ (Control) + clique no app e escolha "Abrir" (binário não-assinado).
-            - **Linux .deb:** `sudo dpkg -i etiquetador_*.deb` ou abra com o Discover/Software.
-            - **Linux AppImage:** `chmod +x etiquetador_*.AppImage && ./etiquetador_*.AppImage`.
+            - **Linux .deb:** `sudo dpkg -i bartender_*.deb` ou abra com o Discover/Software.
+            - **Linux AppImage:** `chmod +x bartender_*.AppImage && ./bartender_*.AppImage`.
 
   # ---------------------------------------------------------------------------
   # Job 3 — matrix de build. Cada SO compila e faz upload para a draft em
