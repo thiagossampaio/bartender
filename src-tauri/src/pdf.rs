@@ -670,13 +670,13 @@ fn draw_barcode(layer: &PdfLayerReference, obj: &BarcodeObj, page_h: f64) {
     if w_mm <= 0.0 || h_mm <= 0.0 || svg.is_empty() {
         return;
     }
-    // bwip-js gera SVGs com viewBox; precisamos extrair os retângulos pretos
-    // e mapeá-los para mm dentro da caixa do objeto.
+    // bwip-js gera SVGs com viewBox; precisamos extrair retângulos (barras/
+    // módulos) e glifos (HRT) e mapeá-los para mm dentro da caixa do objeto.
     let parsed = parse_bwipjs_svg(svg);
     let Some(parsed) = parsed else {
         return;
     };
-    if parsed.rects.is_empty() {
+    if parsed.rects.is_empty() && parsed.glyphs.is_empty() {
         return;
     }
     let sx = w_mm / parsed.view_w;
@@ -695,6 +695,33 @@ fn draw_barcode(layer: &PdfLayerReference, obj: &BarcodeObj, page_h: f64) {
         if let Some(poly) = rect_path(x_mm, y_pdf, rw_mm, rh_mm, true, false) {
             layer.add_polygon(poly);
         }
+    }
+
+    // Glifos do HRT — polígonos preenchidos com regra even-odd (holes de
+    // letras como `o`/`0`/`8` aparecem naturalmente como segundo ring).
+    for glyph in parsed.glyphs {
+        let rings: Vec<Vec<(Point, bool)>> = glyph
+            .rings
+            .into_iter()
+            .map(|ring| {
+                ring.into_iter()
+                    .map(|(gx, gy)| {
+                        let x_mm = obj.base.x + gx * sx;
+                        let y_top_mm = obj.base.y + gy * sy;
+                        (Point::new(mm(x_mm), mm(page_h - y_top_mm)), false)
+                    })
+                    .collect()
+            })
+            .filter(|r: &Vec<(Point, bool)>| r.len() >= 3)
+            .collect();
+        if rings.is_empty() {
+            continue;
+        }
+        layer.add_polygon(Polygon {
+            rings,
+            mode: PaintMode::Fill,
+            winding_order: WindingOrder::EvenOdd,
+        });
     }
 }
 
@@ -932,16 +959,26 @@ struct SvgRect {
     h: f64,
 }
 
+/// Glifo do HRT preenchido. Cada glifo pode ter múltiplos anéis (contorno
+/// externo + holes em letras como `o`/`0`/`8`). Curvas Bezier (Q/C) são
+/// linearizadas em segmentos antes de chegar aqui, então cada ring é uma
+/// sequência fechada de pontos `(x, y)` em coordenadas do viewBox.
+#[derive(Debug)]
+struct SvgGlyph {
+    rings: Vec<Vec<(f64, f64)>>,
+}
+
 #[derive(Debug)]
 struct ParsedSvg {
     view_w: f64,
     view_h: f64,
     rects: Vec<SvgRect>,
+    glyphs: Vec<SvgGlyph>,
 }
 
 /// Parser minimalista do SVG emitido pelo `bwip-js`.
 ///
-/// O bwip-js (versões 4.x) emite dois formatos:
+/// O bwip-js (versões 4.x) emite três tipos de elementos:
 ///  - **`<rect>`** em barcodes 2D (QR / Data Matrix / Aztec) — cada quadrado
 ///    do módulo é um `<rect x y width height>`.
 ///  - **`<path>` com `stroke-width`** em barcodes 1D (CODE128/39/EAN/UPC/ITF/
@@ -949,13 +986,14 @@ struct ParsedSvg {
 ///    desenhado com largura via `stroke-width`. Para o nosso pipeline,
 ///    convertemos cada linha vertical num retângulo: `x = cx - sw/2`,
 ///    `width = sw`, `y = min(y0, y1)`, `height = |y1 - y0|`.
-///
-/// Para texto HRT (interpretation line), o bwip-js emite `<path>` com curvas
-/// Bezier — esses são ignorados (não têm `stroke` nem comando `M..L` puro;
-/// nosso parser de `d` rejeita comandos diferentes de `M`/`L`).
+///  - **`<path>` com `fill`** (sem `stroke-width`) — glifos do HRT
+///    (interpretation line) e símbolos vetorizados, com comandos M/L/Q/C/Z.
+///    Linearizamos curvas em segmentos curtos e emitimos como polígonos
+///    preenchidos (regra even-odd para preservar holes).
 fn parse_bwipjs_svg(svg: &str) -> Option<ParsedSvg> {
     let (view_w, view_h) = parse_viewbox(svg).or_else(|| parse_width_height(svg))?;
     let mut rects = Vec::new();
+    let mut glyphs = Vec::new();
 
     // 1) Extrai retângulos diretos.
     let bytes = svg.as_bytes();
@@ -978,7 +1016,8 @@ fn parse_bwipjs_svg(svg: &str) -> Option<ParsedSvg> {
         }
     }
 
-    // 2) Extrai barras de `<path stroke-width="N" d="M x y L x y M ...">`.
+    // 2) Extrai barras (`<path stroke-width="N">`) e glifos HRT (`<path>` sem
+    //    `stroke-width`, com comandos M/L/Q/C/Z).
     cursor = 0;
     while let Some(pos) = find_subslice(bytes, b"<path", cursor) {
         cursor = pos + 5;
@@ -989,23 +1028,28 @@ fn parse_bwipjs_svg(svg: &str) -> Option<ParsedSvg> {
         let chunk = &svg[cursor..end];
         cursor = end + 1;
 
-        // `path` sem `stroke-width` (ex.: glifos do HRT) — pulamos.
-        let Some(sw) = parse_attr(chunk, "stroke-width") else {
-            continue;
-        };
-        if sw <= 0.0 {
-            continue;
-        }
         let Some(d) = extract_attr_str(chunk, "d") else {
             continue;
         };
-        // Pulamos `<path>` que misturam comandos não-suportados (HRT bezier).
-        // Critério: se contiver qualquer letra fora de [MLmlZz\s\-0-9.], é glifo.
-        if !is_simple_vertical_path(&d) {
-            continue;
-        }
-        for bar in parse_vertical_bars(&d, sw) {
-            rects.push(bar);
+
+        if let Some(sw) = parse_attr(chunk, "stroke-width") {
+            if sw <= 0.0 {
+                continue;
+            }
+            // Path de barras 1D — só comandos M/L em ziguezague vertical.
+            if !is_simple_vertical_path(&d) {
+                continue;
+            }
+            for bar in parse_vertical_bars(&d, sw) {
+                rects.push(bar);
+            }
+        } else {
+            // Path sem stroke-width → glifo preenchido (HRT). Linearizamos
+            // curvas Q/C em segmentos e devolvemos um ou mais rings.
+            let rings = parse_glyph_path(&d);
+            if !rings.is_empty() {
+                glyphs.push(SvgGlyph { rings });
+            }
         }
     }
 
@@ -1013,7 +1057,178 @@ fn parse_bwipjs_svg(svg: &str) -> Option<ParsedSvg> {
         view_w,
         view_h,
         rects,
+        glyphs,
     })
+}
+
+/// Linearização de curvas Bezier para um número fixo de segmentos. Para HRT
+/// em barcodes (glifos de ~3 mm de altura impressa), 12 segmentos por curva
+/// dão um contorno visualmente suave sem inflacionar o stream de PDF.
+const BEZIER_SEGMENTS: usize = 12;
+
+/// Parseia o `d` de um `<path>` preenchido (glifo do HRT) e devolve um vetor
+/// de rings (polígonos fechados). Suporta comandos absolutos e relativos:
+/// `M`/`m` (moveto, inicia ring), `L`/`l` (lineto), `Q`/`q` (quad bezier),
+/// `C`/`c` (cubic bezier), `Z`/`z` (close — fechado implicitamente já que
+/// devolvemos rings). Comandos não-suportados são tratados como fim do ring
+/// atual (defensivo).
+fn parse_glyph_path(d: &str) -> Vec<Vec<(f64, f64)>> {
+    let mut rings: Vec<Vec<(f64, f64)>> = Vec::new();
+    let mut current: Vec<(f64, f64)> = Vec::new();
+    let mut tokens = SvgPathTokens::new(d);
+    let mut cx: f64 = 0.0;
+    let mut cy: f64 = 0.0;
+    let mut start_x: f64 = 0.0;
+    let mut start_y: f64 = 0.0;
+
+    while let Some(cmd) = tokens.next_command() {
+        match cmd {
+            'M' | 'm' => {
+                if current.len() >= 3 {
+                    rings.push(std::mem::take(&mut current));
+                } else {
+                    current.clear();
+                }
+                let Some((x, y)) = tokens.next_pair() else { break };
+                let (nx, ny) = if cmd == 'm' { (cx + x, cy + y) } else { (x, y) };
+                cx = nx;
+                cy = ny;
+                start_x = nx;
+                start_y = ny;
+                current.push((nx, ny));
+                // Pares numéricos subsequentes após M/m são implícitos L/l.
+                let line_cmd = if cmd == 'm' { 'l' } else { 'L' };
+                while let Some((x2, y2)) = tokens.peek_pair() {
+                    let (nx, ny) = if line_cmd == 'l' {
+                        (cx + x2, cy + y2)
+                    } else {
+                        (x2, y2)
+                    };
+                    cx = nx;
+                    cy = ny;
+                    current.push((nx, ny));
+                    tokens.consume_pair();
+                }
+            }
+            'L' | 'l' => {
+                while let Some((x, y)) = tokens.peek_pair() {
+                    let (nx, ny) = if cmd == 'l' { (cx + x, cy + y) } else { (x, y) };
+                    cx = nx;
+                    cy = ny;
+                    current.push((nx, ny));
+                    tokens.consume_pair();
+                }
+            }
+            'H' | 'h' => {
+                while let Some(x) = tokens.peek_number() {
+                    let nx = if cmd == 'h' { cx + x } else { x };
+                    cx = nx;
+                    current.push((nx, cy));
+                    tokens.consume_number();
+                }
+            }
+            'V' | 'v' => {
+                while let Some(y) = tokens.peek_number() {
+                    let ny = if cmd == 'v' { cy + y } else { y };
+                    cy = ny;
+                    current.push((cx, ny));
+                    tokens.consume_number();
+                }
+            }
+            'Q' | 'q' => {
+                while let (Some((cxp, cyp)), Some((xp, yp))) =
+                    (tokens.peek_pair(), tokens.peek_pair_at(1))
+                {
+                    let (cx1, cy1) = if cmd == 'q' { (cx + cxp, cy + cyp) } else { (cxp, cyp) };
+                    let (ex, ey) = if cmd == 'q' { (cx + xp, cy + yp) } else { (xp, yp) };
+                    tessellate_quadratic(cx, cy, cx1, cy1, ex, ey, &mut current);
+                    cx = ex;
+                    cy = ey;
+                    tokens.consume_pair();
+                    tokens.consume_pair();
+                }
+            }
+            'C' | 'c' => {
+                while let (Some((c1x, c1y)), Some((c2x, c2y)), Some((xp, yp))) = (
+                    tokens.peek_pair(),
+                    tokens.peek_pair_at(1),
+                    tokens.peek_pair_at(2),
+                ) {
+                    let (cx1, cy1) = if cmd == 'c' { (cx + c1x, cy + c1y) } else { (c1x, c1y) };
+                    let (cx2, cy2) = if cmd == 'c' { (cx + c2x, cy + c2y) } else { (c2x, c2y) };
+                    let (ex, ey) = if cmd == 'c' { (cx + xp, cy + yp) } else { (xp, yp) };
+                    tessellate_cubic(cx, cy, cx1, cy1, cx2, cy2, ex, ey, &mut current);
+                    cx = ex;
+                    cy = ey;
+                    tokens.consume_pair();
+                    tokens.consume_pair();
+                    tokens.consume_pair();
+                }
+            }
+            'Z' | 'z' => {
+                if current.len() >= 3 {
+                    rings.push(std::mem::take(&mut current));
+                } else {
+                    current.clear();
+                }
+                cx = start_x;
+                cy = start_y;
+            }
+            _ => {
+                // Comando não suportado — descarta o ring atual para evitar
+                // contornos malformados.
+                current.clear();
+            }
+        }
+    }
+    if current.len() >= 3 {
+        rings.push(current);
+    }
+    rings
+}
+
+fn tessellate_quadratic(
+    x0: f64,
+    y0: f64,
+    cx: f64,
+    cy: f64,
+    x1: f64,
+    y1: f64,
+    out: &mut Vec<(f64, f64)>,
+) {
+    for i in 1..=BEZIER_SEGMENTS {
+        let t = i as f64 / BEZIER_SEGMENTS as f64;
+        let mt = 1.0 - t;
+        let bx = mt * mt * x0 + 2.0 * mt * t * cx + t * t * x1;
+        let by = mt * mt * y0 + 2.0 * mt * t * cy + t * t * y1;
+        out.push((bx, by));
+    }
+}
+
+fn tessellate_cubic(
+    x0: f64,
+    y0: f64,
+    cx1: f64,
+    cy1: f64,
+    cx2: f64,
+    cy2: f64,
+    x1: f64,
+    y1: f64,
+    out: &mut Vec<(f64, f64)>,
+) {
+    for i in 1..=BEZIER_SEGMENTS {
+        let t = i as f64 / BEZIER_SEGMENTS as f64;
+        let mt = 1.0 - t;
+        let bx = mt * mt * mt * x0
+            + 3.0 * mt * mt * t * cx1
+            + 3.0 * mt * t * t * cx2
+            + t * t * t * x1;
+        let by = mt * mt * mt * y0
+            + 3.0 * mt * mt * t * cy1
+            + 3.0 * mt * t * t * cy2
+            + t * t * t * y1;
+        out.push((bx, by));
+    }
 }
 
 /// Verifica se o `d` contém só comandos `M`/`L` (mais espaços/sinais/dígitos).
@@ -1162,6 +1377,45 @@ impl<'a> SvgPathTokens<'a> {
         let y = self.next_number()?;
         Some((x, y))
     }
+
+    /// Olha o próximo número sem consumir. Usado nos parsers de path (Q/C/L)
+    /// que precisam consumir números enquanto não chega outro comando.
+    fn peek_number(&mut self) -> Option<f64> {
+        let saved = self.pos;
+        let n = self.next_number();
+        self.pos = saved;
+        n
+    }
+
+    /// Consome o próximo número (avança o cursor). Pareado com `peek_number`.
+    fn consume_number(&mut self) {
+        let _ = self.next_number();
+    }
+
+    fn peek_pair(&mut self) -> Option<(f64, f64)> {
+        let saved = self.pos;
+        let p = self.next_pair();
+        self.pos = saved;
+        p
+    }
+
+    /// Olha o par numérico `n` posições à frente sem consumir.
+    fn peek_pair_at(&mut self, n: usize) -> Option<(f64, f64)> {
+        let saved = self.pos;
+        for _ in 0..n {
+            if self.next_pair().is_none() {
+                self.pos = saved;
+                return None;
+            }
+        }
+        let p = self.next_pair();
+        self.pos = saved;
+        p
+    }
+
+    fn consume_pair(&mut self) {
+        let _ = self.next_pair();
+    }
 }
 
 /// Extrai o valor de um atributo `name="..."` como string (sem parsear como
@@ -1305,15 +1559,15 @@ mod tests {
     #[test]
     fn parse_bwipjs_svg_extracts_path_bars() {
         // Formato produzido pelo bwip-js 4.x para barcodes 1D — duas barras
-        // verticais com strokes de 3 e 9. Texto HRT (path Bezier) ignorado.
+        // verticais com strokes de 3 e 9, mais um glifo do HRT (path Bezier
+        // preenchido).
         let svg = r##"<svg viewBox="0 0 226 109" xmlns="http://www.w3.org/2000/svg">
             <path stroke="#000000" stroke-width="3" d="M1.50 86L1.50 0M25.50 86L25.50 0" />
             <path stroke="#000000" stroke-width="9" d="M10.50 86L10.50 0" />
-            <path d="M59.90 93.09Q59.55 92.73 59.55 92.26" />
+            <path d="M59.90 93.09Q59.55 92.73 59.55 92.26L60.50 93.09Z" fill="#000000" />
         </svg>"##;
         let parsed = parse_bwipjs_svg(svg).unwrap();
-        // 2 barras finas + 1 grossa = 3 retângulos. O HRT é ignorado pelo
-        // `is_simple_vertical_path` (contém `Q`).
+        // 2 barras finas + 1 grossa = 3 retângulos.
         assert_eq!(parsed.rects.len(), 3);
         assert!((parsed.rects[0].w - 3.0).abs() < 0.001);
         // x = 1.5 - sw/2 = 1.5 - 1.5 = 0.0
@@ -1321,6 +1575,37 @@ mod tests {
         // h = |86 - 0| = 86
         assert!((parsed.rects[0].h - 86.0).abs() < 0.001);
         assert!((parsed.rects[2].w - 9.0).abs() < 0.001);
+        // O glifo do HRT é parseado como polígono preenchido.
+        assert_eq!(parsed.glyphs.len(), 1);
+        assert!(!parsed.glyphs[0].rings.is_empty());
+    }
+
+    #[test]
+    fn parse_glyph_path_tessellates_quadratic_bezier() {
+        // Glifo simples: triângulo com um lado curvado por bezier quadrático.
+        // Esperamos um único ring com BEZIER_SEGMENTS+2 pontos (M + L + Q's
+        // tessellation, fechado por Z).
+        let rings = parse_glyph_path("M0 0L10 0Q15 5 10 10Z");
+        assert_eq!(rings.len(), 1);
+        // M(1) + L(1) + Q-tessellate(BEZIER_SEGMENTS) = 2 + 12 = 14
+        assert_eq!(rings[0].len(), 2 + BEZIER_SEGMENTS);
+        // O último ponto da tessellation deve aproximar o endpoint (10, 10).
+        let last = rings[0][rings[0].len() - 1];
+        assert!((last.0 - 10.0).abs() < 1e-6);
+        assert!((last.1 - 10.0).abs() < 1e-6);
+    }
+
+    #[test]
+    fn parse_glyph_path_tessellates_cubic_and_handles_holes() {
+        // Dois rings separados via M..Z M..Z (caso de letras com hole tipo
+        // `o`/`0`). Cubic bezier em ambos.
+        let d =
+            "M0 0L4 0C5 0 5 4 4 4L0 4ZM1 1L3 1C3.5 1 3.5 3 3 3L1 3Z";
+        let rings = parse_glyph_path(d);
+        assert_eq!(rings.len(), 2);
+        // Cada ring tem M + L + C-tessellate + L = 1+1+12+1 = 15 pontos.
+        assert_eq!(rings[0].len(), 3 + BEZIER_SEGMENTS);
+        assert_eq!(rings[1].len(), 3 + BEZIER_SEGMENTS);
     }
 
     #[test]
