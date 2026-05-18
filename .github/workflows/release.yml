@@ -1,0 +1,264 @@
+name: release
+
+# Pipeline de release multiplataforma do Etiquetador.
+#
+# Disparo:
+#   - Push de tag `vX.Y.Z` (semver). Caminho normal.
+#   - workflow_dispatch (UI do GitHub Actions) com a tag como input.
+#     Use para re-rodar uma release que falhou em alguma plataforma sem
+#     precisar criar uma tag nova.
+#
+# Plataformas geradas em paralelo (matrix):
+#   - Windows 10/11 x86_64 → .msi (instalador WiX em pt-BR)
+#   - macOS universal       → .dmg (Intel + Apple Silicon)
+#   - Linux x86_64          → .deb + .AppImage
+#
+# Fluxo:
+#   prepare        → valida que `package.json`, `Cargo.toml` e
+#                    `tauri.conf.json` declaram a mesma versão da tag.
+#   create-draft   → cria a GitHub Release como **draft** com release
+#                    notes auto-geradas (commits desde a tag anterior).
+#                    Mantém em draft enquanto os builds sobem assets.
+#   build (matrix) → 3 jobs paralelos. Cada SO compila + faz upload dos
+#                    instaladores diretamente para a draft.
+#   publish        → promove a draft a release publicada. Roda apenas se
+#                    TODAS as plataformas da matrix tiverem sucesso.
+#
+# Assinatura digital (Windows EV/Standard e Apple Developer ID) fica para
+# uma fase futura quando os certificados estiverem em mãos. O workflow
+# expõe os secrets esperados — basta cadastrá-los e a action os usa
+# automaticamente.
+
+on:
+  push:
+    tags: ['v*.*.*']
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Tag para construir/republicar (ex.: v0.1.0). Deve existir no repo.'
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+# Evita que duas tags simultâneas se atrapalhem. `cancel-in-progress: false`
+# para não cancelar uma release em meio de upload por causa de outra.
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  NODE_VERSION: '20'
+
+jobs:
+  # ---------------------------------------------------------------------------
+  # Job 1 — valida que tudo está em sync antes de gastar 30+ min em build.
+  # ---------------------------------------------------------------------------
+  prepare:
+    name: Validar versão
+    runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.tag.outputs.value }}
+      version: ${{ steps.tag.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Resolver tag e validar sync de versão
+        id: tag
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            TAG="${{ inputs.tag }}"
+          else
+            TAG="${GITHUB_REF#refs/tags/}"
+          fi
+          if ! echo "$TAG" | grep -Eq '^v[0-9]+\.[0-9]+\.[0-9]+([-+].+)?$'; then
+            echo "::error::Tag '$TAG' não segue o padrão semver vX.Y.Z"
+            exit 1
+          fi
+          VERSION="${TAG#v}"
+          echo "value=$TAG" >> "$GITHUB_OUTPUT"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
+          PKG=$(node -p "require('./package.json').version")
+          CARGO=$(grep '^version' src-tauri/Cargo.toml | head -1 | cut -d'"' -f2)
+          CONF=$(node -p "require('./src-tauri/tauri.conf.json').version")
+          echo "Tag:                $TAG (versão $VERSION)"
+          echo "package.json:       $PKG"
+          echo "Cargo.toml:         $CARGO"
+          echo "tauri.conf.json:    $CONF"
+          if [ "$VERSION" != "$PKG" ] || [ "$VERSION" != "$CARGO" ] || [ "$VERSION" != "$CONF" ]; then
+            echo "::error::Versão fora de sync. Faça bump em todos os arquivos antes de tagear."
+            exit 1
+          fi
+
+  # ---------------------------------------------------------------------------
+  # Job 2 — cria a release em draft. A draft é o "ponto de encontro" dos jobs
+  # de build (cada um faz upload dos seus assets para o mesmo release_id).
+  # ---------------------------------------------------------------------------
+  create-draft:
+    name: Criar release (draft)
+    needs: prepare
+    runs-on: ubuntu-latest
+    outputs:
+      release_id: ${{ steps.draft.outputs.id }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # Histórico completo para o `generate_release_notes` listar commits
+          # desde a última tag.
+          fetch-depth: 0
+
+      - name: Criar/atualizar draft
+        id: draft
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ needs.prepare.outputs.tag }}
+          name: Etiquetador ${{ needs.prepare.outputs.tag }}
+          draft: true
+          generate_release_notes: true
+          body: |
+            ## Etiquetador ${{ needs.prepare.outputs.tag }}
+
+            Aplicativo desktop offline-first para criação e impressão de etiquetas com suporte a Argox (PPLB), Zebra (ZPL) e impressão via driver do SO.
+
+            ### Downloads
+
+            | Plataforma | Arquivo | Notas |
+            |---|---|---|
+            | **Windows 10/11 (64-bit)** | `Etiquetador_${{ needs.prepare.outputs.version }}_x64_pt-BR.msi` | Requer WebView2 (já vem com Windows 10 1809+ e Windows 11) |
+            | **macOS Intel + Apple Silicon** | `Etiquetador_${{ needs.prepare.outputs.version }}_universal.dmg` | macOS 12 Monterey ou superior |
+            | **Linux (Debian/Ubuntu)** | `etiquetador_${{ needs.prepare.outputs.version }}_amd64.deb` | Ubuntu 22.04+, Debian 12+ |
+            | **Linux (AppImage portátil)** | `etiquetador_${{ needs.prepare.outputs.version }}_amd64.AppImage` | Qualquer distro x86_64 com glibc 2.35+ |
+
+            ### Instalação
+
+            - **Windows:** abra o `.msi`, "Avançar" até o fim. O app fica em `Iniciar > Etiquetador`.
+            - **macOS:** abra o `.dmg`, arraste o app para a pasta Aplicativos. Na primeira abertura, segure ⌃ (Control) + clique no app e escolha "Abrir" (binário não-assinado).
+            - **Linux .deb:** `sudo dpkg -i etiquetador_*.deb` ou abra com o Discover/Software.
+            - **Linux AppImage:** `chmod +x etiquetador_*.AppImage && ./etiquetador_*.AppImage`.
+
+  # ---------------------------------------------------------------------------
+  # Job 3 — matrix de build. Cada SO compila e faz upload para a draft em
+  # paralelo. `fail-fast: false` garante que uma falha (ex.: signing macOS
+  # transitório) não cancele os outros — assim você ainda tem 2 dos 3
+  # instaladores e pode rerunear só o que falhou via workflow_dispatch.
+  # ---------------------------------------------------------------------------
+  build:
+    name: Build (${{ matrix.label }})
+    needs: [prepare, create-draft]
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - label: macOS universal (Intel + Apple Silicon)
+            os: macos-latest
+            rust_targets: 'aarch64-apple-darwin,x86_64-apple-darwin'
+            tauri_args: '--target universal-apple-darwin --bundles app,dmg'
+
+          - label: Linux x86_64
+            os: ubuntu-22.04
+            rust_targets: ''
+            tauri_args: '--bundles deb,appimage'
+
+          - label: Windows x86_64
+            os: windows-latest
+            rust_targets: ''
+            tauri_args: '--target x86_64-pc-windows-msvc --bundles msi'
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node ${{ env.NODE_VERSION }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: Setup Rust (stable)
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.rust_targets }}
+
+      # Cache do Rust dramatic reduz o build de ~12 min para ~3-4 min em
+      # re-runs. `key` inclui o OS para isolar caches entre plataformas.
+      - name: Cache Rust deps
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri -> target
+          key: ${{ matrix.os }}
+
+      # Linux precisa do toolkit GTK/WebKit em runtime e libs de bundling.
+      # `webkit2gtk-4.1` é o requerido por Tauri 2.x (em vez do 4.0 do Tauri 1.x).
+      - name: Dependências do SO (Linux)
+        if: matrix.os == 'ubuntu-22.04'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            libwebkit2gtk-4.1-dev \
+            libgtk-3-dev \
+            libayatana-appindicator3-dev \
+            librsvg2-dev \
+            libssl-dev \
+            patchelf \
+            file \
+            fuse \
+            libfuse2
+
+      - name: Instalar deps npm
+        run: npm ci
+
+      # `tauri-action@v0` é a action oficial. Ela:
+      #   1. Roda `tauri build` com os args da matrix.
+      #   2. Pega cada arquivo final em `src-tauri/target/.../bundle/`.
+      #   3. Faz upload na release apontada por `releaseId`.
+      #
+      # Quando os secrets de signing forem cadastrados, eles são consumidos
+      # automaticamente — não precisa mudar o workflow.
+      - name: Build Tauri + upload de assets
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+          # Assinatura macOS (Apple Developer ID) — opcionais. Sem isso, o
+          # .dmg sai não-assinado e o usuário precisa abrir com Ctrl+clique.
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+
+          # Assinatura Windows (EV/Standard code-signing) — opcionais.
+          TAURI_SIGNING_CERTIFICATE_THUMBPRINT: ${{ secrets.TAURI_SIGNING_CERTIFICATE_THUMBPRINT }}
+
+          # Auto-updater do Tauri (chaves Ed25519). Mantemos o updater
+          # desligado por design (PRD §3.1), então estes ficam vazios.
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        with:
+          releaseId: ${{ needs.create-draft.outputs.release_id }}
+          args: ${{ matrix.tauri_args }}
+
+  # ---------------------------------------------------------------------------
+  # Job 4 — promove a draft a release publicada. Só executa se TODAS as
+  # plataformas da matrix tiverem subido seus assets.
+  # ---------------------------------------------------------------------------
+  publish:
+    name: Publicar release
+    needs: [prepare, build]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Promover draft → published
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ needs.prepare.outputs.tag }}
+          draft: false
+          # `make_latest: true` marca essa release como "Latest" no GitHub —
+          # é o que aponta para `/releases/latest` (URL usada pela página
+          # de download no site).
+          make_latest: 'true'

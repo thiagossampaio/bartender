@@ -5,6 +5,19 @@ Stack: **Tauri 2.x + React + TypeScript + Vite + Tailwind CSS + shadcn/ui**.
 
 > **Status atual:** WP-01 (Bootstrap). A galeria, o editor e a impressão entram nas WPs seguintes — veja [`specs/work-plan.md`](./specs/work-plan.md).
 
+## Downloads
+
+Instaladores oficiais são publicados em [**Releases**](https://github.com/thiagossampaio/bartender/releases/latest) pela pipeline do GitHub Actions:
+
+| Plataforma | Arquivo | Notas |
+|---|---|---|
+| Windows 10/11 (64-bit) | `Etiquetador_<versão>_x64_pt-BR.msi` | Requer WebView2 (incluso no Win 10 1809+) |
+| macOS Intel + Apple Silicon | `Etiquetador_<versão>_universal.dmg` | macOS 12 Monterey ou superior |
+| Linux (Debian/Ubuntu) | `etiquetador_<versão>_amd64.deb` | Ubuntu 22.04+ |
+| Linux (AppImage) | `etiquetador_<versão>_amd64.AppImage` | Qualquer distro x86_64 |
+
+Builds são gerados a cada tag `vX.Y.Z` — veja [`docs/release.md`](./docs/release.md) para o procedimento e [`/actions`](https://github.com/thiagossampaio/bartender/actions) para o status atual.
+
 ## Pré-requisitos
 
 | Ferramenta | Versão mínima | Observações |

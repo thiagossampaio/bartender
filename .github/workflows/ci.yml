@@ -1,0 +1,90 @@
+name: ci
+
+# CI leve: roda em PR e push para `main`. Garante que tudo está verde
+# ANTES de criar a tag de release — economiza ~30 min de matrix de build
+# multiplataforma se algo trivial estiver quebrado.
+#
+# Não roda `tauri build` (caro). Apenas:
+#   - Frontend: typecheck + lint + build do Vite + audit de bundle offline-first
+#   - Backend: `cargo check` + `cargo test --lib`
+#
+# Estratégia: tudo em ubuntu-latest (mais rápido e barato). Bugs específicos
+# de Windows/macOS aparecem no `release.yml`, mas como ele é disparado por
+# tag, raramente vamos ter "surpresa" — a maioria dos problemas é detectada
+# por este CI.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  NODE_VERSION: '20'
+
+jobs:
+  frontend:
+    name: Frontend (lint + typecheck + build + audit)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node ${{ env.NODE_VERSION }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Build (Vite)
+        run: npm run build
+
+      # Critério de aceite SPEC-01: zero CDN/endpoint externo no bundle.
+      - name: Auditoria offline-first
+        run: make audit-bundle
+
+  backend:
+    name: Backend (cargo check + test)
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Rust (stable)
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache Rust
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri -> target
+
+      - name: Deps do SO
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            libwebkit2gtk-4.1-dev \
+            libgtk-3-dev \
+            libayatana-appindicator3-dev \
+            librsvg2-dev \
+            libssl-dev
+
+      - name: Cargo check
+        working-directory: src-tauri
+        run: cargo check --locked
+
+      - name: Cargo test
+        working-directory: src-tauri
+        run: cargo test --lib --no-fail-fast
