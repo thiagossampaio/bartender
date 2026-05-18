@@ -1039,15 +1039,21 @@ mod tests {
 
     #[test]
     fn accepts_valid_png_data_url() {
-        // PNG 1x1 transparente.
-        const PNG_1X1: &[u8] = &[
-            0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, 0x00, 0x00, 0x00, 0x0D, 0x49, 0x48,
-            0x44, 0x52, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x01, 0x08, 0x06, 0x00, 0x00,
-            0x00, 0x1F, 0x15, 0xC4, 0x89, 0x00, 0x00, 0x00, 0x0D, 0x49, 0x44, 0x41, 0x54, 0x78,
-            0x9C, 0x63, 0x00, 0x01, 0x00, 0x00, 0x05, 0x00, 0x01, 0x0D, 0x0A, 0x2D, 0xB4, 0x00,
-            0x00, 0x00, 0x00, 0x49, 0x45, 0x4E, 0x44, 0xAE, 0x42, 0x60, 0x82,
-        ];
-        let b64 = BASE64_STANDARD.encode(PNG_1X1);
+        // PNG 1x1 transparente, gerado dinamicamente.
+        //
+        // O byte array hardcoded anterior tinha CRC quebrado no chunk IDAT
+        // (decoders rigorosos como o `png` crate falham com "CRC error").
+        // Gerar via `image::codecs::png::PngEncoder` garante bytes sempre
+        // válidos — e exercita exatamente a mesma cadeia que o backend
+        // usa para ler/validar PNGs (`image::load_from_memory_with_format`).
+        use image::{codecs::png::PngEncoder, ColorType, ImageEncoder};
+        let pixel: [u8; 4] = [0, 0, 0, 0]; // RGBA transparente
+        let mut png_bytes: Vec<u8> = Vec::new();
+        let encoder = PngEncoder::new(&mut png_bytes);
+        encoder
+            .write_image(&pixel, 1, 1, ColorType::Rgba8)
+            .expect("encode PNG 1x1 in-memory");
+        let b64 = BASE64_STANDARD.encode(&png_bytes);
         let cj = format!(
             r#"{{"version":1,"units":"mm","canvas":{{"width":50,"height":30,"dpi":203}},"objects":[
                 {{"type":"image","id":"i1","x":0,"y":0,"src":"data:image/png;base64,{}"}}
