@@ -59,12 +59,17 @@ export function Gallery() {
   const [flash, setFlash] = React.useState<string | null>(null);
   const [flashError, setFlashError] = React.useState<string | null>(null);
 
-  // Carrega na primeira renderização da galeria.
+  // Carrega na primeira renderização da galeria E refaz a query toda vez
+  // que o termo de busca muda. Antes (`setSearchTerm` disparava `refresh()`
+  // internamente no store) ficou frágil sob HMR — referência ao store
+  // capturada por `get()` podia apontar para instância antiga. Manter o
+  // trigger aqui no componente garante que a fonte da verdade do "quando
+  // refazer a busca" seja o ciclo de render do React.
   React.useEffect(() => {
     if (view === "gallery") {
       void refresh();
     }
-  }, [view, refresh]);
+  }, [view, searchTerm, refresh]);
 
   // Mensagem efêmera de sucesso (export / import): fade em ~4s.
   React.useEffect(() => {

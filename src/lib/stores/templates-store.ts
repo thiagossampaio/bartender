@@ -121,8 +121,11 @@ export const useTemplatesStore = create<TemplatesState>((set, get) => ({
   },
 
   setSearchTerm: (term) => {
+    // Apenas atualiza o estado — o `refresh()` é disparado pelos
+    // consumidores via `useEffect` para evitar duplo trigger sob StrictMode
+    // e race conditions com HMR (`get()` poderia apontar para instância
+    // antiga do store após hot reload do módulo).
     set({ searchTerm: term });
-    void get().refresh();
   },
 
   refresh: async () => {
