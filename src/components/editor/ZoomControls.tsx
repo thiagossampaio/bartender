@@ -67,24 +67,26 @@ export function ZoomControls() {
         type="button"
         onClick={() => setGrid(grid === 1 ? 5 : 1)}
         className={cn(
-          "flex h-8 items-center gap-1 rounded-md border px-2 text-xs",
+          "flex h-8 items-center gap-1.5 rounded-md px-2 text-xs",
           "hover:bg-accent hover:text-accent-foreground",
+          "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
         )}
         aria-label="Alternar tamanho da grade"
         title={`Grade ${grid} mm`}
       >
-        <Grid3x3 className="h-4 w-4" aria-hidden="true" />
-        {grid} mm
+        <Grid3x3 className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
+        <span className="font-mono">{grid}mm</span>
       </button>
 
       <button
         type="button"
         onClick={() => toggleSnap()}
         className={cn(
-          "flex h-8 items-center gap-1 rounded-md border px-2 text-xs",
+          "flex h-8 items-center gap-1.5 rounded-md px-2 text-xs transition-colors",
+          "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
           snapEnabled
-            ? "bg-primary text-primary-foreground hover:bg-primary/90"
-            : "hover:bg-accent hover:text-accent-foreground",
+            ? "bg-secondary text-secondary-foreground shadow-sm hover:bg-secondary/80"
+            : "text-muted-foreground hover:bg-accent hover:text-accent-foreground",
         )}
         aria-pressed={snapEnabled}
         title={snapEnabled ? "Snap ativado" : "Snap desativado"}

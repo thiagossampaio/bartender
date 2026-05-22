@@ -1,5 +1,5 @@
 import * as React from "react";
-import { ArrowLeft, RotateCcw, Trash2 } from "lucide-react";
+import { RotateCcw, Trash2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -22,7 +22,6 @@ export function Trash() {
   const trashed = useTemplatesStore((s) => s.trashed);
   const loading = useTemplatesStore((s) => s.loading);
   const error = useTemplatesStore((s) => s.error);
-  const setView = useTemplatesStore((s) => s.setView);
   const refresh = useTemplatesStore((s) => s.refresh);
   const restoreTemplate = useTemplatesStore((s) => s.restoreTemplate);
   const hardDeleteTemplate = useTemplatesStore((s) => s.hardDeleteTemplate);
@@ -36,25 +35,15 @@ export function Trash() {
 
   return (
     <div className="flex h-full flex-col">
-      <header className="flex items-center justify-between gap-4 border-b bg-background px-6 py-4">
-        <div className="flex items-center gap-3">
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => setView("gallery")}
-            aria-label="Voltar para a galeria"
-          >
-            <ArrowLeft className="h-4 w-4" aria-hidden="true" />
-          </Button>
-          <div>
-            <h1 className="text-2xl font-semibold tracking-tight">Lixeira</h1>
-            <p className="text-sm text-muted-foreground">
-              Templates excluídos. Restaure ou apague em definitivo. Itens
-              permanecem aqui indefinidamente — não há purga automática.
-            </p>
-          </div>
+      <div className="flex h-14 shrink-0 items-center gap-3 border-b bg-background px-4">
+        <div className="min-w-0">
+          <h1 className="text-base font-semibold leading-tight">Lixeira</h1>
+          <p className="hidden text-xs text-muted-foreground sm:block">
+            Templates excluídos. Restaure ou apague em definitivo. Itens
+            permanecem aqui indefinidamente — não há purga automática.
+          </p>
         </div>
-      </header>
+      </div>
 
       <main className="flex-1 overflow-auto px-6 py-6">
         {error && (

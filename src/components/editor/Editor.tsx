@@ -8,10 +8,13 @@ import {
   Printer as PrinterIcon,
   Redo2,
   Save,
+  SaveAll,
   Undo2,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import { Separator } from "@/components/ui/separator";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { CanvasArea } from "@/components/editor/CanvasArea";
 import { PreviewModal, type PreviewPage } from "@/components/editor/PreviewModal";
 import { PrintDialog } from "@/components/editor/PrintDialog";
@@ -475,16 +478,22 @@ export function Editor() {
 
   return (
     <div className="flex h-full flex-col bg-background">
-      <header className="flex items-center justify-between gap-4 border-b bg-background px-4 py-2">
-        <div className="flex min-w-0 items-center gap-3">
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={requestClose}
-            aria-label="Voltar para a galeria"
-          >
-            <ArrowLeft className="h-4 w-4" aria-hidden="true" />
-          </Button>
+      <header className="flex h-12 shrink-0 items-center justify-between gap-2 border-b bg-background px-3">
+        <div className="flex min-w-0 items-center gap-2">
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={requestClose}
+                aria-label="Voltar para a galeria"
+                className="h-8 w-8"
+              >
+                <ArrowLeft className="h-4 w-4" aria-hidden="true" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="bottom">Voltar para a galeria</TooltipContent>
+          </Tooltip>
           <div className="min-w-0">
             <h1
               className="truncate text-sm font-semibold leading-tight"
@@ -493,109 +502,186 @@ export function Editor() {
               {dirty ? "• " : ""}
               {template?.name ?? "—"}
             </h1>
-            <p className="text-xs text-muted-foreground">
+            <p className="hidden truncate text-xs text-muted-foreground sm:block">
               {template
                 ? `${template.widthMm} × ${template.heightMm} mm · ${template.dpi} dpi`
                 : ""}
             </p>
           </div>
         </div>
-        <div className="flex items-center gap-2">
-          <div className="flex items-center gap-1 rounded-md border bg-card px-1">
-            <button
-              type="button"
-              onClick={() => undo()}
-              disabled={!canUndo}
-              aria-label="Desfazer"
-              title={`Desfazer (${formatShortcut("Z")})`}
-              className="flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-40"
-            >
-              <Undo2 className="h-4 w-4" aria-hidden="true" />
-            </button>
-            <button
-              type="button"
-              onClick={() => redo()}
-              disabled={!canRedo}
-              aria-label="Refazer"
-              title={`Refazer (${formatShortcut("Z", { shift: true })})`}
-              className="flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-40"
-            >
-              <Redo2 className="h-4 w-4" aria-hidden="true" />
-            </button>
+
+        <div className="flex items-center gap-1">
+          {/* Histórico (undo / redo) */}
+          <div className="flex items-center gap-0.5">
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => undo()}
+                  disabled={!canUndo}
+                  aria-label="Desfazer"
+                  className="h-8 w-8"
+                >
+                  <Undo2 className="h-4 w-4" aria-hidden="true" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="bottom">
+                Desfazer · {formatShortcut("Z")}
+              </TooltipContent>
+            </Tooltip>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => redo()}
+                  disabled={!canRedo}
+                  aria-label="Refazer"
+                  className="h-8 w-8"
+                >
+                  <Redo2 className="h-4 w-4" aria-hidden="true" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="bottom">
+                Refazer · {formatShortcut("Z", { shift: true })}
+              </TooltipContent>
+            </Tooltip>
           </div>
+
+          <Separator orientation="vertical" className="mx-1 h-6" />
+
           <ZoomControls />
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleOpenDataImport}
-            disabled={!template}
-            title="Importar dados (CSV/XLSX)"
-          >
-            <Database className="h-4 w-4" aria-hidden="true" />
-            {dataImport ? "Dados…" : "Importar dados"}
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setBatchWizardOpen(true)}
-            disabled={!template || !dataImport}
-            title={
-              dataImport
-                ? "Imprimir em lote a partir da planilha importada"
-                : "Importe uma planilha para imprimir em lote"
-            }
-          >
-            <Layers className="h-4 w-4" aria-hidden="true" />
-            Imprimir lote
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handlePreview}
-            disabled={!template}
-            title="Pré-visualizar a etiqueta"
-          >
-            <Eye className="h-4 w-4" aria-hidden="true" />
-            Pré-visualizar
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => void handleExportPdf()}
-            disabled={!template || exporting}
-            title="Exportar PDF"
-          >
-            <FileDown className="h-4 w-4" aria-hidden="true" />
-            {exporting ? "Exportando…" : "Exportar PDF"}
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleOpenPrint}
-            disabled={!template}
-            title="Imprimir"
-          >
-            <PrinterIcon className="h-4 w-4" aria-hidden="true" />
-            Imprimir
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleSaveAs}
-            disabled={saving}
-            title={`Salvar como (${formatShortcut("S", { shift: true })})`}
-          >
-            Salvar como
-          </Button>
-          <Button
-            size="sm"
-            onClick={() => void handleSave()}
-            disabled={saving || !dirty}
-            title={`Salvar (${formatShortcut("S")})`}
-          >
-            <Save className="h-4 w-4" aria-hidden="true" />
-            {saving ? "Salvando…" : "Salvar"}
-          </Button>
+
+          <Separator orientation="vertical" className="mx-1 h-6" />
+
+          {/* Dados */}
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={handleOpenDataImport}
+                disabled={!template}
+                aria-label="Importar dados (CSV/XLSX)"
+                aria-pressed={Boolean(dataImport)}
+                className="h-8 w-8 aria-pressed:bg-accent aria-pressed:text-accent-foreground"
+              >
+                <Database className="h-4 w-4" aria-hidden="true" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="bottom">
+              {dataImport ? "Dados importados (clique para trocar)" : "Importar dados (CSV/XLSX)"}
+            </TooltipContent>
+          </Tooltip>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => setBatchWizardOpen(true)}
+                disabled={!template || !dataImport}
+                aria-label="Imprimir em lote"
+                className="h-8 w-8"
+              >
+                <Layers className="h-4 w-4" aria-hidden="true" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="bottom">
+              {dataImport
+                ? "Imprimir em lote a partir da planilha"
+                : "Importe uma planilha para habilitar"}
+            </TooltipContent>
+          </Tooltip>
+
+          <Separator orientation="vertical" className="mx-1 h-6" />
+
+          {/* Saída */}
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={handlePreview}
+                disabled={!template}
+                aria-label="Pré-visualizar"
+                className="h-8 w-8"
+              >
+                <Eye className="h-4 w-4" aria-hidden="true" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="bottom">Pré-visualizar a etiqueta</TooltipContent>
+          </Tooltip>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => void handleExportPdf()}
+                disabled={!template || exporting}
+                aria-label="Exportar PDF"
+                className="h-8 w-8"
+              >
+                <FileDown className="h-4 w-4" aria-hidden="true" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="bottom">
+              {exporting ? "Exportando PDF…" : "Exportar PDF"}
+            </TooltipContent>
+          </Tooltip>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={handleOpenPrint}
+                disabled={!template}
+                aria-label="Imprimir"
+                className="h-8 w-8"
+              >
+                <PrinterIcon className="h-4 w-4" aria-hidden="true" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="bottom">Imprimir</TooltipContent>
+          </Tooltip>
+
+          <Separator orientation="vertical" className="mx-1 h-6" />
+
+          {/* Salvar */}
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={handleSaveAs}
+                disabled={saving}
+                aria-label="Salvar como"
+                className="h-8 w-8"
+              >
+                <SaveAll className="h-4 w-4" aria-hidden="true" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="bottom">
+              Salvar como · {formatShortcut("S", { shift: true })}
+            </TooltipContent>
+          </Tooltip>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                size="sm"
+                onClick={() => void handleSave()}
+                disabled={saving || !dirty}
+                aria-label="Salvar"
+                className="h-8 gap-1.5 px-3"
+              >
+                <Save className="h-4 w-4" aria-hidden="true" />
+                <span>{saving ? "Salvando…" : "Salvar"}</span>
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="bottom">
+              Salvar · {formatShortcut("S")}
+            </TooltipContent>
+          </Tooltip>
         </div>
       </header>
 

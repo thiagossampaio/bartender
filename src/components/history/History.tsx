@@ -1,6 +1,5 @@
 import * as React from "react";
 import {
-  ArrowLeft,
   ChevronLeft,
   ChevronRight,
   FileSpreadsheet,
@@ -10,6 +9,7 @@ import {
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import {
   historyCanReprint,
   historyPage,
@@ -45,7 +45,6 @@ import { cn } from "@/lib/utils";
 const PAGE_SIZE = 50;
 
 export function History() {
-  const setView = useTemplatesStore((s) => s.setView);
   const openEditor = useTemplatesStore((s) => s.openEditor);
 
   const [page, setPage] = React.useState(1);
@@ -111,40 +110,35 @@ export function History() {
 
   return (
     <div className="flex h-full flex-col">
-      <header className="flex items-center justify-between gap-4 border-b bg-background px-6 py-4">
-        <div className="flex items-center gap-3">
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => setView("gallery")}
-            aria-label="Voltar para a galeria"
-          >
-            <ArrowLeft className="h-4 w-4" aria-hidden="true" />
-          </Button>
-          <div>
-            <h1 className="text-2xl font-semibold tracking-tight">Histórico</h1>
-            <p className="text-sm text-muted-foreground">
-              Impressões registradas no app. Use "Reimprimir" para reabrir o
-              template no editor.
-            </p>
-          </div>
+      <div className="flex h-14 shrink-0 items-center gap-3 border-b bg-background px-4">
+        <div className="min-w-0">
+          <h1 className="text-base font-semibold leading-tight">Histórico</h1>
+          <p className="hidden text-xs text-muted-foreground sm:block">
+            Impressões registradas no app. Use "Reimprimir" para reabrir o
+            template no editor.
+          </p>
         </div>
-        <div className="flex items-center gap-2">
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => void reload(page)}
-            disabled={loading}
-            title="Atualizar histórico"
-          >
-            <RefreshCw
-              className={cn("h-4 w-4", loading && "animate-spin")}
-              aria-hidden="true"
-            />
-            Atualizar
-          </Button>
+        <div className="ml-auto flex items-center gap-2">
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => void reload(page)}
+                disabled={loading}
+                aria-label="Atualizar histórico"
+              >
+                <RefreshCw
+                  className={cn("h-4 w-4", loading && "animate-spin")}
+                  aria-hidden="true"
+                />
+                <span className="hidden sm:inline">Atualizar</span>
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="bottom">Atualizar histórico</TooltipContent>
+          </Tooltip>
         </div>
-      </header>
+      </div>
 
       <main className="flex-1 overflow-auto px-6 py-6">
         {error && (
