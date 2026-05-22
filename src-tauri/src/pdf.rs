@@ -30,7 +30,7 @@
 //!   crate é chamado uma única vez por objeto imagem.
 
 use std::fs::File;
-use std::io::BufWriter;
+use std::io::{BufWriter, Write};
 use std::path::PathBuf;
 
 use base64::Engine as _;
@@ -301,8 +301,25 @@ fn build_document(canvas_jsons: &[String]) -> Result<PdfDocumentReference, PdfEr
 pub fn pdf_export(canvas_jsons: Vec<String>, output_path: String) -> Result<String, PdfError> {
     let doc = build_document(&canvas_jsons)?;
 
-    // Salva o arquivo. `printpdf` exige um `BufWriter`.
+    // Garante diretório-pai existente. Diálogo `save()` do plugin-dialog
+    // permite digitar um caminho cuja pasta-pai ainda não existe; sem isso
+    // o `File::create` falha com NotFound e o usuário não entende por quê.
     let path = PathBuf::from(&output_path);
+    if let Some(parent) = path.parent() {
+        if !parent.as_os_str().is_empty() && !parent.exists() {
+            std::fs::create_dir_all(parent).map_err(|source| PdfError::Io {
+                path: parent.display().to_string(),
+                source,
+            })?;
+        }
+    }
+
+    // Salva o arquivo. `printpdf` exige um `BufWriter`. ATENÇÃO: o `Drop` do
+    // `BufWriter` chama `flush()` mas engole erros silenciosamente — então
+    // fazemos flush + sync_all() explícitos para garantir que o arquivo
+    // chegue no disco antes de retornarmos `Ok(path)` ao frontend.
+    // (Sintoma anterior: o diálogo de save fechava mas o arquivo não aparecia
+    // em nenhum lugar — bytes ficavam no buffer e o erro era perdido.)
     let file = File::create(&path).map_err(|source| PdfError::Io {
         path: output_path.clone(),
         source,
@@ -310,6 +327,21 @@ pub fn pdf_export(canvas_jsons: Vec<String>, output_path: String) -> Result<Stri
     let mut writer = BufWriter::new(file);
     doc.save(&mut writer)
         .map_err(|e| PdfError::Generate(e.to_string()))?;
+    writer.flush().map_err(|source| PdfError::Io {
+        path: output_path.clone(),
+        source,
+    })?;
+    let file = writer.into_inner().map_err(|e| PdfError::Io {
+        path: output_path.clone(),
+        source: e.into_error(),
+    })?;
+    // sync_all() é uma fsync — força os dados a chegarem no disco mesmo se
+    // o SO estiver fazendo write-back caching. Sem isso, o arquivo pode
+    // "existir" do ponto de vista do processo mas não no FS imediatamente.
+    file.sync_all().map_err(|source| PdfError::Io {
+        path: output_path.clone(),
+        source,
+    })?;
 
     Ok(output_path)
 }
@@ -1629,5 +1661,61 @@ mod tests {
     fn empty_payload_is_rejected() {
         let err = pdf_export(vec![], "/tmp/x.pdf".into()).unwrap_err();
         assert!(matches!(err, PdfError::EmptyPayload));
+    }
+
+    #[test]
+    fn pdf_export_writes_valid_pdf_to_disk() {
+        // Regressão do bug "diálogo de save fecha mas arquivo não aparece".
+        // Causa anterior: o `BufWriter` era dropado implicitamente e qualquer
+        // erro de flush ficava engolido por `Drop::drop`. O fix garante
+        // `flush()` + `sync_all()` explícitos.
+        let canvas = r#"{
+            "version": 1,
+            "units": "mm",
+            "canvas": { "width": 50, "height": 30, "dpi": 203 },
+            "objects": [
+                { "type": "text", "id": "t1", "x": 5, "y": 5,
+                  "width": 40, "height": 10,
+                  "content": "Hello", "fontSize": 12 }
+            ]
+        }"#;
+        let tmp = std::env::temp_dir().join("bartender_pdf_export_smoke.pdf");
+        // Limpa restos de execuções anteriores.
+        let _ = std::fs::remove_file(&tmp);
+
+        let returned = pdf_export(vec![canvas.into()], tmp.to_string_lossy().into())
+            .expect("pdf_export deve ter sucesso");
+
+        // O backend devolve o path original.
+        assert_eq!(returned, tmp.to_string_lossy());
+
+        // O arquivo precisa existir no disco e ter cabeçalho de PDF.
+        assert!(tmp.exists(), "PDF não foi gravado em {:?}", tmp);
+        let bytes = std::fs::read(&tmp).expect("ler PDF gravado");
+        assert!(bytes.len() > 100, "PDF suspeito de estar vazio ({} bytes)", bytes.len());
+        assert_eq!(&bytes[..4], b"%PDF", "cabeçalho de PDF ausente");
+
+        let _ = std::fs::remove_file(&tmp);
+    }
+
+    #[test]
+    fn pdf_export_creates_missing_parent_directory() {
+        // Diálogo de save permite digitar um path com pasta-pai inexistente.
+        // O fix cria a pasta antes do `File::create`.
+        let dir = std::env::temp_dir().join("bartender_pdf_export_subdir");
+        let _ = std::fs::remove_dir_all(&dir);
+        let tmp = dir.join("nested").join("etiqueta.pdf");
+
+        let canvas = r#"{
+            "version": 1,
+            "units": "mm",
+            "canvas": { "width": 50, "height": 30, "dpi": 203 },
+            "objects": []
+        }"#;
+        pdf_export(vec![canvas.into()], tmp.to_string_lossy().into())
+            .expect("pdf_export deve criar diretório-pai e gravar");
+        assert!(tmp.exists());
+
+        let _ = std::fs::remove_dir_all(&dir);
     }
 }

@@ -354,17 +354,21 @@ pub fn generate_pplb(canvas_json: &str, copies: u32) -> Result<PplbProgram, Pplb
     let width_dots = mm_to_dots(parsed.canvas.width, dpi);
     let height_dots = mm_to_dots(parsed.canvas.height, dpi);
 
-    // PPLB usa `\r\n` ao final de cada comando (CRLF é o padrão de quase todos
-    // os firmwares Argox). Mantemos um único acumulador.
+    // PPLB usa **LF puro** (`\n`) como terminador de comando — é o que o
+    // firmware Argox OS-214 Plus / OS-2140 / X-2300 espera (referência:
+    // "Argox PPLB Programming Manual", seção "Command Syntax"). Enviar CRLF
+    // (`\r\n`) cola o `\r` ao último argumento, fazendo a impressora
+    // receber bytes mas nunca encontrar um comando bem-formado — sintoma
+    // clássico: LED pisca mas nada imprime.
     let mut out = String::with_capacity(256);
     // Preâmbulo padrão (referência: manual Argox PPLB §A "Setup").
-    out.push_str("N\r\n");
-    out.push_str(&format!("q{}\r\n", width_dots));
+    out.push_str("N\n");
+    out.push_str(&format!("q{}\n", width_dots));
     // Gap padrão 24 dots (3 mm a 203 dpi) — pode ser sobrescrito por
     // calibração no [WP-15] que ainda não está integrada.
-    out.push_str(&format!("Q{},24\r\n", height_dots));
-    out.push_str("S2\r\n");
-    out.push_str("D8\r\n");
+    out.push_str(&format!("Q{},24\n", height_dots));
+    out.push_str("S2\n");
+    out.push_str("D8\n");
 
     for obj in &parsed.objects {
         match obj {
@@ -381,7 +385,7 @@ pub fn generate_pplb(canvas_json: &str, copies: u32) -> Result<PplbProgram, Pplb
         }
     }
 
-    out.push_str(&format!("P{}\r\n", copies));
+    out.push_str(&format!("P{}\n", copies));
     Ok(PplbProgram { code: out })
 }
 
@@ -421,7 +425,7 @@ fn emit_text(out: &mut String, obj: &TextObj, dpi: f64) {
     let reverse = if bold { 'R' } else { 'N' };
     let escaped = escape_pplb(&content);
     out.push_str(&format!(
-        "A{},{},{},{},{},{},{},\"{}\"\r\n",
+        "A{},{},{},{},{},{},{},\"{}\"\n",
         x, y, rot, font, h_mult, v_mult, reverse, escaped
     ));
 }
@@ -450,14 +454,14 @@ fn emit_rect(out: &mut String, obj: &RectObj, dpi: f64) {
 
     // Preenchimento sólido: comando `LO` cobrindo a área inteira.
     if has_fill {
-        out.push_str(&format!("LO{},{},{},{}\r\n", x, y, w_d, h_d));
+        out.push_str(&format!("LO{},{},{},{}\n", x, y, w_d, h_d));
     }
     // Contorno: comando `X` (box). `X x,y,thickness,xend,yend` em dots.
     if has_stroke && !has_fill {
         let thickness_mm = obj.stroke_width.unwrap_or(0.3);
         let t = mm_to_dots(thickness_mm, dpi).max(1);
         out.push_str(&format!(
-            "X{},{},{},{},{}\r\n",
+            "X{},{},{},{},{}\n",
             x,
             y,
             t,
@@ -485,7 +489,7 @@ fn emit_line(out: &mut String, obj: &LineObj, dpi: f64) {
     // `LO x,y,width,height` desenha um retângulo preto sólido — equivalente a
     // uma linha grossa quando `height` é pequeno. Linhas em diagonal não são
     // suportadas no modo nativo (raster como fallback futuro).
-    out.push_str(&format!("LO{},{},{},{}\r\n", x, y, w_d, h_d));
+    out.push_str(&format!("LO{},{},{},{}\n", x, y, w_d, h_d));
 }
 
 /// Ellipse: PPLB não tem comando nativo. Emite um comentário marcador para
@@ -494,7 +498,7 @@ fn emit_line(out: &mut String, obj: &LineObj, dpi: f64) {
 fn emit_ellipse_placeholder(out: &mut String, obj: &EllipseObj, dpi: f64) {
     let x = mm_to_dots(obj.base.x, dpi);
     let y = mm_to_dots(obj.base.y, dpi);
-    out.push_str(&format!("; ellipse @ {},{} (raster fallback pendente)\r\n", x, y));
+    out.push_str(&format!("; ellipse @ {},{} (raster fallback pendente)\n", x, y));
 }
 
 /// Image: idem — sem pipeline raster ainda. Marcador.
@@ -504,7 +508,7 @@ fn emit_image_placeholder(out: &mut String, obj: &ImageObj, dpi: f64) {
     }
     let x = mm_to_dots(obj.base.x, dpi);
     let y = mm_to_dots(obj.base.y, dpi);
-    out.push_str(&format!("; image @ {},{} (raster fallback pendente)\r\n", x, y));
+    out.push_str(&format!("; image @ {},{} (raster fallback pendente)\n", x, y));
 }
 
 fn emit_barcode(out: &mut String, obj: &BarcodeObj, dpi: f64) {
@@ -536,7 +540,7 @@ fn emit_barcode(out: &mut String, obj: &BarcodeObj, dpi: f64) {
         let x = mm_to_dots(obj.base.x, dpi);
         let y = mm_to_dots(obj.base.y, dpi);
         out.push_str(&format!(
-            "; barcode {} @ {},{} (raster fallback pendente)\r\n",
+            "; barcode {} @ {},{} (raster fallback pendente)\n",
             symbology, x, y
         ));
         return;
@@ -565,7 +569,7 @@ fn emit_barcode(out: &mut String, obj: &BarcodeObj, dpi: f64) {
     let hrt = if obj.show_text.unwrap_or(true) { 'B' } else { 'N' };
     let escaped = escape_pplb(&value);
     out.push_str(&format!(
-        "B{},{},{},{},{},{},{},{},\"{}\"\r\n",
+        "B{},{},{},{},{},{},{},{},\"{}\"\n",
         x, y, rot, code, narrow, wide, height_dots, hrt, escaped
     ));
 }
@@ -609,7 +613,7 @@ fn emit_qrcode_inner(
     // Algumas firmwares aceitam o eclevel inline no campo `m`; manter forma
     // detalhada (s+e separados) maximiza compatibilidade.
     out.push_str(&format!(
-        "b{},{},Q,m{},s{},e{},\"{}\"\r\n",
+        "b{},{},Q,m{},s{},e{},\"{}\"\n",
         x, y, rot, scale, ecl, escaped
     ));
 }
@@ -691,19 +695,19 @@ mod tests {
         let json = build_canvas(50.0, 30.0, 203.0, "");
         let prog = generate_pplb(&json, 1).unwrap();
         assert!(
-            prog.code.contains("q400\r\n"),
+            prog.code.contains("q400\n"),
             "esperado q400, recebido: {}",
             prog.code
         );
         assert!(
-            prog.code.contains("Q240,24\r\n"),
+            prog.code.contains("Q240,24\n"),
             "esperado Q240,24, recebido: {}",
             prog.code
         );
-        assert!(prog.code.contains("S2\r\n"));
-        assert!(prog.code.contains("D8\r\n"));
-        assert!(prog.code.contains("P1\r\n"));
-        assert!(prog.code.starts_with("N\r\n"));
+        assert!(prog.code.contains("S2\n"));
+        assert!(prog.code.contains("D8\n"));
+        assert!(prog.code.contains("P1\n"));
+        assert!(prog.code.starts_with("N\n"));
     }
 
     #[test]
@@ -830,7 +834,7 @@ mod tests {
     fn copies_count_lands_in_p_command() {
         let json = build_canvas(50.0, 30.0, 203.0, "");
         let prog = generate_pplb(&json, 5).unwrap();
-        assert!(prog.code.contains("P5\r\n"));
+        assert!(prog.code.contains("P5\n"));
     }
 
     #[test]
@@ -854,7 +858,7 @@ mod tests {
         let json = build_canvas(50.0, 30.0, 203.0, obj);
         let prog = generate_pplb(&json, 1).unwrap();
         // Apenas o preâmbulo + P1, sem comandos extras.
-        assert!(prog.code.contains("P1\r\n"));
+        assert!(prog.code.contains("P1\n"));
         assert!(!prog.code.contains("future-type"));
     }
 
@@ -889,10 +893,10 @@ mod tests {
         assert!(idx_tam < idx_preco);
         assert!(idx_preco < idx_ean);
         // Header / footer ainda presentes.
-        assert!(prog.code.starts_with("N\r\n"));
-        assert!(prog.code.contains("q400\r\n"));
-        assert!(prog.code.contains("Q240,24\r\n"));
-        assert!(prog.code.contains("P1\r\n"));
+        assert!(prog.code.starts_with("N\n"));
+        assert!(prog.code.contains("q400\n"));
+        assert!(prog.code.contains("Q240,24\n"));
+        assert!(prog.code.contains("P1\n"));
     }
 
     #[test]
@@ -941,8 +945,8 @@ mod tests {
         let json = build_canvas(40.0, 20.0, 203.0, "");
         let prog = generate_pplb(&json, 3).unwrap();
         // q320 (40*8), Q160,24 (20*8 + gap), P3.
-        assert!(prog.code.contains("q320\r\n"));
-        assert!(prog.code.contains("Q160,24\r\n"));
-        assert!(prog.code.contains("P3\r\n"));
+        assert!(prog.code.contains("q320\n"));
+        assert!(prog.code.contains("Q160,24\n"));
+        assert!(prog.code.contains("P3\n"));
     }
 }

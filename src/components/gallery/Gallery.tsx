@@ -29,6 +29,7 @@ import {
   type EtlblInspect,
   type ImportConflictResolution,
 } from "@/lib/etlbl";
+import { extractErrorMessage } from "@/lib/errors";
 import { useTemplatesStore } from "@/lib/stores/templates-store";
 import type { TemplateRow } from "@/lib/templates";
 
@@ -100,7 +101,11 @@ export function Gallery() {
         setFlash(`Template exportado: ${path}`);
       }
     } catch (e) {
-      setFlashError(e instanceof Error ? e.message : "Falha ao exportar template.");
+      // Tauri 2.x rejeita com string nua quando o backend serializa o erro
+      // como string — `extractErrorMessage` cobre Error/string/objeto e
+      // preserva a mensagem real do Rust (`EtlblError::Io(...)`, etc).
+      console.error("[gallery] exportTemplate falhou:", e);
+      setFlashError(extractErrorMessage(e, "Falha ao exportar template."));
     }
   }
 
@@ -123,7 +128,8 @@ export function Gallery() {
         setFlash(`Template “${outcome.template.name}” importado.`);
       }
     } catch (e) {
-      setFlashError(e instanceof Error ? e.message : "Falha ao importar template.");
+      console.error("[gallery] importTemplate falhou:", e);
+      setFlashError(extractErrorMessage(e, "Falha ao importar template."));
     } finally {
       setImporting(false);
     }

@@ -22,9 +22,21 @@
 //! revalidado como PNG/JPEG/SVG antes do import ser commitado no banco. Falhas
 //! retornam erro claro (`ImageSanitization`) — PRD §6.5.
 //!
-//! **Schema strict:** o `template.json` é deserializado com
-//! `#[serde(deny_unknown_fields)]` em **todos** os structs aninhados. Campos
-//! extras = erro de schema — PRD §6.5 / SPEC-11.
+//! **Schema strict (root) + tolerante (interno):**
+//!  - `TemplateJson` (root do nosso formato) e `Manifest` usam
+//!    `#[serde(deny_unknown_fields)]` — controlamos 100% desse schema e
+//!    qualquer campo extra é sinal de adulteração.
+//!  - O **`canvas_json` interno** (que vem do frontend e evolui sem nossa
+//!    permissão) é deserializado em modo tolerante: campos desconhecidos
+//!    em `TextObj`, `ImageObj`, etc. são silenciosamente ignorados. Sem
+//!    isso, cada vez que o frontend adiciona `verticalAlign`, `layout`,
+//!    `autoShrink` etc., todos os exports antigos quebrariam.
+//!  - Tipos de objeto desconhecidos (`type:"future_widget"`) caem no
+//!    variant `CanvasObject::Unknown` e são tolerados também — mesmo
+//!    padrão de `pplb.rs` / `zpl.rs`.
+//!  - A defesa em profundidade real está em `sanitize_images` (re-valida
+//!    PNG/JPEG/SVG byte-a-byte) e em `compute_content_hash` (detecta
+//!    qualquer adulteração do `template.json` pós-export).
 
 use std::io::{Cursor, Read, Write};
 use std::path::PathBuf;
@@ -98,176 +110,31 @@ pub struct TemplateJson {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub origin_app_version: Option<String>,
     /// Estado serializado do canvas — schema versionado em PRD §4.3.
+    /// **Opaco do ponto de vista do Rust** (`serde_json::Value`): o
+    /// frontend é dono da estrutura interna (TextObj, ImageObj, etc.) e
+    /// evolui sem nossa permissão. Validações específicas (versão,
+    /// units, sanitização de imagens) são feitas via navegação por
+    /// `Value` em vez de schema espelhado.
     #[serde(rename = "canvasJson")]
-    pub canvas_json: CanvasJson,
+    pub canvas_json: serde_json::Value,
 }
 
-#[derive(Debug, Deserialize, Serialize)]
-#[serde(deny_unknown_fields)]
-pub struct CanvasJson {
-    /// `version` é sempre 1 hoje (SPEC-04).
-    pub version: u32,
-    pub units: String,
-    pub canvas: CanvasDef,
-    #[serde(default)]
-    pub objects: Vec<CanvasObject>,
-}
+// O `canvas_json` é um `serde_json::Value` opaco — o frontend é dono do
+// schema interno (TextObj, ImageObj, LayoutConfig, etc.) e evolui sem
+// nossa permissão. Manter um espelho tipado aqui causou bugs históricos
+// ("unknown field `verticalAlign`", "unknown field `layout`", etc.).
+//
+// O Rust precisa apenas:
+//  1. **Validar JSON parseable** → `Value` cobre.
+//  2. **Confirmar `version == 1` e `units == "mm"`** → navegação por `Value`.
+//  3. **Sanitizar imagens** → iteração manual pelos objetos achando
+//     `type:"image"` e validando `src`.
+//  4. **Re-serializar canonicamente** para hash estável → `serde_json::to_vec`
+//     já é determinístico (preserva ordem de inserção dos objetos).
 
-#[derive(Debug, Deserialize, Serialize)]
-#[serde(deny_unknown_fields)]
-pub struct CanvasDef {
-    pub width: f64,
-    pub height: f64,
-    pub dpi: u32,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub background: Option<String>,
-}
-
-/// Discriminado por `type`. Aceitamos todos os tipos declarados em
-/// `src/lib/canvas/types.ts`. **Não** aceitamos tipos desconhecidos — qualquer
-/// `type` fora desta lista gera `Schema` error (defesa em profundidade contra
-/// payloads maliciosos: PRD §6.5).
-#[derive(Debug, Deserialize, Serialize)]
-#[serde(tag = "type", rename_all = "lowercase", deny_unknown_fields)]
-pub enum CanvasObject {
-    Text(TextObj),
-    Rectangle(RectObj),
-    Line(LineObj),
-    Ellipse(EllipseObj),
-    Image(ImageObj),
-    Barcode(BarcodeObj),
-    Qrcode(QrcodeObj),
-}
-
-#[derive(Debug, Deserialize, Serialize)]
-#[serde(deny_unknown_fields)]
-pub struct BaseFields {
-    pub id: String,
-    pub x: f64,
-    pub y: f64,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub width: Option<f64>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub height: Option<f64>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub rotation: Option<f64>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub binding: Option<Binding>,
-}
-
-#[derive(Debug, Deserialize, Serialize)]
-#[serde(deny_unknown_fields)]
-pub struct Binding {
-    pub field: String,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub fallback: Option<String>,
-}
-
-#[derive(Debug, Deserialize, Serialize)]
-#[serde(deny_unknown_fields)]
-pub struct TextObj {
-    #[serde(flatten)]
-    pub base: BaseFields,
-    #[serde(default)]
-    pub content: String,
-    #[serde(default, rename = "fontFamily", skip_serializing_if = "Option::is_none")]
-    pub font_family: Option<String>,
-    #[serde(default, rename = "fontSize", skip_serializing_if = "Option::is_none")]
-    pub font_size: Option<f64>,
-    #[serde(default, rename = "fontWeight", skip_serializing_if = "Option::is_none")]
-    pub font_weight: Option<String>,
-    #[serde(default, rename = "fontStyle", skip_serializing_if = "Option::is_none")]
-    pub font_style: Option<String>,
-    #[serde(default, rename = "textDecoration", skip_serializing_if = "Option::is_none")]
-    pub text_decoration: Option<String>,
-    #[serde(default, rename = "textAlign", skip_serializing_if = "Option::is_none")]
-    pub text_align: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub color: Option<String>,
-    #[serde(default, rename = "letterSpacing", skip_serializing_if = "Option::is_none")]
-    pub letter_spacing: Option<f64>,
-    #[serde(default, rename = "lineHeight", skip_serializing_if = "Option::is_none")]
-    pub line_height: Option<f64>,
-    #[serde(default, rename = "autoShrink", skip_serializing_if = "Option::is_none")]
-    pub auto_shrink: Option<bool>,
-}
-
-#[derive(Debug, Deserialize, Serialize)]
-#[serde(deny_unknown_fields)]
-pub struct RectObj {
-    #[serde(flatten)]
-    pub base: BaseFields,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub fill: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub stroke: Option<String>,
-    #[serde(default, rename = "strokeWidth", skip_serializing_if = "Option::is_none")]
-    pub stroke_width: Option<f64>,
-    #[serde(default, rename = "cornerRadius", skip_serializing_if = "Option::is_none")]
-    pub corner_radius: Option<f64>,
-}
-
-#[derive(Debug, Deserialize, Serialize)]
-#[serde(deny_unknown_fields)]
-pub struct LineObj {
-    #[serde(flatten)]
-    pub base: BaseFields,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub stroke: Option<String>,
-    #[serde(default, rename = "strokeWidth", skip_serializing_if = "Option::is_none")]
-    pub stroke_width: Option<f64>,
-}
-
-#[derive(Debug, Deserialize, Serialize)]
-#[serde(deny_unknown_fields)]
-pub struct EllipseObj {
-    #[serde(flatten)]
-    pub base: BaseFields,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub fill: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub stroke: Option<String>,
-    #[serde(default, rename = "strokeWidth", skip_serializing_if = "Option::is_none")]
-    pub stroke_width: Option<f64>,
-}
-
-#[derive(Debug, Deserialize, Serialize)]
-#[serde(deny_unknown_fields)]
-pub struct ImageObj {
-    #[serde(flatten)]
-    pub base: BaseFields,
-    /// Data URL (`data:image/png;base64,...`) ou referência relativa no ZIP
-    /// (forward-compat). MVP só usa data URL inline.
-    pub src: String,
-}
-
-#[derive(Debug, Deserialize, Serialize)]
-#[serde(deny_unknown_fields)]
-pub struct BarcodeObj {
-    #[serde(flatten)]
-    pub base: BaseFields,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub symbology: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub value: Option<String>,
-    #[serde(default, rename = "showText", skip_serializing_if = "Option::is_none")]
-    pub show_text: Option<bool>,
-    #[serde(default, rename = "moduleWidth", skip_serializing_if = "Option::is_none")]
-    pub module_width: Option<f64>,
-    #[serde(default, rename = "errorCorrection", skip_serializing_if = "Option::is_none")]
-    pub error_correction: Option<String>,
-}
-
-#[derive(Debug, Deserialize, Serialize)]
-#[serde(deny_unknown_fields)]
-pub struct QrcodeObj {
-    #[serde(flatten)]
-    pub base: BaseFields,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub value: Option<String>,
-    #[serde(default, rename = "errorCorrection", skip_serializing_if = "Option::is_none")]
-    pub error_correction: Option<String>,
-}
+/// Constantes de validação do canvas — espelham o que o frontend escreve.
+const CANVAS_VERSION_EXPECTED: u64 = 1;
+const CANVAS_UNITS_EXPECTED: &str = "mm";
 
 // -------- Manifest --------
 
@@ -314,17 +181,64 @@ pub struct InspectResult {
 
 // -------- Sanitização de imagens --------
 
-/// Valida que o `src` de cada `ImageObj` é uma data URL com payload PNG/JPEG/SVG
-/// efetivamente decodificável. Falha cedo (antes do commit) com mensagem clara.
-fn sanitize_images(canvas: &CanvasJson) -> Result<(), EtlblError> {
-    for (idx, obj) in canvas.objects.iter().enumerate() {
-        if let CanvasObject::Image(img) = obj {
-            let hint = format!("id={}, pos={}", img.base.id, idx);
-            sanitize_image_src(&img.src).map_err(|message| EtlblError::ImageSanitization {
-                hint: hint.clone(),
-                message,
-            })?;
+/// Confere que o `canvas_json` tem `version == 1` e `units == "mm"`.
+/// Sem esquema espelhado: navega pelo `Value` e mensagens claras.
+fn validate_canvas_envelope(canvas: &serde_json::Value, file: &str) -> Result<(), EtlblError> {
+    let Some(obj) = canvas.as_object() else {
+        return Err(EtlblError::Schema {
+            file: file.into(),
+            message: "canvas_json não é um objeto JSON".into(),
+        });
+    };
+    let version = obj.get("version").and_then(|v| v.as_u64()).unwrap_or(0);
+    if version != CANVAS_VERSION_EXPECTED {
+        return Err(EtlblError::Schema {
+            file: file.into(),
+            message: format!(
+                "canvas_json.version não suportada: {} (esperado {})",
+                version, CANVAS_VERSION_EXPECTED
+            ),
+        });
+    }
+    let units = obj.get("units").and_then(|v| v.as_str()).unwrap_or("");
+    if units != CANVAS_UNITS_EXPECTED {
+        return Err(EtlblError::Schema {
+            file: file.into(),
+            message: format!(
+                "canvas_json.units não suportada: `{}` (esperado `{}`)",
+                units, CANVAS_UNITS_EXPECTED
+            ),
+        });
+    }
+    Ok(())
+}
+
+/// Valida que o `src` de cada objeto `type:"image"` é uma data URL com
+/// payload PNG/JPEG/SVG decodificável. Falha cedo (antes do commit) com
+/// mensagem clara.
+///
+/// Navega o `Value` diretamente em vez de deserializar para um schema
+/// tipado — o canvas evolui no frontend e qualquer espelho aqui vira
+/// vetor de bugs ("unknown field").
+fn sanitize_images(canvas: &serde_json::Value) -> Result<(), EtlblError> {
+    let Some(objects) = canvas.get("objects").and_then(|v| v.as_array()) else {
+        // Canvas sem `objects` (ou com tipo errado) é tolerado — nada
+        // para sanitizar. Validações estruturais separadas tratam o resto.
+        return Ok(());
+    };
+
+    for (idx, obj) in objects.iter().enumerate() {
+        let kind = obj.get("type").and_then(|v| v.as_str()).unwrap_or("");
+        if kind != "image" {
+            continue;
         }
+        let src = obj.get("src").and_then(|v| v.as_str()).unwrap_or("");
+        let id = obj.get("id").and_then(|v| v.as_str()).unwrap_or("?");
+        let hint = format!("id={}, pos={}", id, idx);
+        sanitize_image_src(src).map_err(|message| EtlblError::ImageSanitization {
+            hint: hint.clone(),
+            message,
+        })?;
     }
     Ok(())
 }
@@ -521,14 +435,17 @@ pub fn export_inner(payload: ExportPayload) -> Result<String, EtlblError> {
         ));
     }
 
-    // Validar o canvas_json: serializa de volta em forma canônica para o hash
-    // ser estável (sem espaços extras vindos do banco).
-    let canvas_json: CanvasJson = serde_json::from_str(&payload.canvas_json).map_err(|e| {
-        EtlblError::Schema {
+    // Validar o canvas_json: parseia como JSON opaco (`Value`) — apenas
+    // garante que é JSON válido e que tem a estrutura mínima esperada
+    // (version/units). Schema interno (TextObj, ImageObj, etc.) NÃO é
+    // espelhado aqui: o frontend é dono dele e qualquer espelho aqui
+    // vira vetor de bugs ("unknown field `verticalAlign`", etc.).
+    let canvas_json: serde_json::Value = serde_json::from_str(&payload.canvas_json)
+        .map_err(|e| EtlblError::Schema {
             file: "canvas_json (in DB)".into(),
             message: e.to_string(),
-        }
-    })?;
+        })?;
+    validate_canvas_envelope(&canvas_json, "canvas_json (in DB)")?;
     sanitize_images(&canvas_json)?;
 
     let template_json = TemplateJson {
@@ -600,7 +517,22 @@ pub fn export_inner(payload: ExportPayload) -> Result<String, EtlblError> {
         .map_err(|e| EtlblError::Pack(format!("finalizar ZIP: {e}")))?;
     let bytes = cursor.into_inner();
 
-    std::fs::write(&out_path, &bytes).map_err(|e| EtlblError::Io(e.to_string()))?;
+    // Garante diretório-pai existente. O diálogo de save permite digitar um
+    // path com pasta-pai inexistente — sem isso `fs::write` falha com
+    // NotFound e a UI mostra mensagem genérica.
+    if let Some(parent) = out_path.parent() {
+        if !parent.as_os_str().is_empty() && !parent.exists() {
+            std::fs::create_dir_all(parent)
+                .map_err(|e| EtlblError::Io(format!("criar pasta {}: {e}", parent.display())))?;
+        }
+    }
+
+    std::fs::write(&out_path, &bytes).map_err(|e| {
+        EtlblError::Io(format!(
+            "gravar {}: {e}",
+            out_path.display()
+        ))
+    })?;
 
     Ok(out_path.to_string_lossy().to_string())
 }
@@ -760,25 +692,7 @@ pub fn parse_etlbl_bytes(bytes: &[u8]) -> Result<InspectResult, EtlblError> {
             message: format!("orientation inválida: `{}`", template.orientation),
         });
     }
-    if template.canvas_json.version != 1 {
-        return Err(EtlblError::Schema {
-            file: "template.json".into(),
-            message: format!(
-                "canvas_json.version não suportada: {}",
-                template.canvas_json.version
-            ),
-        });
-    }
-    if template.canvas_json.units != "mm" {
-        return Err(EtlblError::Schema {
-            file: "template.json".into(),
-            message: format!(
-                "canvas_json.units não suportada: `{}` (esperado `mm`)",
-                template.canvas_json.units
-            ),
-        });
-    }
-
+    validate_canvas_envelope(&template.canvas_json, "template.json")?;
     sanitize_images(&template.canvas_json)?;
 
     // Re-serializar canvas_json para a forma que o banco espera (string JSON).
@@ -871,6 +785,159 @@ mod tests {
         assert_eq!(inspect.orientation, "portrait");
         assert!(inspect.canvas_json.contains("\"hello\""));
         let _ = std::fs::remove_file(&path);
+    }
+
+    #[test]
+    fn accepts_canvas_with_layout_config() {
+        // Regressão: WP-13.5 adicionou `canvas.layout` no frontend
+        // (`LayoutConfig`). Antes desse teste o schema Rust tinha
+        // `deny_unknown_fields` no `CanvasDef` sem o campo, fazendo o
+        // export falhar com "unknown field `layout`".
+        let tmp = std::env::temp_dir().join("etlbl_layout.etlbl");
+        let canvas_with_layout = r##"{
+            "version":1,
+            "units":"mm",
+            "canvas":{
+                "width":50,"height":30,"dpi":203,"background":"#FFFFFF",
+                "layout":{"columns":2,"rows":1,"gapX":3,"gapY":0}
+            },
+            "objects":[]
+        }"##;
+        let payload = ExportPayload {
+            name: "Layout 2x1".into(),
+            description: None,
+            width_mm: 50.0,
+            height_mm: 30.0,
+            dpi: 203,
+            orientation: "portrait".into(),
+            background_color: Some("#FFFFFF".into()),
+            canvas_json: canvas_with_layout.into(),
+            thumbnail_png: None,
+            output_path: tmp.to_string_lossy().into(),
+        };
+        let path = export_inner(payload).expect("export com layout deve suceder");
+        let bytes = std::fs::read(&path).unwrap();
+        let inspect = parse_etlbl_bytes(&bytes).expect("inspect deve suceder");
+        // O campo `layout` deve sobreviver ao round-trip.
+        assert!(
+            inspect.canvas_json.contains("\"layout\""),
+            "layout perdido no round-trip: {}",
+            inspect.canvas_json
+        );
+        assert!(inspect.canvas_json.contains("\"columns\":2"));
+        let _ = std::fs::remove_file(&path);
+    }
+
+    #[test]
+    fn accepts_arbitrary_unknown_fields_in_text_object() {
+        // Regressão exata do bug reportado: o frontend evolui adicionando
+        // `verticalAlign`, `autoShrink`, e qualquer outro campo dentro
+        // de TextObj sem mexer no backend. Antes do fix, `deny_unknown_fields`
+        // no schema espelhado rejeitava o template inteiro.
+        let tmp = std::env::temp_dir().join("etlbl_unknown_fields.etlbl");
+        let canvas = r##"{
+            "version":1,"units":"mm",
+            "canvas":{"width":50,"height":30,"dpi":203},
+            "objects":[
+                {"type":"text","id":"t1","x":1,"y":2,"content":"x",
+                 "verticalAlign":"middle","autoShrink":true,
+                 "letterSpacing":0.5,"someFutureField":42}
+            ]
+        }"##;
+        let payload = ExportPayload {
+            name: "Unknown Fields".into(),
+            description: None,
+            width_mm: 50.0,
+            height_mm: 30.0,
+            dpi: 203,
+            orientation: "portrait".into(),
+            background_color: None,
+            canvas_json: canvas.into(),
+            thumbnail_png: None,
+            output_path: tmp.to_string_lossy().into(),
+        };
+        let path = export_inner(payload).expect("export deve tolerar campos extras");
+        let bytes = std::fs::read(&path).unwrap();
+        let inspect = parse_etlbl_bytes(&bytes).expect("inspect deve suceder");
+        // Os campos extras precisam sobreviver ao round-trip (são opacos
+        // mas preservados via Value).
+        assert!(inspect.canvas_json.contains("\"verticalAlign\""));
+        assert!(inspect.canvas_json.contains("\"autoShrink\""));
+        assert!(inspect.canvas_json.contains("\"someFutureField\""));
+        let _ = std::fs::remove_file(&path);
+    }
+
+    #[test]
+    fn accepts_unknown_object_type() {
+        // Outro vetor do bug: o frontend adicionar `type:"table"` ou
+        // qualquer tipo novo. Antes o enum estrito rejeitava.
+        let tmp = std::env::temp_dir().join("etlbl_unknown_type.etlbl");
+        let canvas = r##"{
+            "version":1,"units":"mm",
+            "canvas":{"width":50,"height":30,"dpi":203},
+            "objects":[
+                {"type":"future_widget","id":"w1","x":0,"y":0,"anything":[1,2,3]},
+                {"type":"text","id":"t1","x":1,"y":2,"content":"ok"}
+            ]
+        }"##;
+        let payload = ExportPayload {
+            name: "Unknown Type".into(),
+            description: None,
+            width_mm: 50.0,
+            height_mm: 30.0,
+            dpi: 203,
+            orientation: "portrait".into(),
+            background_color: None,
+            canvas_json: canvas.into(),
+            thumbnail_png: None,
+            output_path: tmp.to_string_lossy().into(),
+        };
+        let path = export_inner(payload).expect("tipos de objeto novos devem ser tolerados");
+        let bytes = std::fs::read(&path).unwrap();
+        let inspect = parse_etlbl_bytes(&bytes).expect("inspect deve suceder");
+        assert!(inspect.canvas_json.contains("future_widget"));
+        let _ = std::fs::remove_file(&path);
+    }
+
+    #[test]
+    fn validates_canvas_version_via_envelope() {
+        // version != 1 deve ser rejeitada com mensagem clara.
+        let canvas = r##"{"version":99,"units":"mm","canvas":{"width":1,"height":1,"dpi":203},"objects":[]}"##;
+        let p = ExportPayload {
+            name: "X".into(), description: None,
+            width_mm: 1.0, height_mm: 1.0, dpi: 203,
+            orientation: "portrait".into(), background_color: None,
+            canvas_json: canvas.into(), thumbnail_png: None,
+            output_path: std::env::temp_dir()
+                .join("etlbl_bad_version.etlbl").to_string_lossy().into(),
+        };
+        let err = export_inner(p).unwrap_err();
+        match err {
+            EtlblError::Schema { message, .. } => {
+                assert!(message.contains("version"), "msg inesperada: {message}");
+            }
+            other => panic!("esperava Schema, recebi {other:?}"),
+        }
+    }
+
+    #[test]
+    fn validates_canvas_units_via_envelope() {
+        let canvas = r##"{"version":1,"units":"px","canvas":{"width":1,"height":1,"dpi":203},"objects":[]}"##;
+        let p = ExportPayload {
+            name: "X".into(), description: None,
+            width_mm: 1.0, height_mm: 1.0, dpi: 203,
+            orientation: "portrait".into(), background_color: None,
+            canvas_json: canvas.into(), thumbnail_png: None,
+            output_path: std::env::temp_dir()
+                .join("etlbl_bad_units.etlbl").to_string_lossy().into(),
+        };
+        let err = export_inner(p).unwrap_err();
+        match err {
+            EtlblError::Schema { message, .. } => {
+                assert!(message.contains("units"), "msg inesperada: {message}");
+            }
+            other => panic!("esperava Schema, recebi {other:?}"),
+        }
     }
 
     #[test]

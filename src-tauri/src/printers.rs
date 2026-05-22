@@ -428,24 +428,24 @@ fn build_pplb_test_page(model: &str, driver: Option<&str>) -> String {
     let safe_model = sanitize_ascii(model);
     let safe_driver = sanitize_ascii(driver.unwrap_or("-"));
     let mut s = String::new();
-    s.push_str("N\r\n"); // limpa buffer
-    s.push_str("q320\r\n"); // largura em dots (40 mm * 8)
-    s.push_str("Q240,24\r\n"); // altura + gap
-    s.push_str("D8\r\n"); // densidade
+    s.push_str("N\n"); // limpa buffer
+    s.push_str("q320\n"); // largura em dots (40 mm * 8)
+    s.push_str("Q240,24\n"); // altura + gap
+    s.push_str("D8\n"); // densidade
     // Cabeçalho: "BARTENDER — Página de Teste"
-    s.push_str("A20,20,0,4,1,1,N,\"BARTENDER\"\r\n");
-    s.push_str("A20,60,0,3,1,1,N,\"Pagina de Teste\"\r\n");
+    s.push_str("A20,20,0,4,1,1,N,\"BARTENDER\"\n");
+    s.push_str("A20,60,0,3,1,1,N,\"Pagina de Teste\"\n");
     s.push_str(&format!(
-        "A20,100,0,2,1,1,N,\"Modelo: {}\"\r\n",
+        "A20,100,0,2,1,1,N,\"Modelo: {}\"\n",
         truncate(&safe_model, 28)
     ));
-    s.push_str("A20,130,0,2,1,1,N,\"Linguagem: PPLB\"\r\n");
-    s.push_str("A20,160,0,2,1,1,N,\"DPI: 203\"\r\n");
+    s.push_str("A20,130,0,2,1,1,N,\"Linguagem: PPLB\"\n");
+    s.push_str("A20,160,0,2,1,1,N,\"DPI: 203\"\n");
     s.push_str(&format!(
-        "A20,190,0,2,1,1,N,\"Driver: {}\"\r\n",
+        "A20,190,0,2,1,1,N,\"Driver: {}\"\n",
         truncate(&safe_driver, 28)
     ));
-    s.push_str("P1\r\n"); // imprime 1 etiqueta
+    s.push_str("P1\n"); // imprime 1 etiqueta
     s
 }
 
@@ -627,8 +627,8 @@ mod tests {
         assert!(page.contains("DPI: 203"));
         assert!(page.contains("Driver: Generic / Text Only"));
         // Comandos PPLB mínimos que garantem que o spooler trate como raw.
-        assert!(page.starts_with("N\r\n"));
-        assert!(page.contains("P1\r\n"));
+        assert!(page.starts_with("N\n"));
+        assert!(page.contains("P1\n"));
     }
 
     #[test]
